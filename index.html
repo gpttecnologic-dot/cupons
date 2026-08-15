@@ -147,12 +147,6 @@ a{color:var(--accent-light);text-decoration:none}
           Autorizo o tratamento dos meus dados para distribuição do cupom conforme a LGPD.
         </span>
       </div>
-      <div class="check-row">
-        <input type="checkbox" id="f-marketing" />
-        <span>
-          Quero receber novidades e ofertas de outros produtos e serviços (opcional).
-        </span>
-      </div>
 
       <button class="btn btn-primary" id="submitBtn" onclick="submitForm()">
         🎫 Resgatar meu cupom
@@ -349,7 +343,6 @@ async function submitForm() {
   const email    = norm.email(document.getElementById('f-email').value);
   const referral = document.getElementById('f-referral').value;
   const terms    = document.getElementById('f-terms').checked;
-  const marketing = document.getElementById('f-marketing').checked;
 
   hideErr();
   if (!name)             return showErr('Nome é obrigatório.');
@@ -406,11 +399,7 @@ async function submitForm() {
     // 4. Cria usuário
     const { data: newUser, error: uErr } = await db
       .from('users')
-      .insert({
-        name, email, phone, referral, coupons_id: coupon.id,
-        quer_outros_produtos: marketing,
-        consentimento_marketing_at: marketing ? new Date().toISOString() : null
-      })
+      .insert({ name, email, phone, referral, coupons_id: coupon.id })
       .select();
 
     if (uErr) {
