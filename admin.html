@@ -202,7 +202,7 @@ body{overflow-x:hidden}
     <div class="login-title">Painel Administrativo</div>
     <div class="login-sub">Acesso restrito — Cupom GPT-Business</div>
     <div class="login-err" id="loginErr"></div>
-    <div class="lf"><label>Usuário</label><input type="text" id="loginUser" placeholder="Digite seu usuário" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <div class="lf"><label>E-mail</label><input type="email" id="loginUser" placeholder="seu@email.com" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"/></div>
     <div class="lf"><label>Senha</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
     <button class="btn btn-primary" style="width:100%" onclick="doLogin()" id="loginBtn">Entrar</button>
     <div class="login-attempts" id="loginAttempts"></div>
@@ -331,6 +331,11 @@ body{overflow-x:hidden}
         <div class="tbl-wrap">
           <div class="tbl-head">
             <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail ou telefone..." oninput="renderUsers()" style="width:280px"/>
+            <select class="filter-sel" id="userMktFilter" onchange="renderUsers()">
+              <option value="all">Todos</option>
+              <option value="yes">Quer outros produtos</option>
+              <option value="no">Não quer / não respondeu</option>
+            </select>
           </div>
           <div id="userBody"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Carregando...</div></div></div>
         </div>
@@ -460,10 +465,9 @@ async function doLogin(){
   const p=document.getElementById('loginPass').value;
   const btn=document.getElementById('loginBtn');
   btn.disabled=true; btn.textContent='Verificando...';
-  const {data:ok,error}=await db.rpc('verify_admin_login',{p_username:u,p_password:p});
+  const {data,error}=await db.auth.signInWithPassword({email:u,password:p});
   btn.disabled=false; btn.textContent='Entrar';
-  if(!error&&ok===true){
-    sessionStorage.setItem('cg_ok','1'); sessionStorage.setItem('cg_u',u);
+  if(!error&&data?.session){
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('adminScreen').style.display='block';
     document.getElementById('sbUser').textContent=u;
@@ -478,19 +482,29 @@ async function doLogin(){
     document.getElementById('loginAttempts').textContent=rem>0?'':'Recarregue a página para tentar novamente.';
   }
 }
-function doLogout(){
-  sessionStorage.clear();
+async function doLogout(){
+  await db.auth.signOut();
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('adminScreen').style.display='none';
   document.getElementById('loginPass').value='';
 }
-if(sessionStorage.getItem('cg_ok')==='1'){
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('adminScreen').style.display='block';
-  document.getElementById('sbUser').textContent=sessionStorage.getItem('cg_u')||'admin';
-  // DOMContentLoaded já disparou (script está no final do body), chama direto
-  loadDashboard();
-}
+// Ao carregar a página, checa se já existe uma sessão real e válida do Supabase Auth
+(async()=>{
+  const {data:{session}}=await db.auth.getSession();
+  if(session){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('adminScreen').style.display='block';
+    document.getElementById('sbUser').textContent=session.user.email;
+    loadDashboard();
+  }
+})();
+// Se a sessão expirar ou for encerrada em outra aba, volta pra tela de login automaticamente
+db.auth.onAuthStateChange((event)=>{
+  if(event==='SIGNED_OUT'){
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('adminScreen').style.display='none';
+  }
+});
 
 // TABS
 function goTab(id){
@@ -674,7 +688,7 @@ function exportCouponsCSV(){
 async function loadUsers(){
   document.getElementById('userBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
-  const {data:us}=await db.from('users').select('id,name,email,phone,referral,coupons_id,created_at').order('created_at',{ascending:false});
+  const {data:us}=await db.from('users').select('id,name,email,phone,referral,coupons_id,created_at,quer_outros_produtos').order('created_at',{ascending:false});
   const users=us||[];
   const cids=[...new Set(users.map(u=>u.coupons_id).filter(Boolean))];
   let couponMap={};
@@ -687,7 +701,10 @@ async function loadUsers(){
 }
 function renderUsers(){
   const q=(document.getElementById('userSearch').value||'').toLowerCase();
-  const list=q?allUsers.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.phone||'').includes(q)):allUsers;
+  const mkt=document.getElementById('userMktFilter').value;
+  let list=q?allUsers.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.phone||'').includes(q)):allUsers;
+  if(mkt==='yes') list=list.filter(u=>u.quer_outros_produtos);
+  if(mkt==='no')  list=list.filter(u=>!u.quer_outros_produtos);
   const body=document.getElementById('userBody');
   if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Nenhum usuário encontrado</div></div>';return;}
   const rows=list.map(u=>`<tr>
@@ -695,11 +712,12 @@ function renderUsers(){
     <td>${esc(u.email)}</td>
     <td>${esc(u.phone||'—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(u.referral))}</span></td>
+    <td>${u.quer_outros_produtos?'<span class="ref-badge" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.2);color:#4ade80">Sim</span>':'—'}</td>
     <td class="truncate mono"><a href="${u.coupons?.link||'#'}" target="_blank">${u.coupons?.link||'—'}</a></td>
     <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
     <td><button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button></td>
   </tr>`).join('');
-  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Outros produtos?</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 async function deleteUser(id,name,couponId){
   openConfirm('Excluir usuário',`Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`,async()=>{
@@ -720,8 +738,8 @@ async function deleteUser(id,name,couponId){
 }
 function exportUsersCSV(){
   if(!allUsers.length){toast('Nenhum usuário para exportar.','error');return;}
-  const h='Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
-  const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral),u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
+  const h='Nome,E-mail,Telefone,Indicação,Quer outros produtos,Link do cupom,Cadastrado em\n';
+  const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral),u.quer_outros_produtos?'Sim':'Não',u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
   dl('usuarios.csv',h+r);
 }
 
