@@ -331,11 +331,6 @@ body{overflow-x:hidden}
         <div class="tbl-wrap">
           <div class="tbl-head">
             <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail ou telefone..." oninput="renderUsers()" style="width:280px"/>
-            <select class="filter-sel" id="userMktFilter" onchange="renderUsers()">
-              <option value="all">Todos</option>
-              <option value="yes">Quer outros produtos</option>
-              <option value="no">Não quer / não respondeu</option>
-            </select>
           </div>
           <div id="userBody"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Carregando...</div></div></div>
         </div>
@@ -688,7 +683,7 @@ function exportCouponsCSV(){
 async function loadUsers(){
   document.getElementById('userBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
-  const {data:us}=await db.from('users').select('id,name,email,phone,referral,coupons_id,created_at,quer_outros_produtos').order('created_at',{ascending:false});
+  const {data:us}=await db.from('users').select('id,name,email,phone,referral,coupons_id,created_at').order('created_at',{ascending:false});
   const users=us||[];
   const cids=[...new Set(users.map(u=>u.coupons_id).filter(Boolean))];
   let couponMap={};
@@ -701,10 +696,7 @@ async function loadUsers(){
 }
 function renderUsers(){
   const q=(document.getElementById('userSearch').value||'').toLowerCase();
-  const mkt=document.getElementById('userMktFilter').value;
-  let list=q?allUsers.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.phone||'').includes(q)):allUsers;
-  if(mkt==='yes') list=list.filter(u=>u.quer_outros_produtos);
-  if(mkt==='no')  list=list.filter(u=>!u.quer_outros_produtos);
+  const list=q?allUsers.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.phone||'').includes(q)):allUsers;
   const body=document.getElementById('userBody');
   if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Nenhum usuário encontrado</div></div>';return;}
   const rows=list.map(u=>`<tr>
@@ -712,12 +704,11 @@ function renderUsers(){
     <td>${esc(u.email)}</td>
     <td>${esc(u.phone||'—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(u.referral))}</span></td>
-    <td>${u.quer_outros_produtos?'<span class="ref-badge" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.2);color:#4ade80">Sim</span>':'—'}</td>
     <td class="truncate mono"><a href="${u.coupons?.link||'#'}" target="_blank">${u.coupons?.link||'—'}</a></td>
     <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
     <td><button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button></td>
   </tr>`).join('');
-  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Outros produtos?</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 async function deleteUser(id,name,couponId){
   openConfirm('Excluir usuário',`Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`,async()=>{
@@ -738,8 +729,8 @@ async function deleteUser(id,name,couponId){
 }
 function exportUsersCSV(){
   if(!allUsers.length){toast('Nenhum usuário para exportar.','error');return;}
-  const h='Nome,E-mail,Telefone,Indicação,Quer outros produtos,Link do cupom,Cadastrado em\n';
-  const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral),u.quer_outros_produtos?'Sim':'Não',u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
+  const h='Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
+  const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral),u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
   dl('usuarios.csv',h+r);
 }
 
