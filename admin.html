@@ -483,7 +483,6 @@ async function doLogout(){
   document.getElementById('adminScreen').style.display='none';
   document.getElementById('loginPass').value='';
 }
-// Ao carregar a página, checa se já existe uma sessão real e válida do Supabase Auth
 (async()=>{
   const {data:{session}}=await db.auth.getSession();
   if(session){
@@ -493,7 +492,6 @@ async function doLogout(){
     loadDashboard();
   }
 })();
-// Se a sessão expirar ou for encerrada em outra aba, volta pra tela de login automaticamente
 db.auth.onAuthStateChange((event)=>{
   if(event==='SIGNED_OUT'){
     document.getElementById('loginScreen').style.display='flex';
@@ -712,8 +710,7 @@ function renderUsers(){
 }
 async function deleteUser(id,name,couponId){
   openConfirm('Excluir usuário',`Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`,async()=>{
-    // Limpa QUALQUER cupom que aponte para este usuário via users_id,
-    // não só o coupons_id salvo no registro do usuário (podem estar dessincronizados).
+  
     const {error:e1}=await db.from('coupons').update({status:'available',distributed_at:null,users_id:null}).eq('users_id',id);
     if(couponId){
       await db.from('coupons').update({status:'available',distributed_at:null,users_id:null}).eq('id',couponId);
