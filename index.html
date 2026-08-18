@@ -401,7 +401,7 @@ async function submitForm() {
     // 4. Cria usuário
     const { data: newUser, error: uErr } = await db
       .from('users')
-      .insert({ name, email, phone, referral, coupons_id: coupon.id })
+      .insert({ name, email, phone, referral_id: referral, coupons_id: coupon.id })
       .select();
 
     if (uErr) {
@@ -420,7 +420,7 @@ async function submitForm() {
       coupons_id: coupon.id,
       users_id: newUser[0].id,
       event_type: 'distributed',
-      metadata: JSON.stringify({ email, phone, referral })
+      metadata: JSON.stringify({ email, phone, referral_id: referral })
     });
 
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
