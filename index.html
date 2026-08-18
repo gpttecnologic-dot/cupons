@@ -359,7 +359,7 @@ async function submitForm() {
   lastSubmit = now;
 
   try {
-    // 1. Verifica duplicidade: e-mail OU telefone (via função segura no banco, sem expor a tabela)
+    // 1. Verifica duplicidade: e-mail OU telefone
     const { data: existing } = await db.rpc('check_existing_user', { p_email: email, p_phone: phone });
 
     if (existing?.length > 0) {
@@ -385,7 +385,7 @@ async function submitForm() {
 
     const coupon = avail[0];
 
-    // 3. Marca cupom como distributed (guard race condition)
+    // 3. Marca cupom como distributed 
     const { data: locked } = await db
       .from('coupons')
       .update({ status: 'distributed', distributed_at: new Date().toISOString() })
@@ -412,7 +412,7 @@ async function submitForm() {
       return;
     }
 
-    // 4.1 Espelha o vínculo do lado do cupom (evita ficar dessincronizado)
+    // 4.1 Espelha o vínculo do lado do cupom 
     await db.from('coupons').update({ users_id: newUser[0].id }).eq('id', coupon.id);
 
     // 5. Log
