@@ -865,12 +865,21 @@ async function runImport(){
     if(l.length > 5) return 'https://'+l;
     return null;
   }).filter(Boolean);
+  let inserted=0;
   const unique=[...new Set(input)];
   const internalDups=input.length-unique.length;
   const btn=document.getElementById('importBtn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Validando...';
-  const{data:existing}=await db.from('coupons').select('link,status').in('link',unique);
-  const existMap={};(existing||[]).forEach(c=>existMap[c.link]=c.status);
+
+  // Busca existentes em lotes de 200 para evitar limite da query
+  const existMap={};
+  const batchSize=200;
+  for(let i=0;i<unique.length;i+=batchSize){
+    const batch=unique.slice(i,i+batchSize);
+    const{data:existing}=await db.from('coupons').select('link,status').in('link',batch);
+    (existing||[]).forEach(c=>existMap[c.link]=c.status);
+  }
+
   const toInsert=[],dupAvail=[],dupDist=[],dupBlock=[];
   unique.forEach(link=>{
     if(existMap[link]===undefined)toInsert.push(link);
@@ -878,12 +887,18 @@ async function runImport(){
     else if(existMap[link]==='distributed')dupDist.push(link);
     else dupBlock.push(link);
   });
-  let inserted=0;
   if(toInsert.length){
     btn.innerHTML='<span class="spinner"></span> Importando...';
-    const{error}=await db.from('coupons').insert(toInsert.map(link=>({link,status:'available'})));
-    if(error){btn.disabled=false;btn.innerHTML='📥 Importar';toast('Erro: '+error.message,'error',5000);return;}
-    inserted=toInsert.length;
+    // Insere em lotes de 100 com ignorar conflito de chave duplicada
+    for(let i=0;i<toInsert.length;i+=100){
+      const batch=toInsert.slice(i,i+100);
+      const{error}=await db.from('coupons').upsert(
+        batch.map(link=>({link,status:'available'})),
+        {onConflict:'link',ignoreDuplicates:true}
+      );
+      if(error){btn.disabled=false;btn.innerHTML='📥 Importar';toast('Erro: '+error.message,'error',5000);return;}
+      inserted+=batch.length;
+    }
   }
   btn.disabled=false;btn.innerHTML='📥 Importar';
   showImportRes({inserted,internalDups,dupAvail,dupDist,dupBlock});
