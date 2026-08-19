@@ -889,16 +889,13 @@ async function runImport(){
   });
   if(toInsert.length){
     btn.innerHTML='<span class="spinner"></span> Importando...';
-    // Insere em lotes de 100 com ignorar conflito de chave duplicada
-    for(let i=0;i<toInsert.length;i+=100){
-      const batch=toInsert.slice(i,i+100);
-      const{error}=await db.from('coupons').upsert(
-        batch.map(link=>({link,status:'available'})),
-        {onConflict:'link',ignoreDuplicates:true}
-      );
-      if(error){btn.disabled=false;btn.innerHTML='📥 Importar';toast('Erro: '+error.message,'error',5000);return;}
-      inserted+=batch.length;
+    // Usa RPC no banco que ignora duplicatas via exception handling
+    const{data:result,error}=await db.rpc('import_coupons',{links:toInsert});
+    if(error){
+      btn.disabled=false;btn.innerHTML='📥 Importar';
+      toast('Erro: '+error.message,'error',5000);return;
     }
+    inserted=result?.[0]?.inserted||toInsert.length;
   }
   btn.disabled=false;btn.innerHTML='📥 Importar';
   showImportRes({inserted,internalDups,dupAvail,dupDist,dupBlock});
