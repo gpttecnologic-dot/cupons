@@ -818,12 +818,22 @@ function handleFile(file){
   const ext=file.name.split('.').pop().toLowerCase();
   if(ext==='csv'||ext==='txt'){
     const r=new FileReader();
-    r.onload=e=>fillPaste(e.target.result.split(/[\r\n]+/).map(l=>{
-      l=l.split(',')[0].trim(); if(!l) return null;
-      if(l.startsWith('http://') || l.startsWith('https://')) return l;
-      if(l.length > 5) return 'https://'+l;
-      return null;
-    }).filter(Boolean));
+    r.onload=e=>{
+      const lines=e.target.result.replace(/^\uFEFF/,'').split(/[\r\n]+/);
+      // Detecta coluna correta se houver cabeçalho link/links
+      let col=0;
+      const header=lines[0]?.split(',').map(h=>h.trim().toLowerCase().replace(/['"]/g,''));
+      const linkCol=header?.findIndex(h=>h==='link'||h==='links');
+      const startRow = (linkCol>=0) ? (col=linkCol, 1) : (header?.[0]?.startsWith('http')||header?.[0]?.includes('chatgpt') ? 0 : 1);
+      const links=lines.slice(startRow).map(l=>{
+        l=l.split(',')[col]?.trim().replace(/['"]/g,''); if(!l) return null;
+        if(l.toLowerCase()==='link'||l.toLowerCase()==='links') return null;
+        if(l.startsWith('http://') || l.startsWith('https://')) return l;
+        if(l.length > 5) return 'https://'+l;
+        return null;
+      }).filter(Boolean);
+      fillPaste(links);
+    };
     r.readAsText(file,'UTF-8');
   } else if(ext==='xlsx'||ext==='xls'){
     const r=new FileReader();
@@ -832,7 +842,7 @@ function handleFile(file){
       const ws=wb.Sheets[wb.SheetNames[0]];
       const json=XLSX.utils.sheet_to_json(ws,{header:1});
       let col=0;
-      if(json[0]){const h=json[0].map(v=>String(v).toLowerCase());const ci=h.indexOf('link');if(ci>=0)col=ci;}
+      if(json[0]){const h=json[0].map(v=>String(v).toLowerCase().trim());const ci=h.findIndex(v=>v==='link'||v==='links');if(ci>=0)col=ci;}
       const links=json.slice(1).map(r=>{
         let l=String(r[col]||'').trim(); if(!l) return null;
         if(l.startsWith('http://') || l.startsWith('https://')) return l;
