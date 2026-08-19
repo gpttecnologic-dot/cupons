@@ -615,8 +615,23 @@ async function loadCoupons(){
   const uids=[...new Set(coupons.map(c=>c.users_id).filter(Boolean))];
   let userMap={};
   if(uids.length){
-    const {data:us}=await db.from('users').select('id,name,email').in('id',uids);
-    (us||[]).forEach(u=>userMap[u.id]=u);
+    //const {data:us}=await db.from('users').select('id,name,email').in('id',uids);
+    //(us||[]).forEach(u=>userMap[u.id]=u);
+    const CHUNK_SIZE = 500;
+    for(let i = 0; i < uids.length; i += CHUNK_SIZE){
+      const chunk = uids.slice(i, i + CHUNK_SIZE);
+      const { data: us, error } = await db
+        .from('users')
+        .select('id,name,email')
+        .in('id', chunk);    
+      if(error){
+        console.error('Error loading users:', error);
+        continue;
+      }    
+      (us || []).forEach(u => {
+        userMap[u.id] = u;
+      });
+    }
   }
   allCoupons=coupons.map(c=>({...c, users: c.users_id?userMap[c.users_id]||null:null}));
   renderCoupons();
@@ -688,8 +703,26 @@ async function loadUsers(){
   const cids=[...new Set(users.map(u=>u.coupons_id).filter(Boolean))];
   let couponMap={};
   if(cids.length){
-    const {data:cs}=await db.from('coupons').select('id,link').in('id',cids);
-    (cs||[]).forEach(c=>couponMap[c.id]=c);
+    //const {data:cs}=await db.from('coupons').select('id,link').in('id',cids);
+    //(cs||[]).forEach(c=>couponMap[c.id]=c);
+    const CHUNK_SIZE = 500;
+    for(let i = 0; i < cids.length; i += CHUNK_SIZE){
+      const chunk = cids.slice(i, i + CHUNK_SIZE);
+      const { data: cs, error } = await db
+        .from('coupons')
+        .select('id,link')
+        .in('id', chunk);
+      if(error){
+        console.error(
+          `loadUsers coupons error (chunk ${i / CHUNK_SIZE + 1}):`,
+          error
+        );
+        continue;
+      }
+      (cs || []).forEach(c => {
+        couponMap[c.id] = c;
+      });
+    }
   }
   allUsers=users.map(u=>({...u, coupons: u.coupons_id?couponMap[u.coupons_id]||null:null}));
   renderUsers();
