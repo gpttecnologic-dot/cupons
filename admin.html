@@ -559,7 +559,7 @@ async function loadDashboard(){
 
   const [{data:cps},{data:us}]=await Promise.all([
     db.from('coupons').select('status'),
-    db.from('users').select('id,referral')
+    db.from('users').select('id,referral_id')
   ]);
   document.getElementById('s-avail').textContent=cps?.filter(c=>c.status==='available').length||0;
   document.getElementById('s-dist').textContent =cps?.filter(c=>c.status==='distributed').length||0;
@@ -567,7 +567,7 @@ async function loadDashboard(){
   document.getElementById('s-users').textContent=us?.length||0;
   document.getElementById('s-total').textContent=cps?.length||0;
 
-  const {data:recent}=await db.from('users').select('name,email,referral,created_at,coupons_id').order('created_at',{ascending:false}).limit(10);
+  const {data:recent}=await db.from('users').select('name,email,referral_id,created_at,coupons_id').order('created_at',{ascending:false}).limit(10);
   const rb=document.getElementById('recentBody');
   if(!recent?.length){
     rb.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Nenhum resgate ainda</div></div>';
@@ -578,7 +578,7 @@ async function loadDashboard(){
     const rows=recent.map(u=>`<tr>
       <td class="primary">${esc(u.name)}</td>
       <td>${esc(u.email)}</td>
-      <td><span class="ref-badge">${esc(refLabelById(u.referral))}</span></td>
+      <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
       <td class="truncate mono"><a href="${rmap[u.coupons_id]||'#'}" target="_blank">${rmap[u.coupons_id]||'—'}</a></td>
       <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
     </tr>`).join('');
@@ -586,7 +586,7 @@ async function loadDashboard(){
   }
 
   const refCount={};
-  (us||[]).forEach(u=>{const r=u.referral||'_sem';refCount[r]=(refCount[r]||0)+1;});
+  (us||[]).forEach(u=>{const r=u.referral_id||'_sem';refCount[r]=(refCount[r]||0)+1;});
   const sorted=Object.entries(refCount).sort((a,b)=>b[1]-a[1]);
   const rc=document.getElementById('referralChart');
   if(!sorted.length){
@@ -683,7 +683,7 @@ function exportCouponsCSV(){
 async function loadUsers(){
   document.getElementById('userBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
-  const {data:us}=await db.from('users').select('id,name,email,phone,referral,coupons_id,created_at').order('created_at',{ascending:false});
+  const {data:us}=await db.from('users').select('id,name,email,phone,referral_id,coupons_id,created_at').order('created_at',{ascending:false});
   const users=us||[];
   const cids=[...new Set(users.map(u=>u.coupons_id).filter(Boolean))];
   let couponMap={};
@@ -703,7 +703,7 @@ function renderUsers(){
     <td class="primary">${esc(u.name)}</td>
     <td>${esc(u.email)}</td>
     <td>${esc(u.phone||'—')}</td>
-    <td><span class="ref-badge">${esc(refLabelById(u.referral))}</span></td>
+    <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
     <td class="truncate mono"><a href="${u.coupons?.link||'#'}" target="_blank">${u.coupons?.link||'—'}</a></td>
     <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
     <td><button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button></td>
@@ -729,7 +729,7 @@ async function deleteUser(id,name,couponId){
 function exportUsersCSV(){
   if(!allUsers.length){toast('Nenhum usuário para exportar.','error');return;}
   const h='Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
-  const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral),u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
+  const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral_id),u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
   dl('usuarios.csv',h+r);
 }
 
