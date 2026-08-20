@@ -629,7 +629,7 @@ async function loadDashboard(){
 // CUPONS
 async function loadCoupons(){
   document.getElementById('couponBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
-  const {data:cps,error}=await db.from('coupons').select('id,link,status,created_at,distributed_at,users_id').order('created_at',{ascending:false});
+  const {data:cps,error}=await db.from('coupons').select('id,link,status,created_at,distributed_at,users_id,users(id,name,email)').order('created_at',{ascending:false});
   if(error){ console.error('loadCoupons error:',error); }
   const coupons=cps||[];
   const uids=[...new Set(coupons.map(c=>c.users_id).filter(Boolean))];
@@ -703,7 +703,7 @@ function exportCouponsCSV(){
 async function loadUsers(){
   document.getElementById('userBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
-  const {data:us}=await db.from('users').select('id,name,email,phone,referral_id,coupons_id,created_at').order('created_at',{ascending:false});
+  const {data:us}=await db.from('users').select('id,name,email,phone,referral_id,coupons_id,created_at,coupons(id,link)').order('created_at',{ascending:false});
   const users=us||[];
   const cids=[...new Set(users.map(u=>u.coupons_id).filter(Boolean))];
   let couponMap={};
