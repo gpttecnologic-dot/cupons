@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR"> 
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -191,12 +191,16 @@ a{color:var(--accent-light);text-decoration:none}
       </div>
     </div>
 
-    <!-- ESGOTADO -->
+    <!-- ESGOTADO / LISTA DE ESPERA -->
     <div id="stateEmpty" class="hidden">
       <div class="empty-box">
-        <div class="empty-icon">😔</div>
-        <div class="empty-title">Cupons esgotados</div>
-        <div class="empty-sub">Todos os cupons já foram distribuídos no momento. Entre em contato com o organizador ou aguarde novas disponibilidades.</div>
+        <div class="empty-icon">⏳</div>
+        <div class="empty-title">Você está na lista de espera!</div>
+        <div class="empty-sub">
+          Devido à alta demanda, os cupons esgotaram temporariamente.<br><br>
+          Seus dados foram salvos e assim que novos cupons estiverem disponíveis, <strong style="color:var(--text)">você receberá seu link por e-mail</strong>.<br><br>
+          Fique de olho na sua caixa de entrada 📬
+        </div>
       </div>
     </div>
 
@@ -281,7 +285,7 @@ a{color:var(--accent-light);text-decoration:none}
 </div>
 <script>
 const SUPA_URL = 'https://eunnrjqeuczhtghbbzos.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bm5yanFldWN6aHRnaGJiem9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjQ3NzMsImV4cCI6MjA5NjU0MDc3M30.rdRVhWZOxYGKZBmY9IBGcbAiPwYt4CGcYKiv9T-Umys';
+const SUPA_KEY = 'sb_publishable_A08jf3_gfKj6-PH826bNNA_pEF8QaNB';
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
 
@@ -359,7 +363,7 @@ async function submitForm() {
   lastSubmit = now;
 
   try {
-    // 1. Verifica duplicidade: e-mail OU telefone
+    // 1. Verifica duplicidade: e-mail OU telefone (via função segura no banco, sem expor a tabela)
     const { data: existing } = await db.rpc('check_existing_user', { p_email: email, p_phone: phone });
 
     if (existing?.length > 0) {
@@ -379,13 +383,18 @@ async function submitForm() {
       .limit(1);
 
     if (!avail?.length) {
+      // Salva na lista de espera
+      await db.from('waitlist').upsert(
+        { name, email, phone, referral_id: referral },
+        { onConflict: 'email', ignoreDuplicates: true }
+      );
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
       showState('stateEmpty'); return;
     }
 
     const coupon = avail[0];
 
-    // 3. Marca cupom como distributed 
+    // 3. Marca cupom como distributed (guard race condition)
     const { data: locked } = await db
       .from('coupons')
       .update({ status: 'distributed', distributed_at: new Date().toISOString() })
@@ -401,7 +410,7 @@ async function submitForm() {
     // 4. Cria usuário
     const { data: newUser, error: uErr } = await db
       .from('users')
-      .insert({ name, email, phone, referral_id: referral, coupons_id: coupon.id })
+      .insert({ name, email, phone, referral, coupons_id: coupon.id })
       .select();
 
     if (uErr) {
@@ -412,7 +421,7 @@ async function submitForm() {
       return;
     }
 
-    // 4.1 Espelha o vínculo do lado do cupom 
+    // 4.1 Espelha o vínculo do lado do cupom (evita ficar dessincronizado)
     await db.from('coupons').update({ users_id: newUser[0].id }).eq('id', coupon.id);
 
     // 5. Log
@@ -420,7 +429,7 @@ async function submitForm() {
       coupons_id: coupon.id,
       users_id: newUser[0].id,
       event_type: 'distributed',
-      metadata: JSON.stringify({ email, phone, referral_id: referral })
+      metadata: JSON.stringify({ email, phone, referral })
     });
 
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
