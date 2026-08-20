@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin — Cupom GPT-Business</title>
 <link rel="icon" type="image/png" href="assets/img/logo-12ia.png">
+<link rel="shortcut icon" type="image/png" href="assets/img/logo-12ia.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
@@ -30,6 +31,7 @@ a{color:var(--accent-light);text-decoration:none}
 ::-webkit-scrollbar-track{background:var(--bg2)}
 ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
 
+/* LOGIN */
 #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:2rem}
 .login-card{width:100%;max-width:380px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2.5rem;box-shadow:var(--shadow)}
 .login-icon{font-size:36px;margin-bottom:1rem;display:block;text-align:center}
@@ -42,12 +44,15 @@ a{color:var(--accent-light);text-decoration:none}
 .login-err{background:var(--danger-bg);border:1px solid rgba(239,68,68,.2);color:#fca5a5;padding:.75rem 1rem;border-radius:var(--radius);font-size:13px;margin-bottom:1rem;display:none}
 .login-attempts{font-size:11px;color:var(--text3);text-align:center;margin-top:.75rem}
 
+/* LAYOUT */
 #adminScreen{display:none;min-height:100vh}
 .layout{display:flex;min-height:100vh}
 
+/* SIDEBAR */
 .sidebar{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;overflow-y:auto}
 .sb-logo{padding:1.125rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.sb-logo-full{width:36px;height:36px;object-fit:contain;flex-shrink:0}
+.sb-logo-full{width:36px;height:36px;object-fit:contain;flex-shrink:0;}
+.sb-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#7c6af7,#9d8fff);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .sb-logo-name{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;letter-spacing:-.2px;line-height:1.2}
 .sb-logo-sub{font-size:10px;color:var(--text3)}
 .sb-section{font-size:9px;font-weight:700;letter-spacing:1.2px;color:var(--text3);text-transform:uppercase;padding:.875rem 1.25rem .375rem}
@@ -60,17 +65,20 @@ a{color:var(--accent-light);text-decoration:none}
 .sb-footer{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid var(--border)}
 .sb-user{font-size:12px;color:var(--text3);margin-bottom:.75rem}
 
+/* MAIN */
 .main{flex:1;margin-left:220px;padding:2rem;min-height:100vh;background:var(--bg)}
 .page-header{margin-bottom:1.75rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .page-header-left .page-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.4px}
 .page-header-left .page-sub{color:var(--text3);font-size:13px;margin-top:.15rem}
 
+/* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-bottom:1.75rem}
 .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.125rem 1.25rem}
 .stat-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.375rem}
 .stat-val{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;letter-spacing:-1px}
 .stat-val.green{color:var(--success)}.stat-val.purple{color:var(--accent-light)}.stat-val.red{color:var(--danger)}.stat-val.amber{color:var(--warning)}.stat-val.white{color:var(--text)}
 
+/* TABLE */
 .tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.5rem}
 .tbl-head{display:flex;align-items:center;justify-content:space-between;padding:.875rem 1.25rem;border-bottom:1px solid var(--border);gap:.75rem;flex-wrap:wrap}
 .tbl-title{font-size:13px;font-weight:600}
@@ -87,6 +95,7 @@ td.primary{color:var(--text);font-weight:500}
 .b-distributed{background:rgba(124,106,247,.12);color:#a78bfa}
 .b-blocked{background:rgba(239,68,68,.12);color:#f87171}
 
+/* BUTTONS */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:.65rem 1.25rem;border-radius:var(--radius);font-size:13px;font-weight:600}
 .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}.btn-primary:disabled{opacity:.5;cursor:not-allowed}
 .btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border2)}.btn-secondary:hover{background:var(--bg4)}
@@ -97,16 +106,20 @@ td.primary{color:var(--text);font-weight:500}
 .btn-icon{width:28px;height:28px;padding:0;border-radius:6px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .btns{display:flex;gap:.35rem;align-items:center}
 
+/* SEARCH */
 .search-input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .875rem;color:var(--text);font-size:12px;width:200px;outline:none}
 .search-input:focus{border-color:var(--accent)}
 .filter-sel{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .875rem;color:var(--text);font-size:12px;outline:none;appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24'%3E%3Cpath fill='%236a6a7a' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.filter-sel option{background:var(--bg3)}
 
+/* UPLOAD */
 .upload-zone{border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:2.25rem 2rem;text-align:center;cursor:pointer;transition:all .18s;margin-bottom:1.25rem}
 .upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(124,106,247,.04)}
 .upload-icon{font-size:34px;margin-bottom:.75rem;opacity:.5}
 .upload-title{font-size:14px;font-weight:600;margin-bottom:.375rem}
 .upload-sub{font-size:12px;color:var(--text3)}
 
+/* IMPORT RESULT */
 .import-res{border-radius:var(--radius-lg);overflow:hidden;margin-top:1rem;display:none}
 .import-res.show{display:block}
 .ir-head{padding:.875rem 1.25rem;font-size:13px;font-weight:600}
@@ -116,16 +129,19 @@ td.primary{color:var(--text);font-weight:500}
 .tag-dup{display:inline-block;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.2);color:#fde68a;font-family:monospace;font-size:10px;padding:1px 6px;border-radius:4px;margin:2px}
 .tag-used{display:inline-block;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.15);color:#fca5a5;font-family:monospace;font-size:10px;padding:1px 6px;border-radius:4px;margin:2px}
 
+/* EMPTY */
 .empty-state{text-align:center;padding:3rem 2rem;color:var(--text3)}
 .empty-icon{font-size:38px;margin-bottom:.75rem;opacity:.35}
 .empty-title{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:.375rem}
 .empty-sub{font-size:12px}
 
+/* TOASTS */
 .toasts{position:fixed;top:1.25rem;right:1.25rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
 .toast{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:.75rem 1.125rem;font-size:12px;box-shadow:var(--shadow);display:flex;align-items:center;gap:.6rem;animation:slideIn .2s ease;min-width:220px;pointer-events:all}
 .toast.success{border-left:3px solid var(--success)}.toast.error{border-left:3px solid var(--danger)}.toast.info{border-left:3px solid var(--accent)}
 @keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:none;opacity:1}}
 
+/* CONFIRM MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;padding:1rem}
 .modal-overlay.show{display:flex}
 .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2rem;max-width:380px;width:100%;box-shadow:var(--shadow)}
@@ -133,6 +149,7 @@ td.primary{color:var(--text);font-weight:500}
 .modal-msg{font-size:13px;color:var(--text2);margin-bottom:1.5rem;line-height:1.55;white-space:pre-line}
 .modal-footer{display:flex;gap:.75rem;justify-content:flex-end}
 
+/* REFERRAL MANAGER */
 .ref-manager{padding:1.5rem}
 .ref-add-row{display:flex;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap}
 .ref-add-input{flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem 1rem;color:var(--text);font-size:14px;outline:none}
@@ -152,9 +169,11 @@ td.primary{color:var(--text);font-weight:500}
 .ref-empty{text-align:center;color:var(--text3);font-size:13px;padding:2rem}
 .ref-count{font-size:11px;color:var(--text3);margin-bottom:1rem}
 
+/* MISC */
 .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hidden{display:none!important}
+.divider{height:1px;background:var(--border);margin:1.25rem 0}
 .mono{font-family:monospace;font-size:11px}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ref-badge{display:inline-block;background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.18);color:var(--accent-light);font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -163,6 +182,7 @@ td.primary{color:var(--text);font-weight:500}
 .mobile-menu-btn{background:none;border:1px solid var(--border);border-radius:8px;width:2.25rem;height:2.25rem;display:flex;align-items:center;justify-content:center;color:var(--text);cursor:pointer}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:45}
 body{overflow-x:hidden}
+#couponBody,#userBody,#logsBody,#recentBody,#referralChart{overflow-x:auto}
 
 @media(max-width:768px){
   .sidebar{display:flex;transform:translateX(-100%);transition:transform .25s ease;box-shadow:2px 0 24px rgba(0,0,0,.4)}
@@ -194,7 +214,7 @@ body{overflow-x:hidden}
 <!-- ADMIN -->
 <div id="adminScreen">
   <div class="mobile-topbar">
-    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+    <button class="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Abrir menu">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <div class="sb-logo-name" style="font-size:14px">Cupom GPT-Business</div>
@@ -205,17 +225,19 @@ body{overflow-x:hidden}
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
       <div class="sb-logo">
-        <img src="assets/img/logo-12ia.png" alt="12IA" class="sb-logo-full" onerror="this.style.display='none'">
+        <img src="assets/img/logo-12ia.png" alt="12IA" class="sb-logo-full">
         <div>
           <div class="sb-logo-name">Cupom GPT-Business</div>
           <div class="sb-logo-sub">Painel Admin</div>
         </div>
       </div>
+
       <div class="sb-section">Principal</div>
       <div class="sb-link active" id="nav-dashboard" onclick="goTab('dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         Dashboard
       </div>
+
       <div class="sb-section">Gerenciar</div>
       <div class="sb-link" id="nav-coupons" onclick="goTab('coupons')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0-6h20a3 3 0 0 1 0 6v2a3 3 0 0 1 0 6H2a3 3 0 0 1 0-6z"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
@@ -230,11 +252,13 @@ body{overflow-x:hidden}
         Indicações
         <span class="sb-badge" id="refCount">0</span>
       </div>
+
       <div class="sb-link" id="nav-waitlist" onclick="goTab('waitlist')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Lista de Espera
         <span class="sb-badge" id="waitlistCount">0</span>
       </div>
+
       <div class="sb-section">Dados</div>
       <div class="sb-link" id="nav-import" onclick="goTab('import')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
@@ -248,6 +272,7 @@ body{overflow-x:hidden}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Relatórios
       </div>
+
       <div class="sb-footer">
         <div class="sb-user" id="sbUser"></div>
         <button class="btn btn-ghost" style="width:100%;justify-content:flex-start;gap:.6rem;color:var(--danger)" onclick="doLogout()">
@@ -330,7 +355,8 @@ body{overflow-x:hidden}
         <div class="tbl-wrap">
           <div class="ref-manager">
             <div class="ref-add-row">
-              <input class="ref-add-input" id="refNewLabel" placeholder="Ex: Instagram, Amigo, Google..." maxlength="80" onkeydown="if(event.key==='Enter')addRefOption()"/>
+              <input class="ref-add-input" id="refNewLabel" placeholder="Ex: Instagram, Amigo, Google..." maxlength="80"
+                onkeydown="if(event.key==='Enter')addRefOption()"/>
               <button class="btn btn-primary" onclick="addRefOption()">+ Adicionar</button>
             </div>
             <div class="ref-count" id="refListCount"></div>
@@ -414,12 +440,6 @@ body{overflow-x:hidden}
             <div style="font-size:12px;color:var(--text3);margin-bottom:1.25rem;line-height:1.5">Link, status, usuário vinculado e datas.</div>
             <button class="btn btn-primary btn-sm" onclick="exportCouponsCSV()">⬇ Exportar cupons</button>
           </div>
-          <div class="tbl-wrap" style="padding:1.5rem">
-            <div style="font-size:24px;margin-bottom:.75rem">⏳</div>
-            <div style="font-weight:600;margin-bottom:.5rem">Lista de Espera</div>
-            <div style="font-size:12px;color:var(--text3);margin-bottom:1.25rem;line-height:1.5">Usuários aguardando cupom, status de notificação.</div>
-            <button class="btn btn-primary btn-sm" onclick="exportWaitlistCSVDirect()">⬇ Exportar lista</button>
-          </div>
         </div>
       </div>
 
@@ -442,739 +462,522 @@ body{overflow-x:hidden}
 <div class="toasts" id="toastWrap"></div>
 
 <script>
-// ─── CONFIG ───────────────────────────────────────────────────────────────────
-const SUPA_URL = 'https://eunnrjqeuczhtghbbzos.supabase.co';
-const SUPA_KEY = 'sb_publishable_A08jf3_gfKj6-PH826bNNA_pEF8QaNB';
+const SUPA_URL   = 'https://eunnrjqeuczhtghbbzos.supabase.co';
+const SUPA_KEY   = 'sb_publishable_A08jf3_gfKj6-PH826bNNA_pEF8QaNB';
 const MAX_ATTEMPTS = 5;
 
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
 
-// ─── STATE ────────────────────────────────────────────────────────────────────
-let allCoupons = [], allUsers = [], allRefOpts = [], allWaitlist = [];
-let loginAttempts = 0, currentTab = 'dashboard';
-let confirmCallback = null, dragSrcId = null;
+let allCoupons=[], allUsers=[], allRefOpts=[], loginAttempts=0, currentTab='dashboard';
+let confirmCallback=null, dragSrcId=null;
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function dl(name, content) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['\uFEFF' + content], {type:'text/csv;charset=utf-8'}));
-  a.download = name;
-  a.click();
-}
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('pt-BR');
-}
-function refLabelById(id) {
-  const o = allRefOpts.find(o => String(o.id) === String(id));
-  return o ? o.name : (id || '—');
-}
-
-// ─── TOAST ────────────────────────────────────────────────────────────────────
-function toast(msg, type = 'info', dur = 3200) {
-  const w = document.getElementById('toastWrap');
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.innerHTML = `<span>${type==='success'?'✓':type==='error'?'✗':'i'}</span> ${msg}`;
-  w.appendChild(t);
-  setTimeout(() => t.remove(), dur);
-}
-
-// ─── CONFIRM MODAL ────────────────────────────────────────────────────────────
-function openConfirm(title, msg, cb, lbl = 'Confirmar') {
-  document.getElementById('confirmTitle').textContent = title;
-  document.getElementById('confirmMsg').textContent = msg;
-  document.getElementById('confirmOkBtn').textContent = lbl;
-  confirmCallback = cb;
-  document.getElementById('confirmModal').classList.add('show');
-}
-function closeConfirm() {
-  document.getElementById('confirmModal').classList.remove('show');
-  confirmCallback = null;
-}
-document.getElementById('confirmOkBtn').onclick = () => { closeConfirm(); if (confirmCallback) confirmCallback(); };
-
-// ─── AUTH ─────────────────────────────────────────────────────────────────────
-async function doLogin() {
-  if (loginAttempts >= MAX_ATTEMPTS) return;
-  const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value;
-  const btn = document.getElementById('loginBtn');
-  btn.disabled = true; btn.textContent = 'Verificando...';
-  const { data, error } = await db.auth.signInWithPassword({ email: u, password: p });
-  btn.disabled = false; btn.textContent = 'Entrar';
-  if (!error && data?.session) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminScreen').style.display = 'block';
-    document.getElementById('sbUser').textContent = u;
-    loginAttempts = 0;
-    loadDashboard();
+// LOGIN
+async function doLogin(){
+  if(loginAttempts>=MAX_ATTEMPTS)return;
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  const btn=document.getElementById('loginBtn');
+  btn.disabled=true; btn.textContent='Verificando...';
+  const {data,error}=await db.auth.signInWithPassword({email:u,password:p});
+  btn.disabled=false; btn.textContent='Entrar';
+  if(!error&&data?.session){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('adminScreen').style.display='block';
+    document.getElementById('sbUser').textContent=u;
+    loginAttempts=0; loadDashboard();
   } else {
     loginAttempts++;
-    const rem = MAX_ATTEMPTS - loginAttempts;
-    const e = document.getElementById('loginErr');
-    e.textContent = `Credenciais inválidas. ${rem > 0 ? `${rem} tentativa(s) restante(s).` : 'Acesso bloqueado.'}`;
-    e.style.display = 'block';
-    if (loginAttempts >= MAX_ATTEMPTS) document.getElementById('loginBtn').disabled = true;
-    document.getElementById('loginAttempts').textContent = rem > 0 ? '' : 'Recarregue a página para tentar novamente.';
+    const rem=MAX_ATTEMPTS-loginAttempts;
+    const e=document.getElementById('loginErr');
+    e.textContent=`Credenciais inválidas. ${rem>0?`${rem} tentativa(s) restante(s).`:'Acesso bloqueado.'}`;
+    e.style.display='block';
+    if(loginAttempts>=MAX_ATTEMPTS) document.getElementById('loginBtn').disabled=true;
+    document.getElementById('loginAttempts').textContent=rem>0?'':'Recarregue a página para tentar novamente.';
   }
 }
-async function doLogout() {
+async function doLogout(){
   await db.auth.signOut();
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('adminScreen').style.display = 'none';
-  document.getElementById('loginPass').value = '';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('adminScreen').style.display='none';
+  document.getElementById('loginPass').value='';
 }
-
-// Auto-login se já tem sessão
-(async () => {
-  const { data: { session } } = await db.auth.getSession();
-  if (session) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminScreen').style.display = 'block';
-    document.getElementById('sbUser').textContent = session.user.email;
+(async()=>{
+  const {data:{session}}=await db.auth.getSession();
+  if(session){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('adminScreen').style.display='block';
+    document.getElementById('sbUser').textContent=session.user.email;
     loadDashboard();
   }
 })();
-db.auth.onAuthStateChange((event) => {
-  if (event === 'SIGNED_OUT') {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('adminScreen').style.display = 'none';
+db.auth.onAuthStateChange((event)=>{
+  if(event==='SIGNED_OUT'){
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('adminScreen').style.display='none';
   }
 });
 
-// ─── TABS ─────────────────────────────────────────────────────────────────────
-function goTab(id) {
-  document.querySelectorAll('.main > div').forEach(d => d.classList.add('hidden'));
-  document.querySelectorAll('.sb-link').forEach(l => l.classList.remove('active'));
-  document.getElementById('tab-' + id).classList.remove('hidden');
-  document.getElementById('nav-' + id).classList.add('active');
-  currentTab = id;
-  if (id === 'dashboard') loadDashboard();
-  if (id === 'coupons')   loadCoupons();
-  if (id === 'users')     loadUsers();
-  if (id === 'logs')      loadLogs();
-  if (id === 'waitlist')  loadWaitlist();
-  if (id === 'referrals') loadRefOptions();
+// TABS
+function goTab(id){
+  document.querySelectorAll('.main > div').forEach(d=>d.classList.add('hidden'));
+  document.querySelectorAll('.sb-link').forEach(l=>l.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.remove('hidden');
+  document.getElementById('nav-'+id).classList.add('active');
+  currentTab=id;
+  if(id==='dashboard') loadDashboard();
+  if(id==='coupons')   loadCoupons();
+  if(id==='users')     loadUsers();
+  if(id==='logs')      loadLogs();
+  if(id==='waitlist')  loadWaitlist();
+  if(id==='referrals') loadRefOptions();
   closeSidebar();
 }
 
-// Mobile sidebar
-function toggleSidebar() {
+// MOBILE SIDEBAR
+function toggleSidebar(){
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebarOverlay').classList.toggle('show');
 }
-function closeSidebar() {
+function closeSidebar(){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('show');
 }
 
-// ─── DASHBOARD ────────────────────────────────────────────────────────────────
-async function loadDashboard() {
-  // Carrega indicações
-  const { data: rOpts } = await db.from('referrals').select('id,name');
-  allRefOpts = rOpts || [];
+// TOAST
+function toast(msg,type='info',dur=3200){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span>${type==='success'?'✓':type==='error'?'✗':'i'}</span> ${msg}`;
+  w.appendChild(t); setTimeout(()=>t.remove(),dur);
+}
 
-  // Stats
-  const [{ data: cps }, { data: us }, { data: wl }] = await Promise.all([
+// CONFIRM
+function openConfirm(title,msg,cb,lbl='Confirmar'){
+  document.getElementById('confirmTitle').textContent=title;
+  document.getElementById('confirmMsg').textContent=msg;
+  document.getElementById('confirmOkBtn').textContent=lbl;
+  confirmCallback=cb;
+  document.getElementById('confirmModal').classList.add('show');
+}
+function closeConfirm(){document.getElementById('confirmModal').classList.remove('show');confirmCallback=null;}
+document.getElementById('confirmOkBtn').onclick=()=>{closeConfirm();if(confirmCallback)confirmCallback();};
+
+// HELPERS
+function refLabelById(id){
+  const o=allRefOpts.find(o=>String(o.id)===String(id));
+  return o?o.name:(id||'—');
+}
+
+// DASHBOARD
+async function loadDashboard(){
+  const {data:rOpts}=await db.from('referrals').select('id,name');
+  allRefOpts=rOpts||[];
+
+  const [{data:cps},{data:us},{data:wl}]=await Promise.all([
     db.from('coupons').select('status'),
     db.from('users').select('id,referral_id'),
-    db.from('waitlist').select('id').eq('notified', false)
+    db.from('waitlist').select('id').eq('notified',false)
   ]);
+  document.getElementById('waitlistCount').textContent=(wl?.length||0);
+  document.getElementById('s-avail').textContent=cps?.filter(c=>c.status==='available').length||0;
+  document.getElementById('s-dist').textContent =cps?.filter(c=>c.status==='distributed').length||0;
+  document.getElementById('s-block').textContent=cps?.filter(c=>c.status==='blocked').length||0;
+  document.getElementById('s-users').textContent=us?.length||0;
+  document.getElementById('s-total').textContent=cps?.length||0;
 
-  document.getElementById('waitlistCount').textContent = wl?.length || 0;
-  document.getElementById('s-avail').textContent  = (cps || []).filter(c => c.status === 'available').length;
-  document.getElementById('s-dist').textContent   = (cps || []).filter(c => c.status === 'distributed').length;
-  document.getElementById('s-block').textContent  = (cps || []).filter(c => c.status === 'blocked').length;
-  document.getElementById('s-users').textContent  = (us || []).length;
-  document.getElementById('s-total').textContent  = (cps || []).length;
-
-  // Últimos resgates: busca users + join manual com coupons
-  // Schema: users.coupons_id → coupons.id; coupons.link
-  const { data: recent } = await db
-    .from('users')
-    .select('id,name,email,referral_id,coupons_id,created_at')
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  const rb = document.getElementById('recentBody');
-  if (!recent?.length) {
-    rb.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Nenhum resgate ainda</div></div>';
+  const {data:recent}=await db.from('users').select('name,email,referral_id,created_at,coupons_id').order('created_at',{ascending:false}).limit(10);
+  const rb=document.getElementById('recentBody');
+  if(!recent?.length){
+    rb.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Nenhum resgate ainda</div></div>';
   } else {
-    // Busca os links dos cupons de uma vez
-    const cIds = [...new Set(recent.map(u => u.coupons_id).filter(Boolean))];
-    let cMap = {};
-    if (cIds.length) {
-      const { data: cs } = await db.from('coupons').select('id,link').in('id', cIds);
-      (cs || []).forEach(c => cMap[c.id] = c.link);
-    }
-
-    const rows = recent.map(u => `<tr>
+    const rcids=[...new Set(recent.map(u=>u.coupons_id).filter(Boolean))];
+    let rmap={};
+    if(rcids.length){const{data:rcs}=await db.from('coupons').select('id,link').in('id',rcids);(rcs||[]).forEach(c=>rmap[c.id]=c.link);}
+    const rows=recent.map(u=>`<tr>
       <td class="primary">${esc(u.name)}</td>
       <td>${esc(u.email)}</td>
       <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
-      <td class="truncate mono" style="max-width:200px"><a href="${esc(cMap[u.coupons_id] || '#')}" target="_blank" rel="noopener">${esc(cMap[u.coupons_id] || '—')}</a></td>
-      <td>${fmtDate(u.created_at)}</td>
+      <td class="truncate mono"><a href="${rmap[u.coupons_id]||'#'}" target="_blank">${rmap[u.coupons_id]||'—'}</a></td>
+      <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
     </tr>`).join('');
-    rb.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Indicação</th><th>Link</th><th>Data</th></tr></thead><tbody>${rows}</tbody></table>`;
+    rb.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Indicação</th><th>Link</th><th>Data</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  // Gráfico de indicações
-  const refCount = {};
-  (us || []).forEach(u => {
-    const r = u.referral_id || '_sem';
-    refCount[r] = (refCount[r] || 0) + 1;
-  });
-  const sorted = Object.entries(refCount).sort((a, b) => b[1] - a[1]);
-  const rc = document.getElementById('referralChart');
-  if (!sorted.length) {
-    rc.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Sem dados ainda</div></div>';
+  const refCount={};
+  (us||[]).forEach(u=>{const r=u.referral_id||'_sem';refCount[r]=(refCount[r]||0)+1;});
+  const sorted=Object.entries(refCount).sort((a,b)=>b[1]-a[1]);
+  const rc=document.getElementById('referralChart');
+  if(!sorted.length){
+    rc.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Sem dados ainda</div></div>';
   } else {
-    const max = sorted[0][1];
-    const rows = sorted.map(([k, v]) => `<tr>
-      <td class="primary" style="width:180px">${k === '_sem' ? 'Não informado' : esc(refLabelById(k))}</td>
+    const max=sorted[0][1];
+    const rows=sorted.map(([k,v])=>`<tr>
+      <td class="primary" style="width:180px">${k==='_sem'?'Não informado':esc(refLabelById(k))}</td>
       <td style="width:50px;text-align:right;color:var(--text3)">${v}</td>
       <td style="padding-left:1rem">
         <div style="background:var(--bg4);border-radius:100px;height:6px;overflow:hidden">
-          <div style="background:var(--accent);height:6px;border-radius:100px;width:${Math.round(v / max * 100)}%;transition:width .4s"></div>
+          <div style="background:var(--accent);height:6px;border-radius:100px;width:${Math.round(v/max*100)}%;transition:width .4s"></div>
         </div>
       </td>
     </tr>`).join('');
-    rc.innerHTML = `<table><thead><tr><th>Canal</th><th style="text-align:right">Usuários</th><th style="padding-left:1rem">Proporção</th></tr></thead><tbody>${rows}</tbody></table>`;
+    rc.innerHTML=`<table><thead><tr><th>Canal</th><th style="text-align:right">Usuários</th><th style="padding-left:1rem">Proporção</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 }
 
-// ─── CUPONS ───────────────────────────────────────────────────────────────────
-// Schema coupons: id, link, status, created_at, distributed_at, users_id
-// Schema users: id, name, email, phone, referral_id, coupons_id, created_at
-async function loadCoupons() {
-  document.getElementById('couponBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
-
-  // Busca todos os cupons
-  const { data: cps, error } = await db
-    .from('coupons')
-    .select('id,link,status,created_at,distributed_at,users_id')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    document.getElementById('couponBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro ao carregar: ${esc(error.message)}</div></div>`;
-    return;
+// CUPONS
+async function loadCoupons(){
+  document.getElementById('couponBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  const {data:cps,error}=await db.from('coupons').select('id,link,status,created_at,distributed_at,users_id').order('created_at',{ascending:false});
+  if(error){ console.error('loadCoupons error:',error); }
+  const coupons=cps||[];
+  const uids=[...new Set(coupons.map(c=>c.users_id).filter(Boolean))];
+  let userMap={};
+  if(uids.length){
+    const {data:us}=await db.from('users').select('id,name,email').in('id',uids);
+    (us||[]).forEach(u=>userMap[u.id]=u);
   }
-
-  // Busca usuários dos cupons distribuídos (join manual para evitar ambiguidade de FK)
-  const uIds = [...new Set((cps || []).map(c => c.users_id).filter(Boolean))];
-  let uMap = {};
-  if (uIds.length) {
-    const { data: us } = await db.from('users').select('id,name,email').in('id', uIds);
-    (us || []).forEach(u => uMap[u.id] = u);
-  }
-
-  allCoupons = (cps || []).map(c => ({ ...c, user: c.users_id ? (uMap[c.users_id] || null) : null }));
+  allCoupons=coupons.map(c=>({...c, users: c.users_id?userMap[c.users_id]||null:null}));
   renderCoupons();
 }
-
-function renderCoupons() {
-  const f = document.getElementById('couponFilter').value;
-  const q = (document.getElementById('couponSearch').value || '').toLowerCase();
-  let list = f === 'all' ? allCoupons : allCoupons.filter(c => c.status === f);
-  if (q) list = list.filter(c => (c.link || '').toLowerCase().includes(q));
-
-  const body = document.getElementById('couponBody');
-  if (!list.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';
-    return;
-  }
-
-  const rows = list.map(c => `<tr>
-    <td class="truncate mono" style="max-width:280px"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
+function renderCoupons(){
+  const f=document.getElementById('couponFilter').value;
+  const q=(document.getElementById('couponSearch').value||'').toLowerCase();
+  let list=f==='all'?allCoupons:allCoupons.filter(c=>c.status===f);
+  if(q) list=list.filter(c=>(c.link||'').toLowerCase().includes(q));
+  const body=document.getElementById('couponBody');
+  if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';return;}
+  const rows=list.map(c=>`<tr>
+    <td class="truncate mono"><a href="${c.link}" target="_blank">${c.link}</a></td>
     <td><span class="badge b-${c.status}">${statusLabel(c.status)}</span></td>
-    <td class="primary">${esc(c.user?.name || '—')}</td>
-    <td>${esc(c.user?.email || '—')}</td>
-    <td>${fmtDate(c.distributed_at)}</td>
+    <td class="primary">${c.users?.name||'—'}</td>
+    <td>${c.users?.email||'—'}</td>
+    <td>${c.distributed_at?new Date(c.distributed_at).toLocaleString('pt-BR'):'—'}</td>
     <td>
       <div class="btns">
-        ${c.status === 'distributed' ? `<button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>` : ''}
-        ${c.status !== 'blocked'
-          ? `<button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>`
-          : `<button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>`}
-        ${c.status !== 'distributed' ? `<button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>` : ''}
+        ${c.status==='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>`:''}
+        ${c.status!=='blocked'?`<button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>`:`<button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>`}
+        ${c.status!=='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>`:''}
       </div>
     </td>
   </tr>`).join('');
-
-  body.innerHTML = `<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Distribuído em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+  body.innerHTML=`<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Distribuído em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function statusLabel(s){return s==='available'?'Disponível':s==='distributed'?'Distribuído':'Bloqueado';}
+async function blockCoupon(id){
+  const{error}=await db.from('coupons').update({status:'blocked'}).eq('id',id);
+  if(error){toast('Erro ao bloquear: '+error.message,'error',6000);return;}
+  toast('Cupom bloqueado.','info');loadCoupons();
+}
+async function unblockCoupon(id){
+  const{error}=await db.from('coupons').update({status:'available'}).eq('id',id);
+  if(error){toast('Erro ao desbloquear: '+error.message,'error',6000);return;}
+  toast('Cupom desbloqueado.','success');loadCoupons();
+}
+async function returnCoupon(id){
+  openConfirm('Devolver cupom','O link voltará ao estoque como disponível. O usuário vinculado perderá o vínculo.',async()=>{
+    const{error:e1}=await db.from('users').update({coupons_id:null}).eq('coupons_id',id);
+    const{error:e2}=await db.from('coupons').update({status:'available',distributed_at:null,users_id:null}).eq('id',id);
+    if(e1||e2){toast('Erro ao devolver: '+(e2?.message||e1?.message),'error',6000);return;}
+    toast('Link devolvido ao estoque.','success');loadCoupons();
+  },'Devolver');
+}
+async function deleteCoupon(id){
+  openConfirm('Excluir cupom','Excluir este link permanentemente?\n\nEsta ação não pode ser desfeita.',async()=>{
+    const{error:e1}=await db.from('users').update({coupons_id:null}).eq('coupons_id',id);
+    const{error:e2}=await db.from('events').delete().eq('coupons_id',id);
+    const{error:e3}=await db.from('coupons').delete().eq('id',id);
+    if(e1||e2||e3){toast('Erro ao excluir: '+(e3?.message||e2?.message||e1?.message),'error',6000);return;}
+    toast('Cupom excluído.','info');loadCoupons();
+  },'🗑 Excluir');
+}
+function exportCouponsCSV(){
+  if(!allCoupons.length){toast('Nenhum cupom para exportar.','error');return;}
+  const h='Link,Status,Usuário,E-mail,Distribuído em,Importado em\n';
+  const r=allCoupons.map(c=>[c.link,statusLabel(c.status),c.users?.name||'',c.users?.email||'',c.distributed_at?new Date(c.distributed_at).toLocaleString('pt-BR'):'',new Date(c.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
+  dl('cupons.csv',h+r);
 }
 
-function statusLabel(s) {
-  return s === 'available' ? 'Disponível' : s === 'distributed' ? 'Distribuído' : 'Bloqueado';
-}
-
-async function blockCoupon(id) {
-  const { error } = await db.from('coupons').update({ status: 'blocked' }).eq('id', id);
-  if (error) { toast('Erro ao bloquear: ' + error.message, 'error', 6000); return; }
-  toast('Cupom bloqueado.', 'info');
-  loadCoupons();
-}
-async function unblockCoupon(id) {
-  const { error } = await db.from('coupons').update({ status: 'available' }).eq('id', id);
-  if (error) { toast('Erro ao desbloquear: ' + error.message, 'error', 6000); return; }
-  toast('Cupom desbloqueado.', 'success');
-  loadCoupons();
-}
-async function returnCoupon(id) {
-  openConfirm('Devolver cupom', 'O link voltará ao estoque como disponível. O usuário vinculado perderá o vínculo.', async () => {
-    // Remove vínculo do usuário
-    await db.from('users').update({ coupons_id: null }).eq('coupons_id', id);
-    // Recoloca cupom como disponível e limpa users_id
-    const { error } = await db.from('coupons')
-      .update({ status: 'available', distributed_at: null, users_id: null })
-      .eq('id', id);
-    if (error) { toast('Erro ao devolver: ' + error.message, 'error', 6000); return; }
-    toast('Link devolvido ao estoque.', 'success');
-    loadCoupons();
-  }, 'Devolver');
-}
-async function deleteCoupon(id) {
-  openConfirm('Excluir cupom', 'Excluir este link permanentemente?\n\nEsta ação não pode ser desfeita.', async () => {
-    await db.from('users').update({ coupons_id: null }).eq('coupons_id', id);
-    await db.from('events').delete().eq('coupons_id', id);
-    const { error } = await db.from('coupons').delete().eq('id', id);
-    if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
-    toast('Cupom excluído.', 'info');
-    loadCoupons();
-  }, '🗑 Excluir');
-}
-function exportCouponsCSV() {
-  if (!allCoupons.length) { toast('Nenhum cupom para exportar.', 'error'); return; }
-  const h = 'Link,Status,Usuário,E-mail,Distribuído em,Importado em\n';
-  const r = allCoupons.map(c => [
-    c.link, statusLabel(c.status),
-    c.user?.name || '', c.user?.email || '',
-    c.distributed_at ? fmtDate(c.distributed_at) : '',
-    fmtDate(c.created_at)
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  dl('cupons.csv', h + r);
-}
-
-// ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
-// Schema users: id, name, email, phone, referral, referral_id, coupons_id, created_at
-async function loadUsers() {
-  document.getElementById('userBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
-
-  if (!allRefOpts.length) {
-    const { data } = await db.from('referrals').select('id,name');
-    allRefOpts = data || [];
+// USUÁRIOS
+async function loadUsers(){
+  document.getElementById('userBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
+  const {data:us}=await db.from('users').select('id,name,email,phone,referral_id,coupons_id,created_at').order('created_at',{ascending:false});
+  const users=us||[];
+  const cids=[...new Set(users.map(u=>u.coupons_id).filter(Boolean))];
+  let couponMap={};
+  if(cids.length){
+    const {data:cs}=await db.from('coupons').select('id,link').in('id',cids);
+    (cs||[]).forEach(c=>couponMap[c.id]=c);
   }
-
-  const { data: us, error } = await db
-    .from('users')
-    .select('id,name,email,phone,referral_id,coupons_id,created_at')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    document.getElementById('userBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro: ${esc(error.message)}</div></div>`;
-    return;
-  }
-
-  // Join manual com coupons para pegar o link
-  const cIds = [...new Set((us || []).map(u => u.coupons_id).filter(Boolean))];
-  let cMap = {};
-  if (cIds.length) {
-    const { data: cs } = await db.from('coupons').select('id,link').in('id', cIds);
-    (cs || []).forEach(c => cMap[c.id] = c.link);
-  }
-
-  allUsers = (us || []).map(u => ({ ...u, couponLink: cMap[u.coupons_id] || null }));
+  allUsers=users.map(u=>({...u, coupons: u.coupons_id?couponMap[u.coupons_id]||null:null}));
   renderUsers();
 }
-
-function renderUsers() {
-  const q = (document.getElementById('userSearch').value || '').toLowerCase();
-  const list = q
-    ? allUsers.filter(u =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        (u.phone || '').includes(q))
-    : allUsers;
-
-  const body = document.getElementById('userBody');
-  if (!list.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Nenhum usuário encontrado</div></div>';
-    return;
-  }
-
-  const rows = list.map(u => `<tr>
+function renderUsers(){
+  const q=(document.getElementById('userSearch').value||'').toLowerCase();
+  const list=q?allUsers.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.phone||'').includes(q)):allUsers;
+  const body=document.getElementById('userBody');
+  if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Nenhum usuário encontrado</div></div>';return;}
+  const rows=list.map(u=>`<tr>
     <td class="primary">${esc(u.name)}</td>
     <td>${esc(u.email)}</td>
-    <td>${esc(u.phone || '—')}</td>
+    <td>${esc(u.phone||'—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
-    <td class="truncate mono" style="max-width:200px">
-      ${u.couponLink
-        ? `<a href="${esc(u.couponLink)}" target="_blank" rel="noopener">${esc(u.couponLink)}</a>`
-        : '—'}
-    </td>
-    <td>${fmtDate(u.created_at)}</td>
-    <td>
-      <button class="btn btn-ghost btn-sm btn-icon"
-        onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')"
-        title="Excluir">🗑</button>
-    </td>
+    <td class="truncate mono"><a href="${u.coupons?.link||'#'}" target="_blank">${u.coupons?.link||'—'}</a></td>
+    <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
+    <td><button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button></td>
   </tr>`).join('');
-
-  body.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
-
-async function deleteUser(id, name, couponId) {
-  openConfirm('Excluir usuário', `Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`, async () => {
-    // Libera cupom antes de deletar o usuário
-    if (couponId) {
-      await db.from('coupons')
-        .update({ status: 'available', distributed_at: null, users_id: null })
-        .eq('id', couponId);
+async function deleteUser(id,name,couponId){
+  openConfirm('Excluir usuário',`Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`,async()=>{
+  
+    const {error:e1}=await db.from('coupons').update({status:'available',distributed_at:null,users_id:null}).eq('users_id',id);
+    if(couponId){
+      await db.from('coupons').update({status:'available',distributed_at:null,users_id:null}).eq('id',couponId);
     }
-    await db.from('events').delete().eq('users_id', id);
-    const { error } = await db.from('users').delete().eq('id', id);
-    if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
-    toast('Usuário excluído.', 'info');
-    loadUsers();
-    loadDashboard();
-  }, '🗑 Excluir');
+    const {error:e2}=await db.from('events').delete().eq('users_id',id);
+    const {error:e3}=await db.from('users').delete().eq('id',id);
+    if(e1||e2||e3){
+      toast('Erro ao excluir: '+(e3?.message||e2?.message||e1?.message||'desconhecido'),'error',6000);
+      return;
+    }
+    toast('Usuário excluído.','info');loadUsers();loadDashboard();
+  },'🗑 Excluir');
+}
+function exportUsersCSV(){
+  if(!allUsers.length){toast('Nenhum usuário para exportar.','error');return;}
+  const h='Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
+  const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral_id),u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
+  dl('usuarios.csv',h+r);
 }
 
-function exportUsersCSV() {
-  if (!allUsers.length) { toast('Nenhum usuário para exportar.', 'error'); return; }
-  const h = 'Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
-  const r = allUsers.map(u => [
-    u.name, u.email, u.phone || '',
-    refLabelById(u.referral_id),
-    u.couponLink || '',
-    fmtDate(u.created_at)
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  dl('usuarios.csv', h + r);
-}
-
-// ─── LISTA DE ESPERA ──────────────────────────────────────────────────────────
-// Schema waitlist: id, name, email, phone, referral_id, created_at, notified, notified_at
-async function loadWaitlist() {
-  document.getElementById('waitlistBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
-
-  if (!allRefOpts.length) {
-    const { data } = await db.from('referrals').select('id,name');
-    allRefOpts = data || [];
+// LISTA DE ESPERA
+async function loadWaitlist(){
+  document.getElementById('waitlistBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
+  const{data,error}=await db.from('waitlist').select('id,name,email,phone,referral_id,created_at,notified,notified_at').order('created_at',{ascending:false});
+  const body=document.getElementById('waitlistBody');
+  const list=data||[];
+  // Atualiza badge
+  document.getElementById('waitlistCount').textContent=list.filter(w=>!w.notified).length||'0';
+  if(!list.length){
+    body.innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Nenhum usuário na lista de espera</div></div>';return;
   }
-
-  const { data, error } = await db
-    .from('waitlist')
-    .select('id,name,email,phone,referral_id,created_at,notified,notified_at')
-    .order('created_at', { ascending: false });
-
-  const body = document.getElementById('waitlistBody');
-  allWaitlist = data || [];
-  const pending = allWaitlist.filter(w => !w.notified).length;
-  document.getElementById('waitlistCount').textContent = pending || '0';
-
-  if (!allWaitlist.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Nenhum usuário na lista de espera</div></div>';
-    return;
-  }
-
-  const rows = allWaitlist.map(w => `<tr>
+  const rows=list.map(w=>`<tr>
     <td class="primary">${esc(w.name)}</td>
     <td>${esc(w.email)}</td>
-    <td>${esc(w.phone || '—')}</td>
+    <td>${esc(w.phone||'—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(w.referral_id))}</span></td>
-    <td>${fmtDate(w.created_at)}</td>
-    <td><span class="badge ${w.notified ? 'b-distributed' : 'b-available'}">${w.notified ? 'Notificado' : 'Aguardando'}</span></td>
+    <td>${new Date(w.created_at).toLocaleString('pt-BR')}</td>
+    <td><span class="badge ${w.notified?'b-distributed':'b-available'}">${w.notified?'Notificado':'Aguardando'}</span></td>
     <td>
       <div class="btns">
-        ${!w.notified ? `<button class="btn btn-success btn-sm" onclick="markNotified('${w.id}')">✓ Notificado</button>` : ''}
+        ${!w.notified?`<button class="btn btn-success btn-sm" onclick="markNotified('${w.id}')">✓ Marcar notificado</button>`:''}
         <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteWaitlist('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">🗑</button>
       </div>
     </td>
   </tr>`).join('');
-
-  body.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Cadastrado em</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Cadastrado em</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+async function markNotified(id){
+  await db.from('waitlist').update({notified:true,notified_at:new Date().toISOString()}).eq('id',id);
+  toast('Marcado como notificado.','success');loadWaitlist();
+}
+async function deleteWaitlist(id,name){
+  openConfirm('Remover da lista',`Remover "${name}" da lista de espera?`,async()=>{
+    await db.from('waitlist').delete().eq('id',id);
+    toast('Removido da lista.','info');loadWaitlist();
+  },'🗑 Remover');
+}
+function exportWaitlistCSV(){
+  const{data}=db.from('waitlist').select('name,email,phone,referral_id,created_at,notified');
+  // Busca via loadWaitlist já carregada
+  toast('Use o botão CSV após carregar a lista.','info');
 }
 
-async function markNotified(id) {
-  await db.from('waitlist').update({ notified: true, notified_at: new Date().toISOString() }).eq('id', id);
-  toast('Marcado como notificado.', 'success');
-  loadWaitlist();
-}
-async function deleteWaitlist(id, name) {
-  openConfirm('Remover da lista', `Remover "${name}" da lista de espera?`, async () => {
-    await db.from('waitlist').delete().eq('id', id);
-    toast('Removido da lista.', 'info');
-    loadWaitlist();
-  }, '🗑 Remover');
-}
-async function exportWaitlistCSV() {
-  await loadWaitlist();
-  exportWaitlistCSVDirect();
-}
-function exportWaitlistCSVDirect() {
-  if (!allWaitlist.length) { toast('Lista de espera vazia.', 'error'); return; }
-  const h = 'Nome,E-mail,Telefone,Indicação,Cadastrado em,Status\n';
-  const r = allWaitlist.map(w => [
-    w.name, w.email, w.phone || '',
-    refLabelById(w.referral_id),
-    fmtDate(w.created_at),
-    w.notified ? 'Notificado' : 'Aguardando'
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  dl('lista-espera.csv', h + r);
-}
-
-// ─── INDICAÇÕES ───────────────────────────────────────────────────────────────
-// Schema referrals: id, name, active, created_at
-async function loadRefOptions() {
-  const { data, error } = await db
-    .from('referrals')
-    .select('*')
-    .order('created_at', { ascending: true });
-
-  if (error) { toast('Erro ao carregar indicações: ' + error.message, 'error'); return; }
-  allRefOpts = data || [];
+// INDICAÇÕES
+async function loadRefOptions(){
+  const{data,error}=await db.from('referrals').select('*').order('created_at',{ascending:true});
+  allRefOpts=data||[];
   updateRefBadge();
   renderRefList();
 }
-function updateRefBadge() {
-  const active = (allRefOpts || []).filter(o => o.active !== false).length;
-  document.getElementById('refCount').textContent = active;
+function updateRefBadge(){
+  const active=(allRefOpts||[]).filter(o=>o.active!==false).length;
+  document.getElementById('refCount').textContent=active;
 }
-function renderRefList() {
-  const list = document.getElementById('refList');
-  const count = document.getElementById('refListCount');
-  if (!allRefOpts.length) {
-    list.innerHTML = '<div class="ref-empty">Nenhuma opção cadastrada.<br>Adicione a primeira opção acima.</div>';
-    count.textContent = '';
-    return;
+function renderRefList(){
+  const list=document.getElementById('refList');
+  const count=document.getElementById('refListCount');
+  if(!allRefOpts.length){
+    list.innerHTML='<div class="ref-empty">Nenhuma opção cadastrada.<br>Adicione a primeira opção acima.</div>';
+    count.textContent='';return;
   }
-  const active = allRefOpts.filter(o => o.active !== false).length;
-  count.textContent = `${allRefOpts.length} opção(ões) · ${active} ativa(s)`;
-  list.innerHTML = allRefOpts.map(o => `
-    <div class="ref-item${o.active === false ? ' inactive' : ''}" data-id="${o.id}" draggable="true"
+  const active=allRefOpts.filter(o=>o.active!==false).length;
+  count.textContent=`${allRefOpts.length} opção(ões) · ${active} ativa(s)`;
+  list.innerHTML=allRefOpts.map(o=>`
+    <div class="ref-item${o.active===false?' inactive':''}" data-id="${o.id}" draggable="true"
       ondragstart="dStart(event)" ondragover="dOver(event)" ondrop="dDrop(event)" ondragleave="dLeave(event)">
       <div class="ref-item-left">
         <span class="ref-handle">⠿</span>
         <span class="ref-label" title="${esc(o.name)}">${esc(o.name)}</span>
       </div>
       <div class="ref-item-right">
-        <button class="toggle-btn ${o.active !== false ? 'on' : 'off'}" onclick="toggleRef('${o.id}',${o.active !== false})">
-          ${o.active !== false ? '● Ativa' : '○ Inativa'}
+        <button class="toggle-btn ${o.active!==false?'on':'off'}" onclick="toggleRef('${o.id}',${o.active!==false})">
+          ${o.active!==false?'● Ativa':'○ Inativa'}
         </button>
         <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteRef('${o.id}','${(o.name||'').replace(/'/g,"\\'")}')">🗑</button>
       </div>
     </div>`).join('');
 }
-async function addRefOption() {
-  const inp = document.getElementById('refNewLabel');
-  const name = inp.value.trim();
-  if (!name) { inp.focus(); return; }
-  if (allRefOpts.some(o => o.name.toLowerCase() === name.toLowerCase())) {
-    toast('Já existe uma opção com esse nome.', 'error'); return;
-  }
-  const { data, error } = await db.from('referrals').insert({ name, active: true }).select();
-  if (error) { toast('Erro: ' + error.message, 'error', 5000); return; }
+async function addRefOption(){
+  const inp=document.getElementById('refNewLabel');
+  const name=inp.value.trim();
+  if(!name){inp.focus();return;}
+  if(allRefOpts.some(o=>o.name.toLowerCase()===name.toLowerCase())){toast('Já existe uma opção com esse nome.','error');return;}
+  
+  const{data,error}=await db.from('referrals').insert({name, active:true}).select();
+  if(error){toast('Erro: '+error.message,'error',5000);return;}
   allRefOpts.push(data[0]);
-  renderRefList(); updateRefBadge();
-  inp.value = '';
-  toast('✓ Opção adicionada!', 'success');
+  renderRefList();updateRefBadge();inp.value='';
+  toast('✓ Opção adicionada!','success');
 }
-async function toggleRef(id, curr) {
-  const ns = !curr;
-  await db.from('referrals').update({ active: ns }).eq('id', id);
-  allRefOpts = allRefOpts.map(o => String(o.id) === String(id) ? { ...o, active: ns } : o);
-  renderRefList(); updateRefBadge();
-  toast(ns ? 'Opção ativada.' : 'Opção desativada.', 'info');
+async function toggleRef(id,curr){
+  const ns=!curr;
+  await db.from('referrals').update({active:ns}).eq('id',id);
+  allRefOpts=allRefOpts.map(o=>String(o.id)===String(id)?{...o,active:ns}:o);
+  renderRefList();updateRefBadge();
+  toast(ns?'Opção ativada.':'Opção desativada.','info');
 }
-async function deleteRef(id, label) {
-  openConfirm('Excluir opção', `Excluir a opção "${label}"?\n\nOs usuários que selecionaram esta opção mantêm o valor salvo.`, async () => {
-    await db.from('referrals').delete().eq('id', id);
-    allRefOpts = allRefOpts.filter(o => String(o.id) !== String(id));
-    renderRefList(); updateRefBadge();
-    toast('Opção excluída.', 'info');
-  }, '🗑 Excluir');
+async function deleteRef(id,label){
+  openConfirm('Excluir opção',`Excluir a opção "${label}"?\n\nOs usuários que selecionaram esta opção mantêm o valor salvo, mas o rótulo não será mais exibido.`,async()=>{
+    await db.from('referrals').delete().eq('id',id);
+    allRefOpts=allRefOpts.filter(o=>String(o.id)!==String(id));
+    renderRefList();updateRefBadge();
+    toast('Opção excluída.','info');
+  },'🗑 Excluir');
 }
-
-// Drag & drop indicações
-function dStart(e) { dragSrcId = e.currentTarget.dataset.id; e.currentTarget.style.opacity = '.4'; }
-function dOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-function dLeave(e) { e.currentTarget.classList.remove('drag-over'); e.currentTarget.style.opacity = ''; }
-async function dDrop(e) {
+function dStart(e){dragSrcId=e.currentTarget.dataset.id;e.currentTarget.style.opacity='.4';}
+function dOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
+function dLeave(e){e.currentTarget.classList.remove('drag-over');e.currentTarget.style.opacity='';}
+async function dDrop(e){
   e.preventDefault();
-  const tId = e.currentTarget.dataset.id;
+  const tId=e.currentTarget.dataset.id;
   e.currentTarget.classList.remove('drag-over');
-  document.querySelectorAll('.ref-item').forEach(el => el.style.opacity = '');
-  if (!dragSrcId || dragSrcId === tId) return;
-  const si = allRefOpts.findIndex(o => String(o.id) === dragSrcId);
-  const ti = allRefOpts.findIndex(o => String(o.id) === tId);
-  const [moved] = allRefOpts.splice(si, 1);
-  allRefOpts.splice(ti, 0, moved);
-  renderRefList();
-  dragSrcId = null;
+  document.querySelectorAll('.ref-item').forEach(el=>el.style.opacity='');
+  if(!dragSrcId||dragSrcId===tId)return;
+  const si=allRefOpts.findIndex(o=>String(o.id)===dragSrcId);
+  const ti=allRefOpts.findIndex(o=>String(o.id)===tId);
+  const[moved]=allRefOpts.splice(si,1);
+  allRefOpts.splice(ti,0,moved);
+  renderRefList();dragSrcId=null;
 }
 
-// ─── IMPORTAR ─────────────────────────────────────────────────────────────────
-function handleDrop(e) {
-  e.preventDefault();
-  document.getElementById('dropZone').classList.remove('drag');
-  handleFile(e.dataTransfer.files[0]);
-}
-function handleFile(file) {
-  if (!file) return;
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (ext === 'csv' || ext === 'txt') {
-    const r = new FileReader();
-    r.onload = e => {
-      const lines = e.target.result.split(/[\r\n]+/).map(l => l.trim()).filter(l => l.startsWith('http'));
-      fillPaste(lines);
-    };
-    r.readAsText(file, 'UTF-8');
-  } else if (ext === 'xlsx' || ext === 'xls') {
-    const r = new FileReader();
-    r.onload = e => {
-      const wb = XLSX.read(e.target.result, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
-      // Detecta coluna 'link' ou usa primeira coluna
-      let col = 0;
-      if (json[0]) {
-        const headers = json[0].map(v => String(v || '').toLowerCase());
-        const ci = headers.indexOf('link');
-        if (ci >= 0) col = ci;
-      }
-      const links = json.slice(1).map(row => String(row[col] || '').trim()).filter(l => l.startsWith('http'));
+// IMPORTAR
+function handleDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');handleFile(e.dataTransfer.files[0]);}
+function handleFile(file){
+  if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='csv'||ext==='txt'){
+    const r=new FileReader();
+    r.onload=e=>fillPaste(e.target.result.split(/[\r\n]+/).map(l=>l.split(',')[0].trim()).filter(l=>l.startsWith('http')));
+    r.readAsText(file,'UTF-8');
+  } else if(ext==='xlsx'||ext==='xls'){
+    const r=new FileReader();
+    r.onload=e=>{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const json=XLSX.utils.sheet_to_json(ws,{header:1});
+      let col=0;
+      if(json[0]){const h=json[0].map(v=>String(v).toLowerCase());const ci=h.indexOf('link');if(ci>=0)col=ci;}
+      const links=json.slice(1).map(r=>String(r[col]||'').trim()).filter(l=>l.startsWith('http'));
       fillPaste(links);
     };
     r.readAsArrayBuffer(file);
-  } else {
-    toast('Formato inválido. Use CSV, XLSX ou TXT.', 'error');
-  }
+  } else {toast('Formato inválido. Use CSV, XLSX ou TXT.','error');}
 }
-function fillPaste(links) {
-  document.getElementById('pasteArea').value = links.join('\n');
-  toast(`${links.length} link(s) carregado(s).`, 'success');
-}
-function loadDemoLinks() {
-  document.getElementById('pasteArea').value =
-    'https://chatgpt.com/p/PROMO-A1B2\nhttps://chatgpt.com/p/DESC-2024X\nhttps://chatgpt.com/p/VIP-GOLD01\nhttps://chatgpt.com/p/FLASH50OFF';
-}
-async function runImport() {
-  const raw = document.getElementById('pasteArea').value.trim();
-  if (!raw) { toast('Cole ou carregue os links primeiro.', 'error'); return; }
+function fillPaste(links){document.getElementById('pasteArea').value=links.join('\n');toast(`${links.length} link(s) carregado(s).`,'success');}
+function loadDemoLinks(){document.getElementById('pasteArea').value='https://chatgpt.com/p/PROMO-A1B2\nhttps://chatgpt.com/p/DESC-2024X\nhttps://chatgpt.com/p/VIP-GOLD01\nhttps://chatgpt.com/p/FLASH50OFF';}
+async function runImport(){
+  const raw=document.getElementById('pasteArea').value.trim();
+  if(!raw){toast('Cole ou carregue os links primeiro.','error');return;}
+  const input=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.startsWith('http'));
+  const unique=[...new Set(input)];
+  const internalDups=input.length-unique.length;
+  const btn=document.getElementById('importBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Validando...';
 
-  const input = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l.startsWith('http'));
-  const unique = [...new Set(input)];
-  const internalDups = input.length - unique.length;
-
-  const btn = document.getElementById('importBtn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Validando...';
-
-  // Verifica duplicatas no banco em lotes
-  const existMap = {};
-  for (let i = 0; i < unique.length; i += 200) {
-    const batch = unique.slice(i, i + 200);
-    const { data: existing } = await db.from('coupons').select('link,status').in('link', batch);
-    (existing || []).forEach(c => existMap[c.link] = c.status);
+  // Busca existentes em lotes de 200
+  const existMap={};
+  for(let i=0;i<unique.length;i+=200){
+    const batch=unique.slice(i,i+200);
+    const{data:existing}=await db.from('coupons').select('link,status').in('link',batch);
+    (existing||[]).forEach(c=>existMap[c.link]=c.status);
   }
 
-  const toInsert = [], dupAvail = [], dupDist = [], dupBlock = [];
-  unique.forEach(link => {
-    if (existMap[link] === undefined) toInsert.push(link);
-    else if (existMap[link] === 'available') dupAvail.push(link);
-    else if (existMap[link] === 'distributed') dupDist.push(link);
+  const toInsert=[],dupAvail=[],dupDist=[],dupBlock=[];
+  unique.forEach(link=>{
+    if(existMap[link]===undefined)toInsert.push(link);
+    else if(existMap[link]==='available')dupAvail.push(link);
+    else if(existMap[link]==='distributed')dupDist.push(link);
     else dupBlock.push(link);
   });
 
-  let inserted = 0;
-  if (toInsert.length) {
-    btn.innerHTML = '<span class="spinner"></span> Importando...';
-    // Insere em lotes de 100
-    for (let i = 0; i < toInsert.length; i += 100) {
-      const batch = toInsert.slice(i, i + 100).map(link => ({ link, status: 'available' }));
-      const { error } = await db.from('coupons').insert(batch);
-      if (error) {
-        btn.disabled = false; btn.innerHTML = '📥 Importar';
-        toast('Erro ao inserir: ' + error.message, 'error', 5000);
-        return;
-      }
-      inserted += batch.length;
-    }
+  let inserted=0, distributedAuto=0;
+  if(toInsert.length){
+    btn.innerHTML='<span class="spinner"></span> Importando...';
+    const{data:result,error}=await db.rpc('import_coupons',{links:toInsert});
+    if(error){btn.disabled=false;btn.innerHTML='📥 Importar';toast('Erro: '+error.message,'error',5000);return;}
+    inserted=result?.[0]?.inserted||toInsert.length;
+    distributedAuto=result?.[0]?.distributed_auto||0;
   }
-
-  btn.disabled = false; btn.innerHTML = '📥 Importar';
-  showImportRes({ inserted, internalDups, dupAvail, dupDist, dupBlock });
-  if (inserted) {
-    document.getElementById('pasteArea').value = '';
-    loadCoupons();
-  }
+  btn.disabled=false;btn.innerHTML='📥 Importar';
+  showImportRes({inserted,internalDups,dupAvail,dupDist,dupBlock,distributedAuto});
+  if(inserted){document.getElementById('pasteArea').value='';loadCoupons();loadWaitlist();}
 }
-function showImportRes({ inserted, internalDups, dupAvail, dupDist, dupBlock }) {
-  const box = document.getElementById('importRes');
-  const hasW = internalDups > 0 || dupAvail.length || dupDist.length || dupBlock.length;
-  const cls = inserted > 0 && !hasW ? 'ir-success' : 'ir-warn';
-  let h = `<div class="ir-head">${inserted > 0 ? `✅ ${inserted} link(s) importado(s) com sucesso.` : '⚠️ Nenhum link novo importado.'}</div><div class="ir-body">`;
-  if (internalDups)    h += `<div>• <strong>${internalDups}</strong> duplicata(s) na colagem, ignoradas.</div>`;
-  if (dupAvail.length) h += `<div>• <strong>${dupAvail.length}</strong> já disponível(is): ${dupAvail.slice(0,5).map(l => `<span class="tag-dup">${esc(l.slice(0,50))}</span>`).join('')}${dupAvail.length > 5 ? `<span class="tag-dup">+${dupAvail.length-5} mais</span>`:''}</div>`;
-  if (dupDist.length)  h += `<div>• <strong>${dupDist.length}</strong> já distribuído(s): ${dupDist.slice(0,5).map(l => `<span class="tag-used">${esc(l.slice(0,50))}</span>`).join('')}${dupDist.length > 5 ? `<span class="tag-used">+${dupDist.length-5} mais</span>`:''}</div>`;
-  if (dupBlock.length) h += `<div>• <strong>${dupBlock.length}</strong> bloqueado(s): ${dupBlock.slice(0,5).map(l => `<span class="tag-used">${esc(l.slice(0,50))}</span>`).join('')}${dupBlock.length > 5 ? `<span class="tag-used">+${dupBlock.length-5} mais</span>`:''}</div>`;
-  h += '</div>';
-  box.className = `import-res show ${cls}`;
-  box.innerHTML = h;
+function showImportRes({inserted,internalDups,dupAvail,dupDist,dupBlock,distributedAuto=0}){
+  const box=document.getElementById('importRes');
+  const hasW=internalDups>0||dupAvail.length||dupDist.length||dupBlock.length;
+  const cls=inserted>0&&!hasW?'ir-success':'ir-warn';
+  let h=`<div class="ir-head">${inserted>0?`✅ ${inserted} link(s) importado(s) com sucesso.`:'⚠️ Nenhum link novo importado.'}</div><div class="ir-body">`;
+  if(distributedAuto>0) h+=`<div>• 🎉 <strong>${distributedAuto}</strong> distribuído(s) automaticamente para a lista de espera.</div>`;
+
+  if(internalDups)    h+=`<div>• <strong>${internalDups}</strong> duplicata(s) na colagem, ignoradas.</div>`;
+  if(dupAvail.length) h+=`<div>• <strong>${dupAvail.length}</strong> já disponível(is):<br>${dupAvail.map(l=>`<span class="tag-dup">${l.slice(0,50)}</span>`).join('')}</div>`;
+  if(dupDist.length)  h+=`<div>• <strong>${dupDist.length}</strong> já distribuído(s):<br>${dupDist.map(l=>`<span class="tag-used">${l.slice(0,50)}</span>`).join('')}</div>`;
+  if(dupBlock.length) h+=`<div>• <strong>${dupBlock.length}</strong> bloqueado(s):<br>${dupBlock.map(l=>`<span class="tag-used">${l.slice(0,50)}</span>`).join('')}</div>`;
+  h+='</div>';
+  box.className=`import-res show ${cls}`;box.innerHTML=h;
 }
 
-// ─── LOGS ─────────────────────────────────────────────────────────────────────
-// Schema events: id, coupons_id, users_id, event_type, created_at, metadata
-async function loadLogs() {
-  document.getElementById('logsBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+// LOGS
+async function loadLogs(){
+  const{data}=await db.from('events')
+    .select('id,event_type,created_at,coupons_id,users_id')
+    .order('created_at',{ascending:false}).limit(100);
+  const body=document.getElementById('logsBody');
+  if(!data?.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Sem eventos</div></div>';return;}
+  const rows=data.map(e=>`<tr>
+    <td>${new Date(e.created_at).toLocaleString('pt-BR')}</td>
+    <td><span class="badge b-${e.event_type==='distributed'?'distributed':'available'}">${e.event_type}</span></td>
+    <td class="truncate mono"><a href="${e.coupons?.link||'#'}" target="_blank">${e.coupons?.link||'—'}</a></td>
+    <td class="primary">${e.users?.name||'—'}</td>
+    <td>${e.users?.email||'—'}</td>
+  </tr>`).join('');
+  body.innerHTML=`<table><thead><tr><th>Data/Hora</th><th>Evento</th><th>Link</th><th>Usuário</th><th>E-mail</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
 
-  const { data: events, error } = await db
-    .from('events')
-    .select('id,event_type,created_at,coupons_id,users_id,metadata')
-    .order('created_at', { ascending: false })
-    .limit(200);
-
-  const body = document.getElementById('logsBody');
-  if (error) {
-    body.innerHTML = `<div class="empty-state"><div class="empty-title">Erro: ${esc(error.message)}</div></div>`;
-    return;
-  }
-  if (!events?.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Sem eventos</div></div>';
-    return;
-  }
-
-  // Join manual: busca cupons e usuários referenciados nos eventos
-  const cIds = [...new Set(events.map(e => e.coupons_id).filter(Boolean))];
-  const uIds = [...new Set(events.map(e => e.users_id).filter(Boolean))];
-
-  let cMap = {}, uMap = {};
-  const [cRes, uRes] = await Promise.all([
-    cIds.length ? db.from('coupons').select('id,link').in('id', cIds) : { data: [] },
-    uIds.length ? db.from('users').select('id,name,email').in('id', uIds) : { data: [] }
-  ]);
-  (cRes.data || []).forEach(c => cMap[c.id] = c);
-  (uRes.data || []).forEach(u => uMap[u.id] = u);
-
-  const rows = events.map(e => {
-    const coupon = cMap[e.coupons_id];
-    const user = uMap[e.users_id];
-    return `<tr>
-      <td>${fmtDate(e.created_at)}</td>
-      <td><span class="badge ${e.event_type === 'distributed' ? 'b-distributed' : 'b-available'}">${esc(e.event_type)}</span></td>
-      <td class="truncate mono" style="max-width:200px">
-        ${coupon ? `<a href="${esc(coupon.link)}" target="_blank" rel="noopener">${esc(coupon.link)}</a>` : '—'}
-      </td>
-      <td class="primary">${esc(user?.name || '—')}</td>
-      <td>${esc(user?.email || '—')}</td>
-    </tr>`;
-  }).join('');
-
-  body.innerHTML = `<table><thead><tr><th>Data/Hora</th><th>Evento</th><th>Link</th><th>Usuário</th><th>E-mail</th></tr></thead><tbody>${rows}</tbody></table>`;
+// UTILS
+function dl(name,content){
+  Object.assign(document.createElement('a'),{
+    href:URL.createObjectURL(new Blob(['\uFEFF'+content],{type:'text/csv;charset=utf-8'})),
+    download:name
+  }).click();
+}
+function esc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
