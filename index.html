@@ -25,19 +25,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 button{font-family:inherit;cursor:pointer;border:none;outline:none;transition:all .18s}
 input,select{font-family:inherit;font-size:14px;transition:all .18s}
 a{color:var(--accent-light);text-decoration:none}
-
+ 
 .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem 1rem;background:radial-gradient(ellipse at 60% 0%,#1a1535 0%,var(--bg) 60%)}
 .card{width:100%;max-width:480px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2.5rem;box-shadow:var(--shadow)}
-
+ 
 /* Logo */
 .logo{display:flex;align-items:center;gap:12px;}
 .logo-img{width:120px;height:auto;object-fit:contain;display:block;flex-shrink:0;}
 .logo-name{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;letter-spacing:-.3px}
 .logo-sub{font-size:11px;color:var(--text3);margin-top:1px}
-
+ 
 .title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:.4rem}
 .subtitle{color:var(--text2);font-size:13px;margin-bottom:2rem;line-height:1.5}
-
+ 
 /* Form */
 .fg{margin-bottom:1.25rem}
 .fg label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.5rem}
@@ -46,18 +46,18 @@ a{color:var(--accent-light);text-decoration:none}
 .fg input:focus,.fg select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,.15)}
 .fg select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%236a6a7a' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
 .fg input::placeholder{color:var(--text3)}
-
+ 
 /* Checkbox */
 .check-row{display:flex;align-items:flex-start;gap:.75rem;cursor:pointer;margin-bottom:1.5rem}
 .check-row input[type=checkbox]{width:17px;height:17px;min-width:17px;accent-color:var(--accent);margin-top:3px;cursor:pointer}
 .check-row span{font-size:13px;color:var(--text2);line-height:1.5}
 .check-row a{color:var(--accent-light)}
-
+ 
 /* Alert */
 .alert{padding:.875rem 1rem;border-radius:var(--radius);font-size:13px;margin-bottom:1rem;display:flex;align-items:flex-start;gap:.5rem}
 .alert-danger{background:var(--danger-bg);border:1px solid rgba(239,68,68,.2);color:#fca5a5}
 .alert-warn{background:var(--warning-bg);border:1px solid rgba(245,158,11,.2);color:#fde68a}
-
+ 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:.75rem 1.5rem;border-radius:var(--radius);font-size:14px;font-weight:600}
 .btn-primary{background:var(--accent);color:#fff;width:100%}
@@ -67,31 +67,31 @@ a{color:var(--accent-light);text-decoration:none}
 .btn-ghost:hover{color:var(--text2)}
 .btn-outline{background:transparent;border:1px solid var(--border2);color:var(--text);padding:.65rem 1.25rem;border-radius:var(--radius);font-size:13px;font-weight:600}
 .btn-outline:hover{background:var(--bg3)}
-
+ 
 /* Success */
 .success-box{background:var(--success-bg);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-lg);padding:1.5rem;text-align:center;margin-bottom:1.25rem}
 .success-icon{font-size:38px;margin-bottom:.75rem}
 .success-title{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--success);margin-bottom:.4rem}
 .success-msg{font-size:13px;color:var(--text2);line-height:1.5}
-
+ 
 /* Link box */
 .link-box{background:var(--bg3);border:1px dashed var(--border2);border-radius:var(--radius);padding:1rem;margin:1rem 0;word-break:break-all}
 .link-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);margin-bottom:.4rem}
 .link-url{color:var(--accent-light);font-size:13px;font-weight:500;line-height:1.4}
-
+ 
 .actions{display:flex;gap:.75rem;flex-wrap:wrap}
 .actions .btn{flex:1;min-width:120px}
-
+ 
 /* Empty */
 .empty-box{text-align:center;padding:1.5rem 0}
 .empty-icon{font-size:40px;margin-bottom:.75rem;opacity:.5}
 .empty-title{font-family:'Space Grotesk',sans-serif;font-size:17px;font-weight:700;margin-bottom:.5rem}
 .empty-sub{font-size:13px;color:var(--text2);line-height:1.5}
-
+ 
 /* Spinner */
 .spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
-
+ 
 .hidden{display:none!important}
 .modal{
   position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;
@@ -107,7 +107,7 @@ a{color:var(--accent-light);text-decoration:none}
   border:none;border-radius:50%;cursor:pointer;
 }
 .divider{height:1px;background:var(--border);margin:1.5rem 0}
-
+ 
 @media(max-width:480px){.card{padding:1.5rem}.actions{flex-direction:column}}
 </style>
 </head>
@@ -121,14 +121,14 @@ a{color:var(--accent-light);text-decoration:none}
         <div class="logo-sub">Links exclusivos de desconto</div>
       </div>
     </div>
-
+ 
     <!-- FORMULÁRIO -->
     <div id="stateForm">
       <div class="title">Cadastre-se e receba</div>
       <div class="subtitle">Preencha seus dados para receber um link de cupom exclusivo. Cada pessoa pode resgatar apenas <strong style="color:var(--text)">1 cupom</strong>.</div>
-
+ 
       <div id="alertBox" class="alert alert-danger hidden"></div>
-
+ 
       <div class="fg"><label>Nome completo <span>*</span></label><input type="text" id="f-name" placeholder="Seu nome completo" autocomplete="name" /></div>
       <div class="fg"><label>Telefone / WhatsApp <span>*</span></label><input type="tel" id="f-phone" placeholder="(11) 99999-9999" autocomplete="tel" /></div>
       <div class="fg"><label>E-mail <span>*</span></label><input type="email" id="f-email" placeholder="seu@email.com" autocomplete="email" /></div>
@@ -149,12 +149,12 @@ a{color:var(--accent-light);text-decoration:none}
           Autorizo o tratamento dos meus dados para distribuição do cupom conforme a LGPD.
         </span>
       </div>
-
+ 
       <button class="btn btn-primary" id="submitBtn" onclick="submitForm()">
         🎫 Resgatar meu cupom
       </button>
     </div>
-
+ 
     <!-- SUCESSO -->
     <div id="stateSuccess" class="hidden">
       <div class="success-box">
@@ -173,7 +173,7 @@ a{color:var(--accent-light);text-decoration:none}
       <div class="divider"></div>
       <p style="font-size:11px;color:var(--text3);text-align:center;line-height:1.5">⚠️ Guarde este link. Ele é pessoal e intransferível.</p>
     </div>
-
+ 
     <!-- JÁ CADASTRADO -->
     <div id="stateAlready" class="hidden">
       <div class="success-box" style="background:var(--warning-bg);border-color:rgba(245,158,11,.2)">
@@ -190,7 +190,7 @@ a{color:var(--accent-light);text-decoration:none}
         <button class="btn btn-outline" onclick="copyAlreadyLink()">📋 Copiar link</button>
       </div>
     </div>
-
+ 
     <!-- ESGOTADO / LISTA DE ESPERA -->
     <div id="stateEmpty" class="hidden">
       <div class="empty-box">
@@ -203,10 +203,10 @@ a{color:var(--accent-light);text-decoration:none}
         </div>
       </div>
     </div>
-
+ 
   </div>
 </div>
-
+ 
 <!-- Modal Termos -->
 <div id="termsModal" class="modal hidden">
   <div class="modal-content">
@@ -245,7 +245,7 @@ a{color:var(--accent-light);text-decoration:none}
     </div>
   </div>
 </div>
-
+ 
 <!-- Modal Privacidade -->
 <div id="privacyModal" class="modal hidden">
   <div class="modal-content">
@@ -288,16 +288,16 @@ const SUPA_URL = 'https://eunnrjqeuczhtghbbzos.supabase.co';
 const SUPA_KEY = 'sb_publishable_A08jf3_gfKj6-PH826bNNA_pEF8QaNB';
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
-
+ 
 const norm = {
   email: v => v.trim().toLowerCase(),
   phone: v => v.replace(/\D/g,''),
 };
-
+ 
 let lastSubmit = 0;
 let currentLink = '';
 let alreadyLink = '';
-
+ 
 async function loadReferrals() {
   const sel = document.getElementById('f-referral');
   try {
@@ -306,14 +306,14 @@ async function loadReferrals() {
       .select('id, name')
       .eq('active', true)
       .order('created_at', { ascending: true });
-
+ 
     sel.innerHTML = '<option value="">Selecione uma opção</option>';
-
+ 
     if (error || !data?.length) {
       sel.innerHTML = '<option value="">Nenhuma opção disponível</option>';
       return;
     }
-
+ 
     data.forEach(o => {
       const opt = document.createElement('option');
       opt.value = o.id;
@@ -324,10 +324,10 @@ async function loadReferrals() {
     sel.innerHTML = '<option value="">Erro ao carregar opções</option>';
   }
 }
-
-
+ 
+ 
 loadReferrals();
-
+ 
 function showState(id) {
   ['stateForm','stateSuccess','stateAlready','stateEmpty'].forEach(s =>
     document.getElementById(s).classList.toggle('hidden', s !== id)
@@ -339,33 +339,33 @@ function showErr(msg) {
   b.classList.remove('hidden');
 }
 function hideErr() { document.getElementById('alertBox').classList.add('hidden'); }
-
+ 
 async function submitForm() {
   const now = Date.now();
   if (now - lastSubmit < 3000) { showErr('Aguarde alguns segundos.'); return; }
-
+ 
   const name     = document.getElementById('f-name').value.trim();
   const phone    = norm.phone(document.getElementById('f-phone').value);
   const email    = norm.email(document.getElementById('f-email').value);
   const referral = document.getElementById('f-referral').value;
   const terms    = document.getElementById('f-terms').checked;
-
+ 
   hideErr();
   if (!name)             return showErr('Nome é obrigatório.');
   if (phone.length < 10) return showErr('Telefone/WhatsApp inválido.');
   if (!email.includes('@')) return showErr('E-mail inválido.');
   if (!referral)         return showErr('Selecione como nos encontrou.');
   if (!terms)            return showErr('Aceite os termos para continuar.');
-
+ 
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Verificando...';
   lastSubmit = now;
-
+ 
   try {
     // 1. Verifica duplicidade: e-mail OU telefone (via função segura no banco, sem expor a tabela)
     const { data: existing } = await db.rpc('check_existing_user', { p_email: email, p_phone: phone });
-
+ 
     if (existing?.length > 0) {
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
       const u = existing[0];
@@ -374,14 +374,14 @@ async function submitForm() {
       document.getElementById('a-link').textContent = alreadyLink;
       showState('stateAlready'); return;
     }
-
+ 
     // 2. Busca cupom disponível
     const { data: avail } = await db
       .from('coupons')
       .select('id, link')
       .eq('status', 'available')
       .limit(1);
-
+ 
     if (!avail?.length) {
       // Salva na lista de espera
       await db.from('waitlist').upsert(
@@ -391,9 +391,9 @@ async function submitForm() {
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
       showState('stateEmpty'); return;
     }
-
+ 
     const coupon = avail[0];
-
+ 
     // 3. Marca cupom como distributed (guard race condition)
     const { data: locked } = await db
       .from('coupons')
@@ -401,18 +401,21 @@ async function submitForm() {
       .eq('id', coupon.id)
       .eq('status', 'available')
       .select();
-
+ 
     if (!locked?.length) {
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
       showErr('Conflito ao reservar cupom. Tente novamente.'); return;
     }
-
+ 
     // 4. Cria usuário
+    // CORREÇÃO: gravar o uuid da opção escolhida na coluna "referral_id"
+    // (o admin sempre lê/casa pelo referral_id — gravar em "referral" fazia
+    // as indicações não aparecerem no painel).
     const { data: newUser, error: uErr } = await db
       .from('users')
-      .insert({ name, email, phone, referral, coupons_id: coupon.id })
+      .insert({ name, email, phone, referral_id: referral, coupons_id: coupon.id })
       .select();
-
+ 
     if (uErr) {
       await db.from('coupons').update({ status: 'available', distributed_at: null }).eq('id', coupon.id);
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
@@ -420,10 +423,10 @@ async function submitForm() {
       else showErr('Erro ao salvar. Tente novamente.');
       return;
     }
-
+ 
     // 4.1 Espelha o vínculo do lado do cupom (evita ficar dessincronizado)
     await db.from('coupons').update({ users_id: newUser[0].id }).eq('id', coupon.id);
-
+ 
     // 5. Log
     await db.from('events').insert({
       coupons_id: coupon.id,
@@ -431,24 +434,24 @@ async function submitForm() {
       event_type: 'distributed',
       metadata: JSON.stringify({ email, phone, referral })
     });
-
+ 
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
     currentLink = coupon.link;
     document.getElementById('s-msg').textContent = `Parabéns, ${name}! Seu link exclusivo foi gerado.`;
     document.getElementById('s-link').textContent = coupon.link;
     showState('stateSuccess');
-
+ 
   } catch(e) {
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
     showErr('Erro inesperado. Tente novamente.');
   }
 }
-
+ 
 function openLink()  { window.open(currentLink, '_blank'); }
 function openAlreadyLink() { window.open(alreadyLink, '_blank'); }
 function copyLink()  { navigator.clipboard.writeText(currentLink).then(() => showToast('Link copiado!')); }
 function copyAlreadyLink() { navigator.clipboard.writeText(alreadyLink).then(() => showToast('Link copiado!')); }
-
+ 
 function showToast(msg) {
   const t = document.createElement('div');
   t.textContent = msg;
@@ -460,7 +463,7 @@ function showToast(msg) {
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 2500);
 }
-
+ 
 function openTerms(){
   document.getElementById('termsModal').classList.remove('hidden');
 }
