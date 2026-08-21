@@ -530,6 +530,37 @@ function refLabelById(id) {
   return o ? o.name : (id || '—');
 }
 
+// O Supabase/PostgREST limita qualquer select() a 1000 linhas por requisição.
+// fetchAllRows busca em páginas de 1000 até acabar, para nunca truncar listas grandes.
+// queryFactory deve retornar um NOVO query builder a cada chamada (ex: () => db.from('x').select('*').order('created_at')).
+async function fetchAllRows(queryFactory, pageSize = 1000) {
+  let all = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await queryFactory().range(from, from + pageSize - 1);
+    if (error) return { data: null, error };
+    all = all.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return { data: all, error: null };
+}
+// Divide um array em lotes — usado antes de .in(coluna, lista) para nunca mandar/receber mais de `size` de uma vez.
+function chunk(arr, size = 500) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+// Roda .in(col, ids) em lotes e junta os resultados — evita truncar quando ids.length ou o resultado passa de 1000.
+async function fetchByIdsBatched(table, selectCols, col, ids) {
+  let all = [];
+  for (const batch of chunk(ids, 500)) {
+    const { data } = await db.from(table).select(selectCols).in(col, batch);
+    if (data) all = all.concat(data);
+  }
+  return all;
+}
+
 // ─── TOAST ────────────────────────────────────────────────────────────────────
 function toast(msg, type = 'info', dur = 3200) {
   const w = document.getElementById('toastWrap');
@@ -631,23 +662,31 @@ function closeSidebar() {
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
-  // Carrega indicações
-  const { data: rOpts } = await db.from('referrals').select('id,name');
-  allRefOpts = rOpts || [];
-
   // Stats
-  const [{ data: cps }, { data: us }, { data: wl }] = await Promise.all([
-    db.from('coupons').select('status'),
-    db.from('users').select('id,referral_id'),
-    db.from('waitlist').select('id').eq('notified', false)
+  // IMPORTANTE: contagens via count:'exact', head:true (não busca as linhas, só o total real).
+  // O Supabase/PostgREST limita SELECTs normais a 1000 linhas por request; com mais de
+  // 1000 cupons/usuários, um select().length ficava truncado e os cartões mostravam
+  // números incorretos (ex.: "Total cupons" travado em 1000). Isso corrige isso.
+  const [rOptsRes, avail, dist, block, total, users, waitPending] = await Promise.all([
+    db.from('referrals').select('id,name'), // carrega indicações (allRefOpts abaixo)
+    db.from('coupons').select('*', { count: 'exact', head: true }).eq('status', 'available'),
+    db.from('coupons').select('*', { count: 'exact', head: true }).eq('status', 'distributed'),
+    db.from('coupons').select('*', { count: 'exact', head: true }).eq('status', 'blocked'),
+    db.from('coupons').select('*', { count: 'exact', head: true }),
+    db.from('users').select('*', { count: 'exact', head: true }),
+    db.from('waitlist').select('*', { count: 'exact', head: true }).eq('notified', false),
   ]);
+  allRefOpts = rOptsRes.data || allRefOpts;
 
-  document.getElementById('waitlistCount').textContent = wl?.length || 0;
-  document.getElementById('s-avail').textContent  = (cps || []).filter(c => c.status === 'available').length;
-  document.getElementById('s-dist').textContent   = (cps || []).filter(c => c.status === 'distributed').length;
-  document.getElementById('s-block').textContent  = (cps || []).filter(c => c.status === 'blocked').length;
-  document.getElementById('s-users').textContent  = (us || []).length;
-  document.getElementById('s-total').textContent  = (cps || []).length;
+  document.getElementById('waitlistCount').textContent = waitPending.count || 0;
+  document.getElementById('s-avail').textContent  = avail.count || 0;
+  document.getElementById('s-dist').textContent   = dist.count  || 0;
+  document.getElementById('s-block').textContent  = block.count || 0;
+  document.getElementById('s-users').textContent  = users.count || 0;
+  document.getElementById('s-total').textContent  = total.count || 0;
+
+  // Dados completos dos usuários, para o gráfico de canal de origem logo abaixo
+  const { data: us } = await fetchAllRows(() => db.from('users').select('id,referral_id'));
 
   loadAtivados(); // valor manual salvo localmente
 
@@ -721,10 +760,10 @@ async function loadDashboard() {
 async function loadCoupons() {
   document.getElementById('couponBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
 
-  const { data: cps, error } = await db
+  const { data: cps, error } = await fetchAllRows(() => db
     .from('coupons')
     .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }));
 
   if (error) {
     document.getElementById('couponBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro ao carregar: ${esc(error.message)}</div></div>`;
@@ -738,8 +777,8 @@ async function loadCoupons() {
   // Busca usuários pelo users_id do cupom
   let uMap = {}; // userId → user
   if (uIdsFromCoupon.length) {
-    const { data: us1 } = await db.from('users').select('id,name,email,coupons_id').in('id', uIdsFromCoupon);
-    (us1 || []).forEach(u => uMap[u.id] = u);
+    const us1 = await fetchByIdsBatched('users', 'id,name,email,coupons_id', 'id', uIdsFromCoupon);
+    us1.forEach(u => uMap[u.id] = u);
   }
 
   // Busca usuários pelo coupons_id (para registros antigos onde users_id no cupom é null)
@@ -747,8 +786,8 @@ async function loadCoupons() {
   // Para cupons distribuídos sem users_id, busca via users.coupons_id
   const cpsWithoutUser = (cps || []).filter(c => c.status === 'distributed' && !c.users_id).map(c => c.id);
   if (cpsWithoutUser.length) {
-    const { data: us2 } = await db.from('users').select('id,name,email,coupons_id').in('coupons_id', cpsWithoutUser);
-    (us2 || []).forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
+    const us2 = await fetchByIdsBatched('users', 'id,name,email,coupons_id', 'coupons_id', cpsWithoutUser);
+    us2.forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
   }
   // Também indexa por couponId os usuários já encontrados via users_id
   Object.values(uMap).forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
@@ -1005,10 +1044,10 @@ async function loadUsers() {
     allRefOpts = data || [];
   }
 
-  const { data: us, error } = await db
+  const { data: us, error } = await fetchAllRows(() => db
     .from('users')
     .select('id,name,email,phone,referral_id,coupons_id,created_at')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }));
 
   if (error) {
     document.getElementById('userBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro: ${esc(error.message)}</div></div>`;
@@ -1024,18 +1063,19 @@ async function loadUsers() {
 
   // 1. Busca cupons pelo coupons_id do usuário
   if (cIdsFromUser.length) {
-    const { data: cs1 } = await db.from('coupons').select('id,link').in('id', cIdsFromUser);
-    (cs1 || []).forEach(c => cMapById[c.id] = c.link);
+    const cs1 = await fetchByIdsBatched('coupons', 'id,link', 'id', cIdsFromUser);
+    cs1.forEach(c => cMapById[c.id] = c.link);
   }
 
   // 2. Busca cupons pelo users_id (para registros antigos onde users.coupons_id é null)
   const usersWithoutCouponId = (us || []).filter(u => !u.coupons_id).map(u => u.id);
   if (usersWithoutCouponId.length) {
-    const { data: cs2 } = await db
-      .from('coupons').select('id,link,users_id')
-      .eq('status','distributed')
-      .in('users_id', usersWithoutCouponId);
-    (cs2 || []).forEach(c => { if (c.users_id) cMapByUser[c.users_id] = c.link; });
+    let cs2 = [];
+    for (const batch of chunk(usersWithoutCouponId, 500)) {
+      const { data } = await db.from('coupons').select('id,link,users_id').eq('status','distributed').in('users_id', batch);
+      if (data) cs2 = cs2.concat(data);
+    }
+    cs2.forEach(c => { if (c.users_id) cMapByUser[c.users_id] = c.link; });
   }
 
   allUsers = (us || []).map(u => ({
@@ -1120,10 +1160,10 @@ async function loadWaitlist() {
     allRefOpts = data || [];
   }
 
-  const { data, error } = await db
+  const { data, error } = await fetchAllRows(() => db
     .from('waitlist')
     .select('id,name,email,phone,referral_id,created_at,notified,notified_at')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }));
 
   const body = document.getElementById('waitlistBody');
   allWaitlist = data || [];
