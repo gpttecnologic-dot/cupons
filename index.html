@@ -423,6 +423,13 @@ async function submitForm() {
       metadata: JSON.stringify({ email, phone, referral })
     });
 
+    // 6. Dispara e-mail automaticamente (não bloqueia o fluxo)
+    fetch(`${SUPA_URL}/functions/v1/send-coupon-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+      body: JSON.stringify({ user_id: newUser[0].id, coupon_id: coupon.id })
+    }).catch(() => {});
+
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
     currentLink = coupon.link;
     document.getElementById('s-msg').textContent = `Parabéns, ${name}! Seu link exclusivo foi gerado.`;
