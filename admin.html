@@ -276,7 +276,14 @@ body{overflow-x:hidden}
           <div class="stat-card"><div class="stat-label">Bloqueados</div><div class="stat-val red" id="s-block">—</div></div>
           <div class="stat-card"><div class="stat-label">Usuários</div><div class="stat-val amber" id="s-users">—</div></div>
           <div class="stat-card"><div class="stat-label">Total cupons</div><div class="stat-val white" id="s-total">—</div></div>
-          <div class="stat-card"><div class="stat-label">Ativados</div><div class="stat-val" style="color:var(--accent-light)" id="s-today">—</div></div>
+          <div class="stat-card" style="cursor:pointer;position:relative" onclick="openAtivados()" title="Clique para editar">
+            <div class="stat-label" style="display:flex;align-items:center;justify-content:space-between">
+              Ativados
+              <span style="font-size:9px;color:var(--text3);font-weight:400;letter-spacing:0">✏ editar</span>
+            </div>
+            <div class="stat-val" style="color:var(--accent-light)" id="s-today">—</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:.2rem">informado manualmente</div>
+          </div>
         </div>
         <div class="tbl-wrap">
           <div class="tbl-head"><div><div class="tbl-title">Últimos resgates</div><div class="tbl-sub">10 registros mais recentes</div></div></div>
@@ -431,6 +438,26 @@ body{overflow-x:hidden}
     </div><!-- /main -->
   </div><!-- /layout -->
 </div><!-- /adminScreen -->
+
+<!-- MODAL ATIVADOS -->
+<div class="modal-overlay" id="ativadosModal">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-title">✏ Atualizar Ativados</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:1.25rem;line-height:1.5">
+      Informe quantos cupons foram efetivamente resgatados/ativados.
+    </p>
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.4rem">Quantidade</label>
+    <input id="ativadosInput" type="number" min="0"
+      style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;color:var(--text);font-size:22px;font-weight:700;outline:none;text-align:center"
+      onfocus="this.style.borderColor='var(--accent)'"
+      onblur="this.style.borderColor='var(--border)'"
+      onkeydown="if(event.key==='Enter')saveAtivados()"/>
+    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="closeAtivados()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAtivados()">Salvar</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL TROCAR CUPOM -->
 <div class="modal-overlay" id="swapModal">
@@ -621,7 +648,7 @@ async function loadDashboard() {
   document.getElementById('s-users').textContent  = (us || []).length;
   document.getElementById('s-total').textContent  = (cps || []).length;
 
-  document.getElementById('s-today').textContent = (cps || []).filter(c => c.status === 'distributed').length;
+  loadAtivados(); // valor manual salvo localmente
 
   // Últimos resgates: busca users + join manual com coupons
   // Schema: users.coupons_id → coupons.id; coupons.link
@@ -1326,6 +1353,33 @@ async function loadLogs() {
   }).join('');
 
   body.innerHTML = `<table><thead><tr><th>Data/Hora</th><th>Evento</th><th>Link</th><th>Usuário</th><th>E-mail</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ─── ATIVADOS MANUAL ──────────────────────────────────────────────────────────
+const ATIVADOS_KEY = 'cupom_ativados_count';
+
+function loadAtivados() {
+  const val = localStorage.getItem(ATIVADOS_KEY) || '0';
+  document.getElementById('s-today').textContent = val;
+}
+function openAtivados() {
+  const cur = localStorage.getItem(ATIVADOS_KEY) || '0';
+  document.getElementById('ativadosInput').value = cur;
+  document.getElementById('ativadosModal').classList.add('show');
+  setTimeout(() => {
+    const inp = document.getElementById('ativadosInput');
+    inp.focus(); inp.select();
+  }, 120);
+}
+function closeAtivados() {
+  document.getElementById('ativadosModal').classList.remove('show');
+}
+function saveAtivados() {
+  const val = parseInt(document.getElementById('ativadosInput').value) || 0;
+  localStorage.setItem(ATIVADOS_KEY, val);
+  document.getElementById('s-today').textContent = val;
+  closeAtivados();
+  toast('Ativados atualizado para ' + val + '.', 'success');
 }
 </script>
 </body>
