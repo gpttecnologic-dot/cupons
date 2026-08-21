@@ -662,21 +662,30 @@ async function loadDashboard() {
   if (!recent?.length) {
     rb.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Nenhum resgate ainda</div></div>';
   } else {
-    // Busca os links dos cupons de uma vez
-    const cIds = [...new Set(recent.map(u => u.coupons_id).filter(Boolean))];
-    let cMap = {};
-    if (cIds.length) {
-      const { data: cs } = await db.from('coupons').select('id,link').in('id', cIds);
-      (cs || []).forEach(c => cMap[c.id] = c.link);
+    // Join duplo: coupons_id do user E users_id no cupom (cobre registros antigos)
+    const cIdsFromUser = [...new Set(recent.map(u => u.coupons_id).filter(Boolean))];
+    const uIdsForLookup = recent.filter(u => !u.coupons_id).map(u => u.id);
+
+    let cMapById = {}, cMapByUser = {};
+    if (cIdsFromUser.length) {
+      const { data: cs1 } = await db.from('coupons').select('id,link').in('id', cIdsFromUser);
+      (cs1 || []).forEach(c => cMapById[c.id] = c.link);
+    }
+    if (uIdsForLookup.length) {
+      const { data: cs2 } = await db.from('coupons').select('link,users_id').eq('status','distributed').in('users_id', uIdsForLookup);
+      (cs2 || []).forEach(c => { if (c.users_id) cMapByUser[c.users_id] = c.link; });
     }
 
-    const rows = recent.map(u => `<tr>
+    const rows = recent.map(u => {
+      const link = (u.coupons_id ? cMapById[u.coupons_id] : null) || cMapByUser[u.id] || null;
+      return `<tr>
       <td class="primary">${esc(u.name)}</td>
       <td>${esc(u.email)}</td>
       <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
-      <td class="truncate mono" style="max-width:200px"><a href="${esc(cMap[u.coupons_id] || '#')}" target="_blank" rel="noopener">${esc(cMap[u.coupons_id] || '—')}</a></td>
+      <td class="truncate mono" style="max-width:200px"><a href="${esc(link || '#')}" target="_blank" rel="noopener">${esc(link || '—')}</a></td>
       <td>${fmtDate(u.created_at)}</td>
-    </tr>`).join('');
+    </tr>`;
+    }).join('');
     rb.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Indicação</th><th>Link</th><th>Data</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
@@ -711,7 +720,6 @@ async function loadDashboard() {
 async function loadCoupons() {
   document.getElementById('couponBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
 
-  // Busca todos os cupons
   const { data: cps, error } = await db
     .from('coupons')
     .select('id,link,status,created_at,distributed_at,users_id')
@@ -722,15 +730,32 @@ async function loadCoupons() {
     return;
   }
 
-  // Busca usuários dos cupons distribuídos (join manual para evitar ambiguidade de FK)
-  const uIds = [...new Set((cps || []).map(c => c.users_id).filter(Boolean))];
-  let uMap = {};
-  if (uIds.length) {
-    const { data: us } = await db.from('users').select('id,name,email').in('id', uIds);
-    (us || []).forEach(u => uMap[u.id] = u);
+  // Busca todos os usuários de uma vez (join duplo: por users_id no cupom OU por coupons_id no usuário)
+  const couponIds = (cps || []).map(c => c.id);
+  const uIdsFromCoupon = [...new Set((cps || []).map(c => c.users_id).filter(Boolean))];
+
+  // Busca usuários pelo users_id do cupom
+  let uMap = {}; // userId → user
+  if (uIdsFromCoupon.length) {
+    const { data: us1 } = await db.from('users').select('id,name,email,coupons_id').in('id', uIdsFromCoupon);
+    (us1 || []).forEach(u => uMap[u.id] = u);
   }
 
-  allCoupons = (cps || []).map(c => ({ ...c, user: c.users_id ? (uMap[c.users_id] || null) : null }));
+  // Busca usuários pelo coupons_id (para registros antigos onde users_id no cupom é null)
+  let couponToUser = {}; // couponId → user
+  // Para cupons distribuídos sem users_id, busca via users.coupons_id
+  const cpsWithoutUser = (cps || []).filter(c => c.status === 'distributed' && !c.users_id).map(c => c.id);
+  if (cpsWithoutUser.length) {
+    const { data: us2 } = await db.from('users').select('id,name,email,coupons_id').in('coupons_id', cpsWithoutUser);
+    (us2 || []).forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
+  }
+  // Também indexa por couponId os usuários já encontrados via users_id
+  Object.values(uMap).forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
+
+  allCoupons = (cps || []).map(c => ({
+    ...c,
+    user: c.users_id ? (uMap[c.users_id] || couponToUser[c.id] || null) : (couponToUser[c.id] || null)
+  }));
   renderCoupons();
 }
 
@@ -958,15 +983,33 @@ async function loadUsers() {
     return;
   }
 
-  // Join manual com coupons para pegar o link
-  const cIds = [...new Set((us || []).map(u => u.coupons_id).filter(Boolean))];
-  let cMap = {};
-  if (cIds.length) {
-    const { data: cs } = await db.from('coupons').select('id,link').in('id', cIds);
-    (cs || []).forEach(c => cMap[c.id] = c.link);
+  // Join duplo: pelo coupons_id do usuário E pelo users_id do cupom (cobre registros antigos)
+  const cIdsFromUser = [...new Set((us || []).map(u => u.coupons_id).filter(Boolean))];
+  const uIdsForCoupon = [...new Set((us || []).map(u => u.id))];
+
+  let cMapById   = {}; // couponId  → link
+  let cMapByUser = {}; // userId    → link  (via coupons.users_id)
+
+  // 1. Busca cupons pelo coupons_id do usuário
+  if (cIdsFromUser.length) {
+    const { data: cs1 } = await db.from('coupons').select('id,link').in('id', cIdsFromUser);
+    (cs1 || []).forEach(c => cMapById[c.id] = c.link);
   }
 
-  allUsers = (us || []).map(u => ({ ...u, couponLink: cMap[u.coupons_id] || null }));
+  // 2. Busca cupons pelo users_id (para registros antigos onde users.coupons_id é null)
+  const usersWithoutCouponId = (us || []).filter(u => !u.coupons_id).map(u => u.id);
+  if (usersWithoutCouponId.length) {
+    const { data: cs2 } = await db
+      .from('coupons').select('id,link,users_id')
+      .eq('status','distributed')
+      .in('users_id', usersWithoutCouponId);
+    (cs2 || []).forEach(c => { if (c.users_id) cMapByUser[c.users_id] = c.link; });
+  }
+
+  allUsers = (us || []).map(u => ({
+    ...u,
+    couponLink: (u.coupons_id ? cMapById[u.coupons_id] : null) || cMapByUser[u.id] || null
+  }));
   renderUsers();
 }
 
