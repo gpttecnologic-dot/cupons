@@ -844,7 +844,7 @@ function renderUsers(){
     <td class="truncate mono"><a href="${u.coupons?.link||'#'}" target="_blank">${u.coupons?.link||'—'}</a></td>
     <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
     <td><div class="btns">
-      <button class="btn btn-ghost btn-sm btn-icon${u.emailError?' btn-danger':''}" onclick="openWhatsApp('${u.phone||''}','${esc(u.name)}','${esc(refLabelById(u.referral_id))}')" title="${u.emailError?'⚠️ E-mail com erro — enviar WhatsApp':'Enviar WhatsApp'}" ${!u.phone?'disabled':''}>📱</button>
+      <button class="btn btn-ghost btn-sm btn-icon${u.emailError?' btn-danger':''}" onclick="openWhatsApp('${u.phone||''}','${esc(u.name)}','${esc(refLabelById(u.referral_id))}','${u.coupons?.link||''}')" title="${u.emailError?'⚠️ E-mail com erro — enviar WhatsApp':'Enviar WhatsApp'}" ${!u.phone?'disabled':''}>📱</button>
       <button class="btn btn-ghost btn-sm btn-icon" onclick="resendEmail('${u.id}','${u.coupons_id||''}','${esc(u.email)}')" title="Reenviar e-mail" ${!u.coupons_id?'disabled':''}>📨</button>
       <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button>
     </div></td>
@@ -883,7 +883,7 @@ function exportUsersCSV(){
 }
 
 // WHATSAPP
-function openWhatsApp(phone, name, indicacao){
+function openWhatsApp(phone, name, indicacao, link){
   if(!phone){ toast('Usuário sem telefone cadastrado.','error'); return; }
   let num = phone.replace(/\D/g,'');
   if(!num.startsWith('55')) num = '55' + num;
@@ -891,10 +891,11 @@ function openWhatsApp(phone, name, indicacao){
   const h = new Date().getHours();
   const saudacao = h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
   const ref = indicacao && indicacao !== '—' ? ` para ${indicacao}` : '';
+  const linkTexto = link && link !== '#' ? link : '';
   const script =
 `${saudacao} ${firstName}!
 Seu link exclusivo foi gerado para ativação do GPT Business com a condição especial${ref}:
-🔗 Acesse seu link no e-mail que enviamos agora.
+🔗 ${linkTexto}
 Se tiver qualquer dúvida sobre a contratação ou quiser entender qual plano faz mais sentido para você, é só responder esta mensagem. Será um prazer ajudar.
 Além disso, se você estiver buscando aplicar IA para automatizar processos, atendimento, vendas ou criar agentes inteligentes para sua empresa, também podemos conversar e mostrar algumas possibilidades.
 Equipe 12IA`;
