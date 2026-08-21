@@ -817,29 +817,26 @@ async function replaceCoupon(oldCouponId, userName, userEmail, userId){
 
 function statusLabel(s){return s==='available'?'Disponível':s==='distributed'?'Distribuído':s==='blocked'?'Bloqueado':'Substituído';}
 async function blockCoupon(id){
-  const{error}=await db.from('coupons').update({status:'blocked'}).eq('id',id);
+  const{error}=await db.rpc('admin_block_coupon',{p_coupon_id:id});
   if(error){toast('Erro ao bloquear: '+error.message,'error',6000);return;}
   toast('Cupom bloqueado.','info');loadCoupons();
 }
 async function unblockCoupon(id){
-  const{error}=await db.from('coupons').update({status:'available'}).eq('id',id);
+  const{error}=await db.rpc('admin_unblock_coupon',{p_coupon_id:id});
   if(error){toast('Erro ao desbloquear: '+error.message,'error',6000);return;}
   toast('Cupom desbloqueado.','success');loadCoupons();
 }
 async function returnCoupon(id){
   openConfirm('Devolver cupom','O link voltará ao estoque como disponível. O usuário vinculado perderá o vínculo.',async()=>{
-    const{error:e1}=await db.from('users').update({coupons_id:null}).eq('coupons_id',id);
-    const{error:e2}=await db.from('coupons').update({status:'available',distributed_at:null,users_id:null}).eq('id',id);
-    if(e1||e2){toast('Erro ao devolver: '+(e2?.message||e1?.message),'error',6000);return;}
+    const{error}=await db.rpc('admin_return_coupon',{p_coupon_id:id});
+    if(error){toast('Erro ao devolver: '+error.message,'error',6000);return;}
     toast('Link devolvido ao estoque.','success');loadCoupons();
   },'Devolver');
 }
 async function deleteCoupon(id){
   openConfirm('Excluir cupom','Excluir este link permanentemente?\n\nEsta ação não pode ser desfeita.',async()=>{
-    const{error:e1}=await db.from('users').update({coupons_id:null}).eq('coupons_id',id);
-    const{error:e2}=await db.from('events').delete().eq('coupons_id',id);
-    const{error:e3}=await db.from('coupons').delete().eq('id',id);
-    if(e1||e2||e3){toast('Erro ao excluir: '+(e3?.message||e2?.message||e1?.message),'error',6000);return;}
+    const{error}=await db.rpc('admin_delete_coupon',{p_coupon_id:id});
+    if(error){toast('Erro ao excluir: '+error.message,'error',6000);return;}
     toast('Cupom excluído.','info');loadCoupons();
   },'🗑 Excluir');
 }
@@ -927,17 +924,8 @@ function renderUsers(){
 }
 async function deleteUser(id,name,couponId){
   openConfirm('Excluir usuário',`Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`,async()=>{
-  
-    const {error:e1}=await db.from('coupons').update({status:'available',distributed_at:null,users_id:null}).eq('users_id',id);
-    if(couponId){
-      await db.from('coupons').update({status:'available',distributed_at:null,users_id:null}).eq('id',couponId);
-    }
-    const {error:e2}=await db.from('events').delete().eq('users_id',id);
-    const {error:e3}=await db.from('users').delete().eq('id',id);
-    if(e1||e2||e3){
-      toast('Erro ao excluir: '+(e3?.message||e2?.message||e1?.message||'desconhecido'),'error',6000);
-      return;
-    }
+    const{error}=await db.rpc('admin_delete_user',{p_user_id:id, p_coupon_id:couponId||null});
+    if(error){toast('Erro ao excluir: '+error.message,'error',6000);return;}
     toast('Usuário excluído.','info');loadUsers();loadDashboard();
   },'🗑 Excluir');
 }
