@@ -330,6 +330,7 @@ body{overflow-x:hidden}
                 <option value="available">Disponíveis</option>
                 <option value="distributed">Distribuídos</option>
                 <option value="blocked">Bloqueados</option>
+                <option value="validate">⏳ Aguardando validação</option>
               </select>
               <input class="search-input" id="couponSearch" placeholder="Buscar URL, usuário..." oninput="couponPage=0;renderCoupons()"/>
               <select class="filter-sel" onchange="couponPage=0;couponPageSize=+this.value;renderCoupons()" title="Itens por página">
@@ -722,10 +723,22 @@ let userPage=0,   userPageSize=20;
 async function loadCoupons(){
   document.getElementById('couponBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
-  const {data:cps,error}=await db.from('coupons').select('id,link,status,created_at,distributed_at,users_id').order('created_at',{ascending:false});
-  if(error){ console.error('loadCoupons error:',error); }
-  const coupons=cps||[];
-  const uids=[...new Set(coupons.map(c=>c.users_id).filter(Boolean))];
+  // Busca em lotes de 1000 para garantir todos os registros
+  let allCps=[];
+  let from=0;
+  const BATCH=1000;
+  while(true){
+    const{data:batch,error}=await db.from('coupons')
+      .select('id,link,status,created_at,distributed_at,users_id')
+      .order('created_at',{ascending:false})
+      .range(from,from+BATCH-1);
+    if(error){console.error('loadCoupons error:',error);break;}
+    if(!batch?.length) break;
+    allCps=[...allCps,...batch];
+    if(batch.length<BATCH) break;
+    from+=BATCH;
+  }
+  const uids=[...new Set(allCps.map(c=>c.users_id).filter(Boolean))];
   let userMap={};
   if(uids.length){
     for(let i=0;i<uids.length;i+=500){
@@ -734,19 +747,26 @@ async function loadCoupons(){
       (us||[]).forEach(u=>userMap[u.id]=u);
     }
   }
-  allCoupons=coupons.map(c=>({...c, users: c.users_id?userMap[c.users_id]||null:null}));
+  allCoupons=allCps.map(c=>({...c, users: c.users_id?userMap[c.users_id]||null:null}));
   couponPage=0;
   renderCoupons();
 }
 function renderCoupons(){
   const f=document.getElementById('couponFilter').value;
   const q=(document.getElementById('couponSearch').value||'').toLowerCase();
-  let list=f==='all'?allCoupons:allCoupons.filter(c=>c.status===f);
+  const now=Date.now();
+  const THREE_DAYS=3*24*60*60*1000;
+  let list;
+  if(f==='validate'){
+    list=allCoupons.filter(c=>c.status==='distributed'&&c.distributed_at&&(now-new Date(c.distributed_at).getTime())>THREE_DAYS);
+    list.sort((a,b)=>new Date(a.distributed_at)-new Date(b.distributed_at));
+  } else {
+    list=f==='all'?allCoupons:allCoupons.filter(c=>c.status===f);
+    if(f==='distributed') list.sort((a,b)=>new Date(a.distributed_at)-new Date(b.distributed_at));
+  }
   if(q) list=list.filter(c=>(c.link||'').toLowerCase().includes(q)||(c.users?.name||'').toLowerCase().includes(q)||(c.users?.email||'').toLowerCase().includes(q));
   const body=document.getElementById('couponBody');
   if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';return;}
-  const now=Date.now();
-  const THREE_DAYS=3*24*60*60*1000;
   // Conta quantos precisam de validação
   const pendentes=allCoupons.filter(c=>c.status==='distributed'&&c.distributed_at&&(now-new Date(c.distributed_at).getTime())>THREE_DAYS).length;
   const total=list.length;
@@ -866,8 +886,21 @@ async function loadUsers(){
   document.getElementById('userBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   const {data:rOpts}=await db.from('referrals').select('id,name');
   allRefOpts=rOpts||[];
-  const {data:us}=await db.from('users').select('id,name,email,phone,referral_id,coupons_id,created_at').order('created_at',{ascending:false});
-  const users=us||[];
+  // Busca em lotes de 1000 para garantir todos os registros
+  let allUs=[];
+  let from=0;
+  const BATCH=1000;
+  while(true){
+    const{data:batch}=await db.from('users')
+      .select('id,name,email,phone,referral_id,coupons_id,created_at')
+      .order('created_at',{ascending:false})
+      .range(from,from+BATCH-1);
+    if(!batch?.length) break;
+    allUs=[...allUs,...batch];
+    if(batch.length<BATCH) break;
+    from+=BATCH;
+  }
+  const users=allUs;
   const cids=[...new Set(users.map(u=>u.coupons_id).filter(Boolean))];
   let couponMap={};
   if(cids.length){
