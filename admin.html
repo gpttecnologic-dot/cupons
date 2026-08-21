@@ -331,7 +331,7 @@ body{overflow-x:hidden}
                 <option value="distributed">Distribuídos</option>
                 <option value="blocked">Bloqueados</option>
               </select>
-              <input class="search-input" id="couponSearch" placeholder="Buscar URL..." oninput="renderCoupons()"/>
+              <input class="search-input" id="couponSearch" placeholder="Buscar URL, usuário..." oninput="couponPage=0;renderCoupons()"/>
             </div>
           </div>
           <div id="couponBody"><div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Carregando...</div></div></div>
@@ -346,7 +346,7 @@ body{overflow-x:hidden}
         </div>
         <div class="tbl-wrap">
           <div class="tbl-head">
-            <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail ou telefone..." oninput="renderUsers()" style="width:280px"/>
+            <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail ou telefone..." oninput="userPage=0;renderUsers()" style="width:280px"/>
           </div>
           <div id="userBody"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Carregando...</div></div></div>
         </div>
@@ -693,8 +693,10 @@ async function loadDashboard(){
 }
 
 // CUPONS
+let couponPage=0; const PAGE=100;
 async function loadCoupons(){
   document.getElementById('couponBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
   const {data:cps,error}=await db.from('coupons').select('id,link,status,created_at,distributed_at,users_id').order('created_at',{ascending:false});
   if(error){ console.error('loadCoupons error:',error); }
   const coupons=cps||[];
@@ -703,25 +705,30 @@ async function loadCoupons(){
   if(uids.length){
     for(let i=0;i<uids.length;i+=500){
       const chunk=uids.slice(i,i+500);
-      const {data:us}=await db.from('users').select('id,name,email').in('id',chunk);
+      const {data:us}=await db.from('users').select('id,name,email,referral_id').in('id',chunk);
       (us||[]).forEach(u=>userMap[u.id]=u);
     }
   }
   allCoupons=coupons.map(c=>({...c, users: c.users_id?userMap[c.users_id]||null:null}));
+  couponPage=0;
   renderCoupons();
 }
 function renderCoupons(){
   const f=document.getElementById('couponFilter').value;
   const q=(document.getElementById('couponSearch').value||'').toLowerCase();
   let list=f==='all'?allCoupons:allCoupons.filter(c=>c.status===f);
-  if(q) list=list.filter(c=>(c.link||'').toLowerCase().includes(q));
+  if(q) list=list.filter(c=>(c.link||'').toLowerCase().includes(q)||(c.users?.name||'').toLowerCase().includes(q)||(c.users?.email||'').toLowerCase().includes(q));
   const body=document.getElementById('couponBody');
   if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';return;}
-  const rows=list.map(c=>`<tr>
+  const total=list.length;
+  const totalPages=Math.ceil(total/PAGE);
+  const page=list.slice(couponPage*PAGE,(couponPage+1)*PAGE);
+  const rows=page.map(c=>`<tr>
     <td class="truncate mono"><a href="${c.link}" target="_blank">${c.link}</a></td>
     <td><span class="badge b-${c.status}">${statusLabel(c.status)}</span></td>
-    <td class="primary">${c.users?.name||'—'}</td>
-    <td>${c.users?.email||'—'}</td>
+    <td class="primary">${esc(c.users?.name||'—')}</td>
+    <td>${esc(c.users?.email||'—')}</td>
+    <td><span class="ref-badge">${esc(refLabelById(c.users?.referral_id))}</span></td>
     <td>${c.distributed_at?new Date(c.distributed_at).toLocaleString('pt-BR'):'—'}</td>
     <td>
       <div class="btns">
@@ -731,7 +738,15 @@ function renderCoupons(){
       </div>
     </td>
   </tr>`).join('');
-  body.innerHTML=`<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Distribuído em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const pager=totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+    <span>Exibindo ${couponPage*PAGE+1}–${Math.min((couponPage+1)*PAGE,total)} de ${total}</span>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-ghost btn-sm" onclick="couponPage--;renderCoupons()" ${couponPage===0?'disabled':''}>← Anterior</button>
+      <span style="padding:.35rem .75rem">${couponPage+1} / ${totalPages}</span>
+      <button class="btn btn-ghost btn-sm" onclick="couponPage++;renderCoupons()" ${couponPage>=totalPages-1?'disabled':''}>Próximo →</button>
+    </div>
+  </div>`:'';
+  body.innerHTML=`<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Indicação</th><th>Distribuído em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
 }
 function statusLabel(s){return s==='available'?'Disponível':s==='distributed'?'Distribuído':'Bloqueado';}
 async function blockCoupon(id){
@@ -785,24 +800,39 @@ async function loadUsers(){
     }
   }
   allUsers=users.map(u=>({...u, coupons: u.coupons_id?couponMap[u.coupons_id]||null:null}));
+  userPage=0;
   renderUsers();
 }
+let userPage=0;
 function renderUsers(){
   const q=(document.getElementById('userSearch').value||'').toLowerCase();
-  const list=q?allUsers.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.phone||'').includes(q)):allUsers;
+  const list=q?allUsers.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.phone||'').includes(q)||refLabelById(u.referral_id).toLowerCase().includes(q)):allUsers;
   const body=document.getElementById('userBody');
   if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Nenhum usuário encontrado</div></div>';return;}
-  const rows=list.map(u=>`<tr>
+  const total=list.length;
+  const totalPages=Math.ceil(total/PAGE);
+  const page=list.slice(userPage*PAGE,(userPage+1)*PAGE);
+  const rows=page.map(u=>`<tr>
     <td class="primary">${esc(u.name)}</td>
     <td>${esc(u.email)}</td>
     <td>${esc(u.phone||'—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
     <td class="truncate mono"><a href="${u.coupons?.link||'#'}" target="_blank">${u.coupons?.link||'—'}</a></td>
     <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
-    <td><button class="btn btn-ghost btn-sm btn-icon" onclick="resendEmail('${u.id}','${u.coupons_id||''}','${esc(u.email)}')" title="Reenviar e-mail" ${!u.coupons_id?'disabled':''}">📨</button>
-    <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button></td>
+    <td><div class="btns">
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="resendEmail('${u.id}','${u.coupons_id||''}','${esc(u.email)}')" title="Reenviar e-mail" ${!u.coupons_id?'disabled':''}>📨</button>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button>
+    </div></td>
   </tr>`).join('');
-  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  const pager=totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+    <span>Exibindo ${userPage*PAGE+1}–${Math.min((userPage+1)*PAGE,total)} de ${total}</span>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-ghost btn-sm" onclick="userPage--;renderUsers()" ${userPage===0?'disabled':''}>← Anterior</button>
+      <span style="padding:.35rem .75rem">${userPage+1} / ${totalPages}</span>
+      <button class="btn btn-ghost btn-sm" onclick="userPage++;renderUsers()" ${userPage>=totalPages-1?'disabled':''}>Próximo →</button>
+    </div>
+  </div>`:'';
+  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
 }
 async function deleteUser(id,name,couponId){
   openConfirm('Excluir usuário',`Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`,async()=>{
