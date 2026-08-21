@@ -731,24 +731,39 @@ function renderCoupons(){
   if(q) list=list.filter(c=>(c.link||'').toLowerCase().includes(q)||(c.users?.name||'').toLowerCase().includes(q)||(c.users?.email||'').toLowerCase().includes(q));
   const body=document.getElementById('couponBody');
   if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';return;}
+  const now=Date.now();
+  const THREE_DAYS=3*24*60*60*1000;
+  // Conta quantos precisam de validação
+  const pendentes=allCoupons.filter(c=>c.status==='distributed'&&c.distributed_at&&(now-new Date(c.distributed_at).getTime())>THREE_DAYS).length;
   const total=list.length;
   const totalPages=Math.ceil(total/couponPageSize);
   const page=list.slice(couponPage*couponPageSize,(couponPage+1)*couponPageSize);
-  const rows=page.map(c=>`<tr>
+  const rows=page.map(c=>{
+    const aguardando=c.status==='distributed'&&c.distributed_at&&(now-new Date(c.distributed_at).getTime())>THREE_DAYS;
+    return`<tr ${aguardando?'style="background:rgba(245,158,11,.05)"':''}>
     <td class="truncate mono"><a href="${c.link}" target="_blank">${c.link}</a></td>
-    <td><span class="badge b-${c.status}">${statusLabel(c.status)}</span></td>
+    <td>
+      <span class="badge b-${c.status}">${statusLabel(c.status)}</span>
+      ${aguardando?`<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;margin-left:4px" title="Distribuído há mais de 3 dias — validar se ativou">⏳ Validar</span>`:''}
+    </td>
     <td class="primary">${esc(c.users?.name||'—')}</td>
     <td>${esc(c.users?.email||'—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(c.users?.referral_id))}</span></td>
     <td>${c.distributed_at?new Date(c.distributed_at).toLocaleString('pt-BR'):'—'}</td>
     <td>
       <div class="btns">
-        ${c.status==='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>`:''}
+        ${c.status==='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button><button class="btn btn-ghost btn-sm btn-icon" onclick="replaceCoupon('${c.id}','${esc(c.users?.name||'')}','${esc(c.users?.email||'')}','${c.users_id||''}')" title="Substituir cupom com defeito">🔄</button>`:''}
         ${c.status!=='blocked'?`<button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>`:`<button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>`}
         ${c.status!=='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>`:''}
       </div>
     </td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
+  const alertPendentes=pendentes>0?`<div style="display:flex;align-items:center;gap:.75rem;padding:.875rem 1.25rem;background:rgba(245,158,11,.08);border-bottom:1px solid rgba(245,158,11,.15);font-size:13px;color:#fbbf24">
+    <span style="font-size:16px">⏳</span>
+    <span><strong>${pendentes}</strong> cupom(ns) distribuído(s) há mais de 3 dias aguardando validação — verifique se o cliente ativou e devolva ao estoque se necessário.</span>
+    <button class="btn btn-ghost btn-sm" style="color:#fbbf24;border-color:rgba(245,158,11,.3);margin-left:auto" onclick="document.getElementById('couponFilter').value='distributed';document.getElementById('couponSearch').value='';couponPage=0;renderCoupons()">Ver distribuídos</button>
+  </div>`:'';
   const pager=totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
     <span>Exibindo ${couponPage*couponPageSize+1}–${Math.min((couponPage+1)*couponPageSize,total)} de ${total}</span>
     <div style="display:flex;gap:.5rem">
@@ -757,9 +772,50 @@ function renderCoupons(){
       <button class="btn btn-ghost btn-sm" onclick="couponPage++;renderCoupons()" ${couponPage>=totalPages-1?'disabled':''}>Próximo →</button>
     </div>
   </div>`:'';
-  body.innerHTML=`<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Indicação</th><th>Distribuído em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
+  body.innerHTML=`${alertPendentes}<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Indicação</th><th>Distribuído em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
 }
-function statusLabel(s){return s==='available'?'Disponível':s==='distributed'?'Distribuído':'Bloqueado';}
+async function replaceCoupon(oldCouponId, userName, userEmail, userId){
+  openConfirm(
+    '🔄 Substituir cupom',
+    `Substituir o cupom de "${userName}"?\n\nO cupom atual será bloqueado e um novo link disponível será vinculado ao usuário.\n\nO novo link será enviado por e-mail automaticamente.`,
+    async()=>{
+      // 1. Busca um cupom disponível
+      const{data:avail}=await db.from('coupons').select('id,link').eq('status','available').limit(1);
+      if(!avail?.length){ toast('Nenhum cupom disponível no estoque.','error',5000); return; }
+      const newCoupon=avail[0];
+
+      // 2. Bloqueia o cupom com defeito
+      await db.from('coupons').update({status:'blocked',users_id:null,distributed_at:null}).eq('id',oldCouponId);
+
+      // 3. Vincula o novo cupom ao usuário
+      await db.from('coupons').update({status:'distributed',distributed_at:new Date().toISOString(),users_id:userId}).eq('id',newCoupon.id);
+
+      // 4. Atualiza o usuário com o novo cupom
+      await db.from('users').update({coupons_id:newCoupon.id}).eq('id',userId);
+
+      // 5. Registra o evento
+      await db.from('events').insert({
+        coupons_id: newCoupon.id,
+        users_id:   userId,
+        event_type: 'replaced',
+        metadata:   JSON.stringify({old_coupon_id:oldCouponId, reason:'defect'})
+      });
+
+      // 6. Envia o novo link por e-mail automaticamente
+      fetch(`${EDGE_URL}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPA_KEY}`},
+        body:JSON.stringify({user_id:userId, coupon_id:newCoupon.id})
+      }).catch(()=>{});
+
+      toast(`✅ Cupom substituído! Novo link enviado por e-mail para ${userEmail}.`,'success',5000);
+      loadCoupons();
+    },
+    '🔄 Substituir'
+  );
+}
+
+function statusLabel(s){return s==='available'?'Disponível':s==='distributed'?'Distribuído':s==='blocked'?'Bloqueado':'Substituído';}
 async function blockCoupon(id){
   const{error}=await db.from('coupons').update({status:'blocked'}).eq('id',id);
   if(error){toast('Erro ao bloquear: '+error.message,'error',6000);return;}
