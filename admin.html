@@ -333,7 +333,7 @@ body{overflow-x:hidden}
               </select>
               <input class="search-input" id="couponSearch" placeholder="Buscar URL, usuário..." oninput="couponPage=0;renderCoupons()"/>
               <select class="filter-sel" onchange="couponPage=0;couponPageSize=+this.value;renderCoupons()" title="Itens por página">
-                <option value="20">20 por página</option>
+                <option value="20" selected>20 por página</option>
                 <option value="50">50 por página</option>
                 <option value="100">100 por página</option>
               </select>
@@ -353,7 +353,7 @@ body{overflow-x:hidden}
           <div class="tbl-head">
             <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail ou telefone..." oninput="userPage=0;renderUsers()" style="width:280px"/>
             <select class="filter-sel" onchange="userPage=0;userPageSize=+this.value;renderUsers()" title="Itens por página">
-              <option value="20">20 por página</option>
+              <option value="20" selected>20 por página</option>
               <option value="50">50 por página</option>
               <option value="100">100 por página</option>
             </select>
