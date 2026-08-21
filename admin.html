@@ -651,17 +651,31 @@ async function loadDashboard(){
   const {data:rOpts}=await db.from('referrals').select('id,name');
   allRefOpts=rOpts||[];
 
-  const [{data:cps},{data:us},{data:wl}]=await Promise.all([
-    db.from('coupons').select('status'),
-    db.from('users').select('id,referral_id'),
+  // Busca contagens via head:true para evitar limite de 1000 registros
+  const [
+    {count:availCount},
+    {count:distCount},
+    {count:blockCount},
+    {count:userCount},
+    {count:totalCount},
+    {data:wl}
+  ] = await Promise.all([
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','available'),
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','distributed'),
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','blocked'),
+    db.from('users').select('*',{count:'exact',head:true}),
+    db.from('coupons').select('*',{count:'exact',head:true}),
     db.from('waitlist').select('id').eq('notified',false)
   ]);
+  document.getElementById('s-avail').textContent=availCount||0;
+  document.getElementById('s-dist').textContent =distCount||0;
+  document.getElementById('s-block').textContent=blockCount||0;
+  document.getElementById('s-users').textContent=userCount||0;
+  document.getElementById('s-total').textContent=totalCount||0;
   document.getElementById('waitlistCount').textContent=(wl?.length||0);
-  document.getElementById('s-avail').textContent=cps?.filter(c=>c.status==='available').length||0;
-  document.getElementById('s-dist').textContent =cps?.filter(c=>c.status==='distributed').length||0;
-  document.getElementById('s-block').textContent=cps?.filter(c=>c.status==='blocked').length||0;
-  document.getElementById('s-users').textContent=us?.length||0;
-  document.getElementById('s-total').textContent=cps?.length||0;
+
+  // Busca referrals e users para o gráfico de canais
+  const {data:rUsersData}=await db.from('users').select('id,referral_id');
 
   const {data:recent}=await db.from('users').select('name,email,referral_id,created_at,coupons_id').order('created_at',{ascending:false}).limit(10);
   const rb=document.getElementById('recentBody');
@@ -682,7 +696,7 @@ async function loadDashboard(){
   }
 
   const refCount={};
-  (us||[]).forEach(u=>{const r=u.referral_id||'_sem';refCount[r]=(refCount[r]||0)+1;});
+  (rUsersData||[]).forEach(u=>{const r=u.referral_id||'_sem';refCount[r]=(refCount[r]||0)+1;});
   const sorted=Object.entries(refCount).sort((a,b)=>b[1]-a[1]);
   const rc=document.getElementById('referralChart');
   if(!sorted.length){
