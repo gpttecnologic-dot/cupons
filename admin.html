@@ -529,7 +529,7 @@ body{overflow-x:hidden}
     <div class="modal-msg" id="confirmMsg"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeConfirm()">Cancelar</button>
-      <button class="btn btn-danger" id="confirmOkBtn">Confirmar</button>
+      <button class="btn btn-danger" id="confirmOkBtn" onclick="executeConfirm()">Confirmar</button>
     </div>
   </div>
 </div>
@@ -638,8 +638,13 @@ function openConfirm(title,msg,cb,lbl='Confirmar'){
   confirmCallback=cb;
   document.getElementById('confirmModal').classList.add('show');
 }
-function closeConfirm(){document.getElementById('confirmModal').classList.remove('show');confirmCallback=null;}
-document.getElementById('confirmOkBtn').onclick=()=>{closeConfirm();if(confirmCallback)confirmCallback();};
+function closeConfirm(){document.getElementById('confirmModal').classList.remove('show');}
+function executeConfirm(){
+  const cb=confirmCallback;
+  confirmCallback=null;
+  closeConfirm();
+  if(cb) cb();
+}
 
 // HELPERS
 function refLabelById(id){
