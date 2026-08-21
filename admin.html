@@ -325,13 +325,18 @@ body{overflow-x:hidden}
         <div class="tbl-wrap">
           <div class="tbl-head">
             <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-              <select class="filter-sel" id="couponFilter" onchange="renderCoupons()">
+              <select class="filter-sel" id="couponFilter" onchange="couponPage=0;renderCoupons()">
                 <option value="all">Todos</option>
                 <option value="available">Disponíveis</option>
                 <option value="distributed">Distribuídos</option>
                 <option value="blocked">Bloqueados</option>
               </select>
               <input class="search-input" id="couponSearch" placeholder="Buscar URL, usuário..." oninput="couponPage=0;renderCoupons()"/>
+              <select class="filter-sel" onchange="couponPage=0;couponPageSize=+this.value;renderCoupons()" title="Itens por página">
+                <option value="20">20 por página</option>
+                <option value="50">50 por página</option>
+                <option value="100">100 por página</option>
+              </select>
             </div>
           </div>
           <div id="couponBody"><div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Carregando...</div></div></div>
@@ -347,6 +352,11 @@ body{overflow-x:hidden}
         <div class="tbl-wrap">
           <div class="tbl-head">
             <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail ou telefone..." oninput="userPage=0;renderUsers()" style="width:280px"/>
+            <select class="filter-sel" onchange="userPage=0;userPageSize=+this.value;renderUsers()" title="Itens por página">
+              <option value="20">20 por página</option>
+              <option value="50">50 por página</option>
+              <option value="100">100 por página</option>
+            </select>
           </div>
           <div id="userBody"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Carregando...</div></div></div>
         </div>
@@ -693,7 +703,8 @@ async function loadDashboard(){
 }
 
 // CUPONS
-let couponPage=0; const PAGE=100;
+let couponPage=0, couponPageSize=20;
+let userPage=0,   userPageSize=20;
 async function loadCoupons(){
   document.getElementById('couponBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
@@ -721,8 +732,8 @@ function renderCoupons(){
   const body=document.getElementById('couponBody');
   if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';return;}
   const total=list.length;
-  const totalPages=Math.ceil(total/PAGE);
-  const page=list.slice(couponPage*PAGE,(couponPage+1)*PAGE);
+  const totalPages=Math.ceil(total/couponPageSize);
+  const page=list.slice(couponPage*couponPageSize,(couponPage+1)*couponPageSize);
   const rows=page.map(c=>`<tr>
     <td class="truncate mono"><a href="${c.link}" target="_blank">${c.link}</a></td>
     <td><span class="badge b-${c.status}">${statusLabel(c.status)}</span></td>
@@ -739,7 +750,7 @@ function renderCoupons(){
     </td>
   </tr>`).join('');
   const pager=totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
-    <span>Exibindo ${couponPage*PAGE+1}–${Math.min((couponPage+1)*PAGE,total)} de ${total}</span>
+    <span>Exibindo ${couponPage*couponPageSize+1}–${Math.min((couponPage+1)*couponPageSize,total)} de ${total}</span>
     <div style="display:flex;gap:.5rem">
       <button class="btn btn-ghost btn-sm" onclick="couponPage--;renderCoupons()" ${couponPage===0?'disabled':''}>← Anterior</button>
       <span style="padding:.35rem .75rem">${couponPage+1} / ${totalPages}</span>
@@ -827,15 +838,14 @@ async function loadUsers(){
   userPage=0;
   renderUsers();
 }
-let userPage=0;
 function renderUsers(){
   const q=(document.getElementById('userSearch').value||'').toLowerCase();
   const list=q?allUsers.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.phone||'').includes(q)||refLabelById(u.referral_id).toLowerCase().includes(q)):allUsers;
   const body=document.getElementById('userBody');
   if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Nenhum usuário encontrado</div></div>';return;}
   const total=list.length;
-  const totalPages=Math.ceil(total/PAGE);
-  const page=list.slice(userPage*PAGE,(userPage+1)*PAGE);
+  const totalPages=Math.ceil(total/userPageSize);
+  const page=list.slice(userPage*userPageSize,(userPage+1)*userPageSize);
   const rows=page.map(u=>`<tr ${u.emailError?'style="background:rgba(239,68,68,.04)"':''}>
     <td class="primary">${esc(u.name)} ${u.emailError?'<span title="E-mail com erro — considere enviar WhatsApp" style="color:var(--danger);font-size:11px;cursor:help">⚠️</span>':u.emailSent?'<span title="E-mail enviado" style="color:var(--success);font-size:11px">✓</span>':''}</td>
     <td>${esc(u.email)}</td>
@@ -850,7 +860,7 @@ function renderUsers(){
     </div></td>
   </tr>`).join('');
   const pager=totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
-    <span>Exibindo ${userPage*PAGE+1}–${Math.min((userPage+1)*PAGE,total)} de ${total}</span>
+    <span>Exibindo ${userPage*userPageSize+1}–${Math.min((userPage+1)*userPageSize,total)} de ${total}</span>
     <div style="display:flex;gap:.5rem">
       <button class="btn btn-ghost btn-sm" onclick="userPage--;renderUsers()" ${userPage===0?'disabled':''}>← Anterior</button>
       <span style="padding:.35rem .75rem">${userPage+1} / ${totalPages}</span>
