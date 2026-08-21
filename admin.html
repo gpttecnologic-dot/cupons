@@ -786,9 +786,14 @@ function renderCoupons(){
     <td>${c.distributed_at?new Date(c.distributed_at).toLocaleString('pt-BR'):'—'}</td>
     <td>
       <div class="btns">
-        ${c.status==='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button><button class="btn btn-ghost btn-sm btn-icon" onclick="replaceCoupon('${c.id}','${esc(c.users?.name||'')}','${esc(c.users?.email||'')}','${c.users_id||''}')" title="Substituir cupom com defeito">🔄</button>`:''}
-        ${c.status!=='blocked'?`<button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>`:`<button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>`}
-        ${c.status!=='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>`:''}
+        ${aguardando?`
+          <button class="btn btn-success btn-sm" onclick="confirmActivated('${c.id}')" title="Cliente ativou o cupom">✅ Ativou</button>
+          <button class="btn btn-secondary btn-sm" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩ Devolver</button>
+        `:`
+          ${c.status==='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button><button class="btn btn-ghost btn-sm btn-icon" onclick="replaceCoupon('${c.id}','${esc(c.users?.name||'')}','${esc(c.users?.email||'')}','${c.users_id||''}')" title="Substituir cupom com defeito">🔄</button>`:''}
+          ${c.status!=='blocked'?`<button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>`:`<button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>`}
+          ${c.status!=='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>`:''}
+        `}
       </div>
     </td>
   </tr>`;
@@ -981,6 +986,26 @@ function exportUsersCSV(){
   const h='Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
   const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral_id),u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
   dl('usuarios.csv',h+r);
+}
+
+async function confirmActivated(couponId){
+  openConfirm(
+    '✅ Confirmar ativação',
+    'Confirmar que o cliente ativou este cupom?\n\nO cupom será mantido como distribuído e marcado como validado.',
+    async()=>{
+      // Registra o evento de validação
+      await db.from('events').insert({
+        coupons_id: couponId,
+        event_type: 'validated',
+        metadata: JSON.stringify({validated_at: new Date().toISOString()})
+      });
+      // Atualiza a data de distribuição para "resetar" o contador de 3 dias
+      await db.from('coupons').update({distributed_at: new Date().toISOString()}).eq('id', couponId);
+      toast('✅ Cupom marcado como ativado!','success');
+      loadCoupons();
+    },
+    '✅ Confirmar'
+  );
 }
 
 // WHATSAPP
