@@ -993,14 +993,8 @@ async function confirmActivated(couponId){
     '✅ Confirmar ativação',
     'Confirmar que o cliente ativou este cupom?\n\nO cupom será mantido como distribuído e marcado como validado.',
     async()=>{
-      // Registra o evento de validação
-      await db.from('events').insert({
-        coupons_id: couponId,
-        event_type: 'validated',
-        metadata: JSON.stringify({validated_at: new Date().toISOString()})
-      });
-      // Atualiza a data de distribuição para "resetar" o contador de 3 dias
-      await db.from('coupons').update({distributed_at: new Date().toISOString()}).eq('id', couponId);
+      const{error}=await db.rpc('admin_validate_coupon',{p_coupon_id:couponId});
+      if(error){toast('Erro: '+error.message,'error',6000);return;}
       toast('✅ Cupom marcado como ativado!','success');
       loadCoupons();
     },
