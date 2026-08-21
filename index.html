@@ -401,7 +401,7 @@ async function submitForm() {
     // 4. Cria usuário
     const { data: newUser, error: uErr } = await db
       .from('users')
-      .insert({ name, email, phone, referral, coupons_id: coupon.id })
+      .insert({ name, email, phone, referral_id: referral, coupons_id: coupon.id })
       .select();
 
     if (uErr) {
@@ -420,15 +420,8 @@ async function submitForm() {
       coupons_id: coupon.id,
       users_id: newUser[0].id,
       event_type: 'distributed',
-      metadata: JSON.stringify({ email, phone, referral })
+      metadata: JSON.stringify({ email, phone, referral_id: referral })
     });
-
-    // 6. Dispara e-mail automaticamente (não bloqueia o fluxo)
-    fetch(`${SUPA_URL}/functions/v1/send-coupon-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
-      body: JSON.stringify({ user_id: newUser[0].id, coupon_id: coupon.id })
-    }).catch(() => {});
 
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
     currentLink = coupon.link;
