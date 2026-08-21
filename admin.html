@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin — Cupom GPT-Business</title>
 <link rel="icon" type="image/png" href="assets/img/logo-12ia.png">
+<link rel="shortcut icon" type="image/png" href="assets/img/logo-12ia.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
@@ -30,6 +31,7 @@ a{color:var(--accent-light);text-decoration:none}
 ::-webkit-scrollbar-track{background:var(--bg2)}
 ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
 
+/* LOGIN */
 #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:2rem}
 .login-card{width:100%;max-width:380px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2.5rem;box-shadow:var(--shadow)}
 .login-icon{font-size:36px;margin-bottom:1rem;display:block;text-align:center}
@@ -42,12 +44,15 @@ a{color:var(--accent-light);text-decoration:none}
 .login-err{background:var(--danger-bg);border:1px solid rgba(239,68,68,.2);color:#fca5a5;padding:.75rem 1rem;border-radius:var(--radius);font-size:13px;margin-bottom:1rem;display:none}
 .login-attempts{font-size:11px;color:var(--text3);text-align:center;margin-top:.75rem}
 
+/* LAYOUT */
 #adminScreen{display:none;min-height:100vh}
 .layout{display:flex;min-height:100vh}
 
+/* SIDEBAR */
 .sidebar{width:220px;min-width:220px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;overflow-y:auto}
 .sb-logo{padding:1.125rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
-.sb-logo-full{width:36px;height:36px;object-fit:contain;flex-shrink:0}
+.sb-logo-full{width:36px;height:36px;object-fit:contain;flex-shrink:0;}
+.sb-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#7c6af7,#9d8fff);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
 .sb-logo-name{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;letter-spacing:-.2px;line-height:1.2}
 .sb-logo-sub{font-size:10px;color:var(--text3)}
 .sb-section{font-size:9px;font-weight:700;letter-spacing:1.2px;color:var(--text3);text-transform:uppercase;padding:.875rem 1.25rem .375rem}
@@ -60,17 +65,20 @@ a{color:var(--accent-light);text-decoration:none}
 .sb-footer{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid var(--border)}
 .sb-user{font-size:12px;color:var(--text3);margin-bottom:.75rem}
 
+/* MAIN */
 .main{flex:1;margin-left:220px;padding:2rem;min-height:100vh;background:var(--bg)}
 .page-header{margin-bottom:1.75rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .page-header-left .page-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.4px}
 .page-header-left .page-sub{color:var(--text3);font-size:13px;margin-top:.15rem}
 
+/* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-bottom:1.75rem}
 .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.125rem 1.25rem}
 .stat-label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.375rem}
 .stat-val{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;letter-spacing:-1px}
 .stat-val.green{color:var(--success)}.stat-val.purple{color:var(--accent-light)}.stat-val.red{color:var(--danger)}.stat-val.amber{color:var(--warning)}.stat-val.white{color:var(--text)}
 
+/* TABLE */
 .tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.5rem}
 .tbl-head{display:flex;align-items:center;justify-content:space-between;padding:.875rem 1.25rem;border-bottom:1px solid var(--border);gap:.75rem;flex-wrap:wrap}
 .tbl-title{font-size:13px;font-weight:600}
@@ -87,6 +95,7 @@ td.primary{color:var(--text);font-weight:500}
 .b-distributed{background:rgba(124,106,247,.12);color:#a78bfa}
 .b-blocked{background:rgba(239,68,68,.12);color:#f87171}
 
+/* BUTTONS */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:.65rem 1.25rem;border-radius:var(--radius);font-size:13px;font-weight:600}
 .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}.btn-primary:disabled{opacity:.5;cursor:not-allowed}
 .btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border2)}.btn-secondary:hover{background:var(--bg4)}
@@ -97,16 +106,20 @@ td.primary{color:var(--text);font-weight:500}
 .btn-icon{width:28px;height:28px;padding:0;border-radius:6px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .btns{display:flex;gap:.35rem;align-items:center}
 
+/* SEARCH */
 .search-input{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .875rem;color:var(--text);font-size:12px;width:200px;outline:none}
 .search-input:focus{border-color:var(--accent)}
 .filter-sel{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .875rem;color:var(--text);font-size:12px;outline:none;appearance:none;padding-right:28px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24'%3E%3Cpath fill='%236a6a7a' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.filter-sel option{background:var(--bg3)}
 
+/* UPLOAD */
 .upload-zone{border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:2.25rem 2rem;text-align:center;cursor:pointer;transition:all .18s;margin-bottom:1.25rem}
 .upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(124,106,247,.04)}
 .upload-icon{font-size:34px;margin-bottom:.75rem;opacity:.5}
 .upload-title{font-size:14px;font-weight:600;margin-bottom:.375rem}
 .upload-sub{font-size:12px;color:var(--text3)}
 
+/* IMPORT RESULT */
 .import-res{border-radius:var(--radius-lg);overflow:hidden;margin-top:1rem;display:none}
 .import-res.show{display:block}
 .ir-head{padding:.875rem 1.25rem;font-size:13px;font-weight:600}
@@ -116,16 +129,19 @@ td.primary{color:var(--text);font-weight:500}
 .tag-dup{display:inline-block;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.2);color:#fde68a;font-family:monospace;font-size:10px;padding:1px 6px;border-radius:4px;margin:2px}
 .tag-used{display:inline-block;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.15);color:#fca5a5;font-family:monospace;font-size:10px;padding:1px 6px;border-radius:4px;margin:2px}
 
+/* EMPTY */
 .empty-state{text-align:center;padding:3rem 2rem;color:var(--text3)}
 .empty-icon{font-size:38px;margin-bottom:.75rem;opacity:.35}
 .empty-title{font-size:14px;font-weight:600;color:var(--text2);margin-bottom:.375rem}
 .empty-sub{font-size:12px}
 
+/* TOASTS */
 .toasts{position:fixed;top:1.25rem;right:1.25rem;z-index:9999;display:flex;flex-direction:column;gap:.5rem;pointer-events:none}
 .toast{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:.75rem 1.125rem;font-size:12px;box-shadow:var(--shadow);display:flex;align-items:center;gap:.6rem;animation:slideIn .2s ease;min-width:220px;pointer-events:all}
 .toast.success{border-left:3px solid var(--success)}.toast.error{border-left:3px solid var(--danger)}.toast.info{border-left:3px solid var(--accent)}
 @keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:none;opacity:1}}
 
+/* CONFIRM MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;padding:1rem}
 .modal-overlay.show{display:flex}
 .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2rem;max-width:380px;width:100%;box-shadow:var(--shadow)}
@@ -133,6 +149,7 @@ td.primary{color:var(--text);font-weight:500}
 .modal-msg{font-size:13px;color:var(--text2);margin-bottom:1.5rem;line-height:1.55;white-space:pre-line}
 .modal-footer{display:flex;gap:.75rem;justify-content:flex-end}
 
+/* REFERRAL MANAGER */
 .ref-manager{padding:1.5rem}
 .ref-add-row{display:flex;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap}
 .ref-add-input{flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem 1rem;color:var(--text);font-size:14px;outline:none}
@@ -152,21 +169,20 @@ td.primary{color:var(--text);font-weight:500}
 .ref-empty{text-align:center;color:var(--text3);font-size:13px;padding:2rem}
 .ref-count{font-size:11px;color:var(--text3);margin-bottom:1rem}
 
+/* MISC */
 .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hidden{display:none!important}
+.divider{height:1px;background:var(--border);margin:1.25rem 0}
 .mono{font-family:monospace;font-size:11px}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ref-badge{display:inline-block;background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.18);color:var(--accent-light);font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.swap-modal-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;color:var(--text);font-size:13px;outline:none;margin-top:.5rem}
-.swap-modal-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,.15)}
-.swap-modal-info{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;font-size:12px;color:var(--text2);margin-bottom:1rem}
-.swap-modal-info strong{color:var(--text)}
 .mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;height:3.25rem;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;padding:0 1rem;z-index:40;gap:.75rem}
 .mobile-menu-btn{background:none;border:1px solid var(--border);border-radius:8px;width:2.25rem;height:2.25rem;display:flex;align-items:center;justify-content:center;color:var(--text);cursor:pointer}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:45}
 body{overflow-x:hidden}
+#couponBody,#userBody,#logsBody,#recentBody,#referralChart{overflow-x:auto}
 
 @media(max-width:768px){
   .sidebar{display:flex;transform:translateX(-100%);transition:transform .25s ease;box-shadow:2px 0 24px rgba(0,0,0,.4)}
@@ -198,7 +214,7 @@ body{overflow-x:hidden}
 <!-- ADMIN -->
 <div id="adminScreen">
   <div class="mobile-topbar">
-    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+    <button class="mobile-menu-btn" onclick="toggleSidebar()" aria-label="Abrir menu">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
     </button>
     <div class="sb-logo-name" style="font-size:14px">Cupom GPT-Business</div>
@@ -209,17 +225,19 @@ body{overflow-x:hidden}
     <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
       <div class="sb-logo">
-        <img src="assets/img/logo-12ia.png" alt="12IA" class="sb-logo-full" onerror="this.style.display='none'">
+        <img src="assets/img/logo-12ia.png" alt="12IA" class="sb-logo-full">
         <div>
           <div class="sb-logo-name">Cupom GPT-Business</div>
           <div class="sb-logo-sub">Painel Admin</div>
         </div>
       </div>
+
       <div class="sb-section">Principal</div>
       <div class="sb-link active" id="nav-dashboard" onclick="goTab('dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         Dashboard
       </div>
+
       <div class="sb-section">Gerenciar</div>
       <div class="sb-link" id="nav-coupons" onclick="goTab('coupons')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0-6h20a3 3 0 0 1 0 6v2a3 3 0 0 1 0 6H2a3 3 0 0 1 0-6z"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
@@ -234,10 +252,20 @@ body{overflow-x:hidden}
         Indicações
         <span class="sb-badge" id="refCount">0</span>
       </div>
+
       <div class="sb-link" id="nav-waitlist" onclick="goTab('waitlist')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Lista de Espera
         <span class="sb-badge" id="waitlistCount">0</span>
+      </div>
+      <div class="sb-link" id="nav-emails" onclick="goTab('emails')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        E-mails
+        <span class="sb-badge" id="emailErrorCount" style="background:rgba(239,68,68,.2);color:#f87171;display:none">!</span>
+      </div>
+      <div class="sb-link" id="nav-settings" onclick="goTab('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configurações
       </div>
       <div class="sb-section">Dados</div>
       <div class="sb-link" id="nav-import" onclick="goTab('import')">
@@ -252,6 +280,7 @@ body{overflow-x:hidden}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Relatórios
       </div>
+
       <div class="sb-footer">
         <div class="sb-user" id="sbUser"></div>
         <button class="btn btn-ghost" style="width:100%;justify-content:flex-start;gap:.6rem;color:var(--danger)" onclick="doLogout()">
@@ -276,14 +305,6 @@ body{overflow-x:hidden}
           <div class="stat-card"><div class="stat-label">Bloqueados</div><div class="stat-val red" id="s-block">—</div></div>
           <div class="stat-card"><div class="stat-label">Usuários</div><div class="stat-val amber" id="s-users">—</div></div>
           <div class="stat-card"><div class="stat-label">Total cupons</div><div class="stat-val white" id="s-total">—</div></div>
-          <div class="stat-card" style="cursor:pointer;position:relative" onclick="openAtivados()" title="Clique para editar">
-            <div class="stat-label" style="display:flex;align-items:center;justify-content:space-between">
-              Ativados
-              <span style="font-size:9px;color:var(--text3);font-weight:400;letter-spacing:0">✏ editar</span>
-            </div>
-            <div class="stat-val" style="color:var(--accent-light)" id="s-today">—</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:.2rem">informado manualmente</div>
-          </div>
         </div>
         <div class="tbl-wrap">
           <div class="tbl-head"><div><div class="tbl-title">Últimos resgates</div><div class="tbl-sub">10 registros mais recentes</div></div></div>
@@ -304,14 +325,19 @@ body{overflow-x:hidden}
         <div class="tbl-wrap">
           <div class="tbl-head">
             <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-              <select class="filter-sel" id="couponFilter" onchange="renderCoupons()">
+              <select class="filter-sel" id="couponFilter" onchange="couponPage=0;renderCoupons()">
                 <option value="all">Todos</option>
                 <option value="available">Disponíveis</option>
                 <option value="distributed">Distribuídos</option>
-                <option value="ativado">✓ Ativados</option>
                 <option value="blocked">Bloqueados</option>
+                <option value="validate">⏳ Aguardando validação</option>
               </select>
-              <input class="search-input" id="couponSearch" placeholder="Buscar URL..." oninput="renderCoupons()"/>
+              <input class="search-input" id="couponSearch" placeholder="Buscar URL, usuário..." oninput="couponPage=0;renderCoupons()"/>
+              <select class="filter-sel" onchange="couponPage=0;couponPageSize=+this.value;renderCoupons()" title="Itens por página">
+                <option value="20" selected>20 por página</option>
+                <option value="50">50 por página</option>
+                <option value="100">100 por página</option>
+              </select>
             </div>
           </div>
           <div id="couponBody"><div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Carregando...</div></div></div>
@@ -326,7 +352,12 @@ body{overflow-x:hidden}
         </div>
         <div class="tbl-wrap">
           <div class="tbl-head">
-            <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail ou telefone..." oninput="renderUsers()" style="width:280px"/>
+            <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail ou telefone..." oninput="userPage=0;renderUsers()" style="width:280px"/>
+            <select class="filter-sel" onchange="userPage=0;userPageSize=+this.value;renderUsers()" title="Itens por página">
+              <option value="20" selected>20 por página</option>
+              <option value="50">50 por página</option>
+              <option value="100">100 por página</option>
+            </select>
           </div>
           <div id="userBody"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Carregando...</div></div></div>
         </div>
@@ -343,12 +374,69 @@ body{overflow-x:hidden}
         <div class="tbl-wrap">
           <div class="ref-manager">
             <div class="ref-add-row">
-              <input class="ref-add-input" id="refNewLabel" placeholder="Ex: Instagram, Amigo, Google..." maxlength="80" onkeydown="if(event.key==='Enter')addRefOption()"/>
+              <input class="ref-add-input" id="refNewLabel" placeholder="Ex: Instagram, Amigo, Google..." maxlength="80"
+                onkeydown="if(event.key==='Enter')addRefOption()"/>
               <button class="btn btn-primary" onclick="addRefOption()">+ Adicionar</button>
             </div>
             <div class="ref-count" id="refListCount"></div>
             <div class="ref-list" id="refList"><div class="ref-empty">Carregando...</div></div>
           </div>
+        </div>
+      </div>
+
+      <!-- E-MAILS -->
+      <div id="tab-emails" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">E-mails</div><div class="page-sub">Histórico de disparos automáticos</div></div>
+          <button class="btn btn-secondary btn-sm" onclick="loadEmailLog()">↺ Atualizar</button>
+        </div>
+        <div class="tbl-wrap">
+          <div id="emailLogBody"><div class="empty-state"><div class="empty-icon">📧</div><div class="empty-title">Carregando...</div></div></div>
+        </div>
+      </div>
+
+      <!-- CONFIGURAÇÕES -->
+      <div id="tab-settings" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Configurações</div><div class="page-sub">Configure o envio de e-mails do sistema</div></div>
+        </div>
+        <div class="tbl-wrap" style="padding:1.75rem;max-width:640px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)">📧 Configurações de E-mail (Resend)</div>
+
+          <div class="lf" style="margin-bottom:1.25rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">API Key do Resend <span style="color:var(--danger)">*</span></label>
+            <input type="password" id="cfg-api-key" placeholder="re_xxxxxxxxxxxxxxxxxxxx" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;color:var(--text);font-size:14px;outline:none"/>
+            <div style="font-size:11px;color:var(--text3);margin-top:.35rem">Encontre em <a href="https://resend.com/api-keys" target="_blank">resend.com/api-keys</a></div>
+          </div>
+
+          <div class="lf" style="margin-bottom:1.25rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">E-mail remetente</label>
+            <input type="email" id="cfg-from" placeholder="contato@12ia.com.br" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;color:var(--text);font-size:14px;outline:none"/>
+          </div>
+
+          <div class="lf" style="margin-bottom:1.25rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">Nome do remetente</label>
+            <input type="text" id="cfg-from-name" placeholder="Cupom GPT-Business" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;color:var(--text);font-size:14px;outline:none"/>
+          </div>
+
+          <div class="lf" style="margin-bottom:1.25rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">Assunto do e-mail</label>
+            <input type="text" id="cfg-subject" placeholder="Seu link exclusivo GPT Business chegou!" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;color:var(--text);font-size:14px;outline:none"/>
+          </div>
+
+          <div class="lf" style="margin-bottom:1.5rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">Template do e-mail</label>
+            <textarea id="cfg-template" rows="8" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;color:var(--text);font-size:13px;font-family:monospace;resize:vertical;outline:none;line-height:1.6"></textarea>
+            <div style="font-size:11px;color:var(--text3);margin-top:.35rem">
+              Variáveis: <code style="background:var(--bg4);padding:1px 5px;border-radius:3px">{nome}</code> · <code style="background:var(--bg4);padding:1px 5px;border-radius:3px">{nome_completo}</code> · <code style="background:var(--bg4);padding:1px 5px;border-radius:3px">{link}</code> · Use <code style="background:var(--bg4);padding:1px 5px;border-radius:3px">*texto*</code> para <strong>negrito</strong>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saveSettings()">💾 Salvar configurações</button>
+            <button class="btn btn-secondary" onclick="testEmail()">📨 Enviar e-mail de teste</button>
+          </div>
+          <div id="settings-status" style="margin-top:1rem;display:none"></div>
         </div>
       </div>
 
@@ -427,12 +515,6 @@ body{overflow-x:hidden}
             <div style="font-size:12px;color:var(--text3);margin-bottom:1.25rem;line-height:1.5">Link, status, usuário vinculado e datas.</div>
             <button class="btn btn-primary btn-sm" onclick="exportCouponsCSV()">⬇ Exportar cupons</button>
           </div>
-          <div class="tbl-wrap" style="padding:1.5rem">
-            <div style="font-size:24px;margin-bottom:.75rem">⏳</div>
-            <div style="font-weight:600;margin-bottom:.5rem">Lista de Espera</div>
-            <div style="font-size:12px;color:var(--text3);margin-bottom:1.25rem;line-height:1.5">Usuários aguardando cupom, status de notificação.</div>
-            <button class="btn btn-primary btn-sm" onclick="exportWaitlistCSVDirect()">⬇ Exportar lista</button>
-          </div>
         </div>
       </div>
 
@@ -440,57 +522,14 @@ body{overflow-x:hidden}
   </div><!-- /layout -->
 </div><!-- /adminScreen -->
 
-<!-- MODAL ATIVADOS -->
-<div class="modal-overlay" id="ativadosModal">
-  <div class="modal" style="max-width:340px">
-    <div class="modal-title">✏ Atualizar Ativados</div>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:1.25rem;line-height:1.5">
-      Informe quantos cupons foram efetivamente resgatados/ativados.
-    </p>
-    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.4rem">Quantidade</label>
-    <input id="ativadosInput" type="number" min="0"
-      style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;color:var(--text);font-size:22px;font-weight:700;outline:none;text-align:center"
-      onfocus="this.style.borderColor='var(--accent)'"
-      onblur="this.style.borderColor='var(--border)'"
-      onkeydown="if(event.key==='Enter')saveAtivados()"/>
-    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
-      <button class="btn btn-secondary" onclick="closeAtivados()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveAtivados()">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL TROCAR CUPOM -->
-<div class="modal-overlay" id="swapModal">
-  <div class="modal" style="max-width:460px">
-    <div class="modal-title">🔄 Trocar cupom do usuário</div>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;line-height:1.5">
-      O cupom atual será <strong style="color:var(--danger)">bloqueado</strong> e o usuário receberá o novo link informado abaixo.
-    </p>
-    <div class="swap-modal-info">
-      <div style="margin-bottom:.3rem">👤 <strong id="swapUserName">—</strong></div>
-      <div style="font-size:11px;color:var(--text3)" id="swapUserEmail">—</div>
-      <div style="margin-top:.5rem;font-size:11px;color:var(--text3)">Cupom atual:</div>
-      <div class="mono" style="font-size:11px;color:var(--danger);word-break:break-all" id="swapOldLink">—</div>
-    </div>
-    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block">Novo link do cupom</label>
-    <input class="swap-modal-input" id="swapNewLink" placeholder="https://chatgpt.com/p/..." />
-    <div id="swapErr" style="font-size:12px;color:var(--danger);margin-top:.5rem;display:none"></div>
-    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
-      <button class="btn btn-secondary" onclick="closeSwap()">Cancelar</button>
-      <button class="btn btn-primary" id="swapOkBtn" onclick="confirmSwap()">✓ Confirmar troca</button>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL CONFIRM -->
+<!-- MODAL -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal">
     <div class="modal-title" id="confirmTitle">Confirmar ação</div>
     <div class="modal-msg" id="confirmMsg"></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeConfirm()">Cancelar</button>
-      <button class="btn btn-danger" id="confirmOkBtn">Confirmar</button>
+      <button class="btn btn-danger" id="confirmOkBtn" onclick="executeConfirm()">Confirmar</button>
     </div>
   </div>
 </div>
@@ -498,1009 +537,827 @@ body{overflow-x:hidden}
 <div class="toasts" id="toastWrap"></div>
 
 <script>
-// ─── CONFIG ───────────────────────────────────────────────────────────────────
-const SUPA_URL = 'https://eunnrjqeuczhtghbbzos.supabase.co';
-const SUPA_KEY = 'sb_publishable_A08jf3_gfKj6-PH826bNNA_pEF8QaNB';
+const SUPA_URL   = 'https://eunnrjqeuczhtghbbzos.supabase.co';
+const SUPA_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bm5yanFldWN6aHRnaGJiem9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjQ3NzMsImV4cCI6MjA5NjU0MDc3M30.rdRVhWZOxYGKZBmY9IBGcbAiPwYt4CGcYKiv9T-Umys';
 const MAX_ATTEMPTS = 5;
 
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
 
-// ─── STATE ────────────────────────────────────────────────────────────────────
-let allCoupons = [], allUsers = [], allRefOpts = [], allWaitlist = [];
-let loginAttempts = 0, currentTab = 'dashboard';
-let confirmCallback = null, dragSrcId = null;
+let allCoupons=[], allUsers=[], allRefOpts=[], loginAttempts=0, currentTab='dashboard';
+let confirmCallback=null, dragSrcId=null;
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-function dl(name, content) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['\uFEFF' + content], {type:'text/csv;charset=utf-8'}));
-  a.download = name;
-  a.click();
-}
-function fmtDate(d) {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('pt-BR');
-}
-function refLabelById(id) {
-  const o = allRefOpts.find(o => String(o.id) === String(id));
-  return o ? o.name : (id || '—');
-}
-
-// O Supabase/PostgREST limita qualquer select() a 1000 linhas por requisição.
-// fetchAllRows busca em páginas de 1000 até acabar, para nunca truncar listas grandes.
-// queryFactory deve retornar um NOVO query builder a cada chamada (ex: () => db.from('x').select('*').order('created_at')).
-async function fetchAllRows(queryFactory, pageSize = 1000) {
-  let all = [];
-  let from = 0;
-  while (true) {
-    const { data, error } = await queryFactory().range(from, from + pageSize - 1);
-    if (error) return { data: null, error };
-    all = all.concat(data || []);
-    if (!data || data.length < pageSize) break;
-    from += pageSize;
-  }
-  return { data: all, error: null };
-}
-// Divide um array em lotes — usado antes de .in(coluna, lista) para nunca mandar/receber mais de `size` de uma vez.
-function chunk(arr, size = 500) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-// Roda .in(col, ids) em lotes e junta os resultados — evita truncar quando ids.length ou o resultado passa de 1000.
-async function fetchByIdsBatched(table, selectCols, col, ids) {
-  let all = [];
-  for (const batch of chunk(ids, 500)) {
-    const { data } = await db.from(table).select(selectCols).in(col, batch);
-    if (data) all = all.concat(data);
-  }
-  return all;
-}
-
-// ─── TOAST ────────────────────────────────────────────────────────────────────
-function toast(msg, type = 'info', dur = 3200) {
-  const w = document.getElementById('toastWrap');
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.innerHTML = `<span>${type==='success'?'✓':type==='error'?'✗':'i'}</span> ${msg}`;
-  w.appendChild(t);
-  setTimeout(() => t.remove(), dur);
-}
-
-// ─── CONFIRM MODAL ────────────────────────────────────────────────────────────
-function openConfirm(title, msg, cb, lbl = 'Confirmar') {
-  document.getElementById('confirmTitle').textContent = title;
-  document.getElementById('confirmMsg').textContent = msg;
-  document.getElementById('confirmOkBtn').textContent = lbl;
-  confirmCallback = cb;
-  document.getElementById('confirmModal').classList.add('show');
-}
-function closeConfirm() {
-  document.getElementById('confirmModal').classList.remove('show');
-  confirmCallback = null;
-}
-document.getElementById('confirmOkBtn').onclick = () => { closeConfirm(); if (confirmCallback) confirmCallback(); };
-
-// ─── AUTH ─────────────────────────────────────────────────────────────────────
-async function doLogin() {
-  if (loginAttempts >= MAX_ATTEMPTS) return;
-  const u = document.getElementById('loginUser').value.trim();
-  const p = document.getElementById('loginPass').value;
-  const btn = document.getElementById('loginBtn');
-  btn.disabled = true; btn.textContent = 'Verificando...';
-  const { data, error } = await db.auth.signInWithPassword({ email: u, password: p });
-  btn.disabled = false; btn.textContent = 'Entrar';
-  if (!error && data?.session) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminScreen').style.display = 'block';
-    document.getElementById('sbUser').textContent = u;
-    loginAttempts = 0;
-    loadDashboard();
+// LOGIN
+async function doLogin(){
+  if(loginAttempts>=MAX_ATTEMPTS)return;
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  const btn=document.getElementById('loginBtn');
+  btn.disabled=true; btn.textContent='Verificando...';
+  const {data,error}=await db.auth.signInWithPassword({email:u,password:p});
+  btn.disabled=false; btn.textContent='Entrar';
+  if(!error&&data?.session){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('adminScreen').style.display='block';
+    document.getElementById('sbUser').textContent=u;
+    loginAttempts=0; loadDashboard();
   } else {
     loginAttempts++;
-    const rem = MAX_ATTEMPTS - loginAttempts;
-    const e = document.getElementById('loginErr');
-    e.textContent = `Credenciais inválidas. ${rem > 0 ? `${rem} tentativa(s) restante(s).` : 'Acesso bloqueado.'}`;
-    e.style.display = 'block';
-    if (loginAttempts >= MAX_ATTEMPTS) document.getElementById('loginBtn').disabled = true;
-    document.getElementById('loginAttempts').textContent = rem > 0 ? '' : 'Recarregue a página para tentar novamente.';
+    const rem=MAX_ATTEMPTS-loginAttempts;
+    const e=document.getElementById('loginErr');
+    e.textContent=`Credenciais inválidas. ${rem>0?`${rem} tentativa(s) restante(s).`:'Acesso bloqueado.'}`;
+    e.style.display='block';
+    if(loginAttempts>=MAX_ATTEMPTS) document.getElementById('loginBtn').disabled=true;
+    document.getElementById('loginAttempts').textContent=rem>0?'':'Recarregue a página para tentar novamente.';
   }
 }
-async function doLogout() {
+async function doLogout(){
   await db.auth.signOut();
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('adminScreen').style.display = 'none';
-  document.getElementById('loginPass').value = '';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('adminScreen').style.display='none';
+  document.getElementById('loginPass').value='';
 }
-
-// Auto-login se já tem sessão
-(async () => {
-  const { data: { session } } = await db.auth.getSession();
-  if (session) {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminScreen').style.display = 'block';
-    document.getElementById('sbUser').textContent = session.user.email;
+(async()=>{
+  const {data:{session}}=await db.auth.getSession();
+  if(session){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('adminScreen').style.display='block';
+    document.getElementById('sbUser').textContent=session.user.email;
     loadDashboard();
   }
 })();
-db.auth.onAuthStateChange((event) => {
-  if (event === 'SIGNED_OUT') {
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('adminScreen').style.display = 'none';
+db.auth.onAuthStateChange((event)=>{
+  if(event==='SIGNED_OUT'){
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('adminScreen').style.display='none';
   }
 });
 
-// ─── TABS ─────────────────────────────────────────────────────────────────────
-function goTab(id) {
-  document.querySelectorAll('.main > div').forEach(d => d.classList.add('hidden'));
-  document.querySelectorAll('.sb-link').forEach(l => l.classList.remove('active'));
-  document.getElementById('tab-' + id).classList.remove('hidden');
-  document.getElementById('nav-' + id).classList.add('active');
-  currentTab = id;
-  if (id === 'dashboard') loadDashboard();
-  if (id === 'coupons')   loadCoupons();
-  if (id === 'users')     loadUsers();
-  if (id === 'logs')      loadLogs();
-  if (id === 'waitlist')  loadWaitlist();
-  if (id === 'referrals') loadRefOptions();
+// TABS
+function goTab(id){
+  document.querySelectorAll('.main > div').forEach(d=>d.classList.add('hidden'));
+  document.querySelectorAll('.sb-link').forEach(l=>l.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.remove('hidden');
+  document.getElementById('nav-'+id).classList.add('active');
+  currentTab=id;
+  if(id==='dashboard') loadDashboard();
+  if(id==='coupons')   loadCoupons();
+  if(id==='users')     loadUsers();
+  if(id==='logs')      loadLogs();
+  if(id==='emails')    loadEmailLog();
+  if(id==='settings')  loadSettings();
+  if(id==='waitlist')  loadWaitlist();
+  if(id==='referrals') loadRefOptions();
   closeSidebar();
 }
 
-// Mobile sidebar
-function toggleSidebar() {
+// MOBILE SIDEBAR
+function toggleSidebar(){
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebarOverlay').classList.toggle('show');
 }
-function closeSidebar() {
+function closeSidebar(){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarOverlay').classList.remove('show');
 }
 
-// ─── DASHBOARD ────────────────────────────────────────────────────────────────
-async function loadDashboard() {
-  // Stats
-  // IMPORTANTE: contagens via count:'exact', head:true (não busca as linhas, só o total real).
-  // O Supabase/PostgREST limita SELECTs normais a 1000 linhas por request; com mais de
-  // 1000 cupons/usuários, um select().length ficava truncado e os cartões mostravam
-  // números incorretos (ex.: "Total cupons" travado em 1000). Isso corrige isso.
-  const [rOptsRes, avail, dist, block, total, users, waitPending] = await Promise.all([
-    db.from('referrals').select('id,name'), // carrega indicações (allRefOpts abaixo)
-    db.from('coupons').select('*', { count: 'exact', head: true }).eq('status', 'available'),
-    db.from('coupons').select('*', { count: 'exact', head: true }).eq('status', 'distributed'),
-    db.from('coupons').select('*', { count: 'exact', head: true }).eq('status', 'blocked'),
-    db.from('coupons').select('*', { count: 'exact', head: true }),
-    db.from('users').select('*', { count: 'exact', head: true }),
-    db.from('waitlist').select('*', { count: 'exact', head: true }).eq('notified', false),
+// TOAST
+function toast(msg,type='info',dur=3200){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;
+  t.innerHTML=`<span>${type==='success'?'✓':type==='error'?'✗':'i'}</span> ${msg}`;
+  w.appendChild(t); setTimeout(()=>t.remove(),dur);
+}
+
+// CONFIRM
+function openConfirm(title,msg,cb,lbl='Confirmar'){
+  document.getElementById('confirmTitle').textContent=title;
+  document.getElementById('confirmMsg').textContent=msg;
+  document.getElementById('confirmOkBtn').textContent=lbl;
+  confirmCallback=cb;
+  document.getElementById('confirmModal').classList.add('show');
+}
+function closeConfirm(){document.getElementById('confirmModal').classList.remove('show');}
+function executeConfirm(){
+  const cb=confirmCallback;
+  confirmCallback=null;
+  closeConfirm();
+  if(cb) cb();
+}
+
+// HELPERS
+function refLabelById(id){
+  const o=allRefOpts.find(o=>String(o.id)===String(id));
+  return o?o.name:(id||'—');
+}
+
+// DASHBOARD
+async function loadDashboard(){
+  const {data:rOpts}=await db.from('referrals').select('id,name');
+  allRefOpts=rOpts||[];
+
+  // Busca contagens via head:true para evitar limite de 1000 registros
+  const [
+    {count:availCount},
+    {count:distCount},
+    {count:blockCount},
+    {count:userCount},
+    {count:totalCount},
+    {data:wl}
+  ] = await Promise.all([
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','available'),
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','distributed'),
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','blocked'),
+    db.from('users').select('*',{count:'exact',head:true}),
+    db.from('coupons').select('*',{count:'exact',head:true}),
+    db.from('waitlist').select('id').eq('notified',false)
   ]);
-  allRefOpts = rOptsRes.data || allRefOpts;
+  document.getElementById('s-avail').textContent=availCount||0;
+  document.getElementById('s-dist').textContent =distCount||0;
+  document.getElementById('s-block').textContent=blockCount||0;
+  document.getElementById('s-users').textContent=userCount||0;
+  document.getElementById('s-total').textContent=totalCount||0;
+  document.getElementById('waitlistCount').textContent=(wl?.length||0);
 
-  document.getElementById('waitlistCount').textContent = waitPending.count || 0;
-  document.getElementById('s-avail').textContent  = avail.count || 0;
-  document.getElementById('s-dist').textContent   = dist.count  || 0;
-  document.getElementById('s-block').textContent  = block.count || 0;
-  document.getElementById('s-users').textContent  = users.count || 0;
-  document.getElementById('s-total').textContent  = total.count || 0;
+  // Busca referrals e users para o gráfico de canais
+  const {data:rUsersData}=await db.from('users').select('id,referral_id');
 
-  // Dados completos dos usuários, para o gráfico de canal de origem logo abaixo
-  const { data: us } = await fetchAllRows(() => db.from('users').select('id,referral_id'));
-
-  loadAtivados(); // valor manual salvo localmente
-
-  // Últimos resgates: busca users + join manual com coupons
-  // Schema: users.coupons_id → coupons.id; coupons.link
-  const { data: recent } = await db
-    .from('users')
-    .select('id,name,email,referral_id,coupons_id,created_at')
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  const rb = document.getElementById('recentBody');
-  if (!recent?.length) {
-    rb.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Nenhum resgate ainda</div></div>';
+  const {data:recent}=await db.from('users').select('name,email,referral_id,created_at,coupons_id').order('created_at',{ascending:false}).limit(10);
+  const rb=document.getElementById('recentBody');
+  if(!recent?.length){
+    rb.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Nenhum resgate ainda</div></div>';
   } else {
-    // Join duplo: coupons_id do user E users_id no cupom (cobre registros antigos)
-    const cIdsFromUser = [...new Set(recent.map(u => u.coupons_id).filter(Boolean))];
-    const uIdsForLookup = recent.filter(u => !u.coupons_id).map(u => u.id);
-
-    let cMapById = {}, cMapByUser = {};
-    if (cIdsFromUser.length) {
-      const { data: cs1 } = await db.from('coupons').select('id,link').in('id', cIdsFromUser);
-      (cs1 || []).forEach(c => cMapById[c.id] = c.link);
-    }
-    if (uIdsForLookup.length) {
-      const { data: cs2 } = await db.from('coupons').select('link,users_id').eq('status','distributed').in('users_id', uIdsForLookup);
-      (cs2 || []).forEach(c => { if (c.users_id) cMapByUser[c.users_id] = c.link; });
-    }
-
-    const rows = recent.map(u => {
-      const link = (u.coupons_id ? cMapById[u.coupons_id] : null) || cMapByUser[u.id] || null;
-      return `<tr>
+    const rcids=[...new Set(recent.map(u=>u.coupons_id).filter(Boolean))];
+    let rmap={};
+    if(rcids.length){const{data:rcs}=await db.from('coupons').select('id,link').in('id',rcids);(rcs||[]).forEach(c=>rmap[c.id]=c.link);}
+    const rows=recent.map(u=>`<tr>
       <td class="primary">${esc(u.name)}</td>
       <td>${esc(u.email)}</td>
       <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
-      <td class="truncate mono" style="max-width:200px"><a href="${esc(link || '#')}" target="_blank" rel="noopener">${esc(link || '—')}</a></td>
-      <td>${fmtDate(u.created_at)}</td>
-    </tr>`;
-    }).join('');
-    rb.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Indicação</th><th>Link</th><th>Data</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <td class="truncate mono"><a href="${rmap[u.coupons_id]||'#'}" target="_blank">${rmap[u.coupons_id]||'—'}</a></td>
+      <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
+    </tr>`).join('');
+    rb.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Indicação</th><th>Link</th><th>Data</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  // Gráfico de indicações
-  const refCount = {};
-  (us || []).forEach(u => {
-    const r = u.referral_id || '_sem';
-    refCount[r] = (refCount[r] || 0) + 1;
-  });
-  const sorted = Object.entries(refCount).sort((a, b) => b[1] - a[1]);
-  const rc = document.getElementById('referralChart');
-  if (!sorted.length) {
-    rc.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Sem dados ainda</div></div>';
+  const refCount={};
+  (rUsersData||[]).forEach(u=>{const r=u.referral_id||'_sem';refCount[r]=(refCount[r]||0)+1;});
+  const sorted=Object.entries(refCount).sort((a,b)=>b[1]-a[1]);
+  const rc=document.getElementById('referralChart');
+  if(!sorted.length){
+    rc.innerHTML='<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-title">Sem dados ainda</div></div>';
   } else {
-    const max = sorted[0][1];
-    const rows = sorted.map(([k, v]) => `<tr>
-      <td class="primary" style="width:180px">${k === '_sem' ? 'Não informado' : esc(refLabelById(k))}</td>
+    const max=sorted[0][1];
+    const rows=sorted.map(([k,v])=>`<tr>
+      <td class="primary" style="width:180px">${k==='_sem'?'Não informado':esc(refLabelById(k))}</td>
       <td style="width:50px;text-align:right;color:var(--text3)">${v}</td>
       <td style="padding-left:1rem">
         <div style="background:var(--bg4);border-radius:100px;height:6px;overflow:hidden">
-          <div style="background:var(--accent);height:6px;border-radius:100px;width:${Math.round(v / max * 100)}%;transition:width .4s"></div>
+          <div style="background:var(--accent);height:6px;border-radius:100px;width:${Math.round(v/max*100)}%;transition:width .4s"></div>
         </div>
       </td>
     </tr>`).join('');
-    rc.innerHTML = `<table><thead><tr><th>Canal</th><th style="text-align:right">Usuários</th><th style="padding-left:1rem">Proporção</th></tr></thead><tbody>${rows}</tbody></table>`;
+    rc.innerHTML=`<table><thead><tr><th>Canal</th><th style="text-align:right">Usuários</th><th style="padding-left:1rem">Proporção</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 }
 
-// ─── CUPONS ───────────────────────────────────────────────────────────────────
-// Schema coupons: id, link, status, created_at, distributed_at, users_id
-// Schema users: id, name, email, phone, referral_id, coupons_id, created_at
-async function loadCoupons() {
-  document.getElementById('couponBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
-
-  const { data: cps, error } = await fetchAllRows(() => db
-    .from('coupons')
-    .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at')
-    .order('created_at', { ascending: false }));
-
-  if (error) {
-    document.getElementById('couponBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro ao carregar: ${esc(error.message)}</div></div>`;
-    return;
+// CUPONS
+let couponPage=0, couponPageSize=20;
+let userPage=0,   userPageSize=20;
+async function loadCoupons(){
+  document.getElementById('couponBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
+  // Busca em lotes de 1000 para garantir todos os registros
+  let allCps=[];
+  let from=0;
+  const BATCH=1000;
+  while(true){
+    const{data:batch,error}=await db.from('coupons')
+      .select('id,link,status,created_at,distributed_at,users_id')
+      .order('created_at',{ascending:false})
+      .range(from,from+BATCH-1);
+    if(error){console.error('loadCoupons error:',error);break;}
+    if(!batch?.length) break;
+    allCps=[...allCps,...batch];
+    if(batch.length<BATCH) break;
+    from+=BATCH;
   }
-
-  // Busca todos os usuários de uma vez (join duplo: por users_id no cupom OU por coupons_id no usuário)
-  const couponIds = (cps || []).map(c => c.id);
-  const uIdsFromCoupon = [...new Set((cps || []).map(c => c.users_id).filter(Boolean))];
-
-  // Busca usuários pelo users_id do cupom
-  let uMap = {}; // userId → user
-  if (uIdsFromCoupon.length) {
-    const us1 = await fetchByIdsBatched('users', 'id,name,email,coupons_id', 'id', uIdsFromCoupon);
-    us1.forEach(u => uMap[u.id] = u);
+  const uids=[...new Set(allCps.map(c=>c.users_id).filter(Boolean))];
+  let userMap={};
+  if(uids.length){
+    for(let i=0;i<uids.length;i+=500){
+      const chunk=uids.slice(i,i+500);
+      const {data:us}=await db.from('users').select('id,name,email,referral_id').in('id',chunk);
+      (us||[]).forEach(u=>userMap[u.id]=u);
+    }
   }
-
-  // Busca usuários pelo coupons_id (para registros antigos onde users_id no cupom é null)
-  let couponToUser = {}; // couponId → user
-  // Para cupons distribuídos sem users_id, busca via users.coupons_id
-  const cpsWithoutUser = (cps || []).filter(c => c.status === 'distributed' && !c.users_id).map(c => c.id);
-  if (cpsWithoutUser.length) {
-    const us2 = await fetchByIdsBatched('users', 'id,name,email,coupons_id', 'coupons_id', cpsWithoutUser);
-    us2.forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
-  }
-  // Também indexa por couponId os usuários já encontrados via users_id
-  Object.values(uMap).forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
-
-  allCoupons = (cps || []).map(c => ({
-    ...c,
-    ativado: c.ativado || false,
-    ativado_at: c.ativado_at || null,
-    user: c.users_id ? (uMap[c.users_id] || couponToUser[c.id] || null) : (couponToUser[c.id] || null)
-  }));
+  allCoupons=allCps.map(c=>({...c, users: c.users_id?userMap[c.users_id]||null:null}));
+  couponPage=0;
   renderCoupons();
 }
-
-function renderCoupons() {
-  const f = document.getElementById('couponFilter').value;
-  const q = (document.getElementById('couponSearch').value || '').toLowerCase();
-  let list = f === 'all'
-    ? allCoupons
-    : f === 'ativado'
-      ? allCoupons.filter(c => c.ativado === true)
-      : allCoupons.filter(c => c.status === f);
-  if (q) list = list.filter(c => (c.link || '').toLowerCase().includes(q));
-
-  const body = document.getElementById('couponBody');
-  if (!list.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';
-    return;
+function renderCoupons(){
+  const f=document.getElementById('couponFilter').value;
+  const q=(document.getElementById('couponSearch').value||'').toLowerCase();
+  const now=Date.now();
+  const THREE_DAYS=3*24*60*60*1000;
+  let list;
+  if(f==='validate'){
+    list=allCoupons.filter(c=>c.status==='distributed'&&c.distributed_at&&(now-new Date(c.distributed_at).getTime())>THREE_DAYS);
+    list.sort((a,b)=>new Date(a.distributed_at)-new Date(b.distributed_at));
+  } else {
+    list=f==='all'?allCoupons:allCoupons.filter(c=>c.status===f);
+    if(f==='distributed') list.sort((a,b)=>new Date(a.distributed_at)-new Date(b.distributed_at));
   }
-
-  const rows = list.map(c => {
-    const uid  = c.user?.id    || '';
-    const unm  = (c.user?.name  || '').replace(/'/g, "\\'");
-    const uem  = (c.user?.email || '').replace(/'/g, "\\'");
-    const lnk  = (c.link || '').replace(/'/g, "\\'");
-    return `<tr>
-    <td class="truncate mono" style="max-width:260px"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
-    <td><span class="badge b-${c.status}">${statusLabel(c.status)}</span></td>
-    <td class="primary">${esc(c.user?.name || '—')}</td>
-    <td>${esc(c.user?.email || '—')}</td>
-    <td>${fmtDate(c.distributed_at)}</td>
+  if(q) list=list.filter(c=>(c.link||'').toLowerCase().includes(q)||(c.users?.name||'').toLowerCase().includes(q)||(c.users?.email||'').toLowerCase().includes(q));
+  const body=document.getElementById('couponBody');
+  if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';return;}
+  // Conta quantos precisam de validação
+  const pendentes=allCoupons.filter(c=>c.status==='distributed'&&c.distributed_at&&(now-new Date(c.distributed_at).getTime())>THREE_DAYS).length;
+  const total=list.length;
+  const totalPages=Math.ceil(total/couponPageSize);
+  const page=list.slice(couponPage*couponPageSize,(couponPage+1)*couponPageSize);
+  const rows=page.map(c=>{
+    const aguardando=c.status==='distributed'&&c.distributed_at&&(now-new Date(c.distributed_at).getTime())>THREE_DAYS;
+    return`<tr ${aguardando?'style="background:rgba(245,158,11,.05)"':''}>
+    <td class="truncate mono"><a href="${c.link}" target="_blank">${c.link}</a></td>
     <td>
-      ${c.status === 'distributed' ? (c.ativado
-        ? `<span class="badge" style="background:rgba(34,197,94,.15);color:#4ade80;gap:4px">✓ Ativado<span style="font-size:9px;opacity:.7">${c.ativado_at ? ' · ' + fmtDate(c.ativado_at).split(',')[0] : ''}</span></span>`
-        : `<button class="btn btn-success btn-sm" onclick="marcarAtivado('${c.id}')">✓ Marcar ativado</button>`)
-      : '—'}
+      <span class="badge b-${c.status}">${statusLabel(c.status)}</span>
+      ${aguardando?`<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;margin-left:4px" title="Distribuído há mais de 3 dias — validar se ativou">⏳ Validar</span>`:''}
     </td>
+    <td class="primary">${esc(c.users?.name||'—')}</td>
+    <td>${esc(c.users?.email||'—')}</td>
+    <td><span class="ref-badge">${esc(refLabelById(c.users?.referral_id))}</span></td>
+    <td>${c.distributed_at?new Date(c.distributed_at).toLocaleString('pt-BR'):'—'}</td>
     <td>
       <div class="btns">
-        ${c.status === 'distributed' ? `
-          <button class="btn btn-primary btn-sm" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom com erro ou já utilizado">🔄 Trocar</button>
-          <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
-        ` : ''}
-        ${c.status === 'available' ? `
-          <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
-        ` : ''}
-        ${c.status === 'blocked' ? `
-          <button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
-        ` : ''}
+        ${aguardando?`
+          <button class="btn btn-success btn-sm" onclick="confirmActivated('${c.id}')" title="Cliente ativou o cupom">✅ Ativou</button>
+          <button class="btn btn-secondary btn-sm" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩ Devolver</button>
+        `:`
+          ${c.status==='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button><button class="btn btn-ghost btn-sm btn-icon" onclick="replaceCoupon('${c.id}','${esc(c.users?.name||'')}','${esc(c.users?.email||'')}','${c.users_id||''}')" title="Substituir cupom com defeito">🔄</button>`:''}
+          ${c.status!=='blocked'?`<button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>`:`<button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>`}
+          ${c.status!=='distributed'?`<button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>`:''}
+        `}
       </div>
     </td>
   </tr>`;
   }).join('');
+  const alertPendentes=pendentes>0?`<div style="display:flex;align-items:center;gap:.75rem;padding:.875rem 1.25rem;background:rgba(245,158,11,.08);border-bottom:1px solid rgba(245,158,11,.15);font-size:13px;color:#fbbf24">
+    <span style="font-size:16px">⏳</span>
+    <span><strong>${pendentes}</strong> cupom(ns) distribuído(s) há mais de 3 dias aguardando validação — verifique se o cliente ativou e devolva ao estoque se necessário.</span>
+    <button class="btn btn-ghost btn-sm" style="color:#fbbf24;border-color:rgba(245,158,11,.3);margin-left:auto" onclick="document.getElementById('couponFilter').value='distributed';document.getElementById('couponSearch').value='';couponPage=0;renderCoupons()">Ver distribuídos</button>
+  </div>`:'';
+  const pager=totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+    <span>Exibindo ${couponPage*couponPageSize+1}–${Math.min((couponPage+1)*couponPageSize,total)} de ${total}</span>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-ghost btn-sm" onclick="couponPage--;renderCoupons()" ${couponPage===0?'disabled':''}>← Anterior</button>
+      <span style="padding:.35rem .75rem">${couponPage+1} / ${totalPages}</span>
+      <button class="btn btn-ghost btn-sm" onclick="couponPage++;renderCoupons()" ${couponPage>=totalPages-1?'disabled':''}>Próximo →</button>
+    </div>
+  </div>`:'';
+  body.innerHTML=`${alertPendentes}<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Indicação</th><th>Distribuído em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
+}
+async function replaceCoupon(oldCouponId, userName, userEmail, userId){
+  openConfirm(
+    '🔄 Substituir cupom',
+    `Substituir o cupom de "${userName}"?\n\nO cupom atual será bloqueado e um novo link disponível será vinculado ao usuário.\n\nO novo link será enviado por e-mail automaticamente.`,
+    async()=>{
+      // 1. Busca um cupom disponível
+      const{data:avail}=await db.from('coupons').select('id,link').eq('status','available').limit(1);
+      if(!avail?.length){ toast('Nenhum cupom disponível no estoque.','error',5000); return; }
+      const newCoupon=avail[0];
 
-  body.innerHTML = `<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Ativado em</th><th>Resgate</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+      // 2. Bloqueia o cupom com defeito
+      await db.from('coupons').update({status:'blocked',users_id:null,distributed_at:null}).eq('id',oldCouponId);
+
+      // 3. Vincula o novo cupom ao usuário
+      await db.from('coupons').update({status:'distributed',distributed_at:new Date().toISOString(),users_id:userId}).eq('id',newCoupon.id);
+
+      // 4. Atualiza o usuário com o novo cupom
+      await db.from('users').update({coupons_id:newCoupon.id}).eq('id',userId);
+
+      // 5. Registra o evento
+      await db.from('events').insert({
+        coupons_id: newCoupon.id,
+        users_id:   userId,
+        event_type: 'replaced',
+        metadata:   JSON.stringify({old_coupon_id:oldCouponId, reason:'defect'})
+      });
+
+      // 6. Envia o novo link por e-mail automaticamente
+      fetch(`${EDGE_URL}`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPA_KEY}`},
+        body:JSON.stringify({user_id:userId, coupon_id:newCoupon.id})
+      }).catch(()=>{});
+
+      toast(`✅ Cupom substituído! Novo link enviado por e-mail para ${userEmail}.`,'success',5000);
+      loadCoupons();
+    },
+    '🔄 Substituir'
+  );
 }
 
-function statusLabel(s) {
-  return s === 'available' ? 'Disponível' : s === 'distributed' ? 'Ativado' : 'Bloqueado';
+function statusLabel(s){return s==='available'?'Disponível':s==='distributed'?'Distribuído':s==='blocked'?'Bloqueado':'Substituído';}
+async function blockCoupon(id){
+  const{error}=await db.rpc('admin_block_coupon',{p_coupon_id:id});
+  if(error){toast('Erro ao bloquear: '+error.message,'error',6000);return;}
+  toast('Cupom bloqueado.','info');loadCoupons();
+}
+async function unblockCoupon(id){
+  const{error}=await db.rpc('admin_unblock_coupon',{p_coupon_id:id});
+  if(error){toast('Erro ao desbloquear: '+error.message,'error',6000);return;}
+  toast('Cupom desbloqueado.','success');loadCoupons();
+}
+async function returnCoupon(id){
+  openConfirm('Devolver cupom','O link voltará ao estoque como disponível. O usuário vinculado perderá o vínculo.',async()=>{
+    const{error}=await db.rpc('admin_return_coupon',{p_coupon_id:id});
+    if(error){toast('Erro ao devolver: '+error.message,'error',6000);return;}
+    toast('Link devolvido ao estoque.','success');loadCoupons();
+  },'Devolver');
+}
+async function deleteCoupon(id){
+  openConfirm('Excluir cupom','Excluir este link permanentemente?\n\nEsta ação não pode ser desfeita.',async()=>{
+    const{error}=await db.rpc('admin_delete_coupon',{p_coupon_id:id});
+    if(error){toast('Erro ao excluir: '+error.message,'error',6000);return;}
+    toast('Cupom excluído.','info');loadCoupons();
+  },'🗑 Excluir');
+}
+function exportCouponsCSV(){
+  if(!allCoupons.length){toast('Nenhum cupom para exportar.','error');return;}
+  const h='Link,Status,Usuário,E-mail,Distribuído em,Importado em\n';
+  const r=allCoupons.map(c=>[c.link,statusLabel(c.status),c.users?.name||'',c.users?.email||'',c.distributed_at?new Date(c.distributed_at).toLocaleString('pt-BR'):'',new Date(c.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
+  dl('cupons.csv',h+r);
 }
 
-// ─── MARCAR ATIVADO ───────────────────────────────────────────────────────────
-async function marcarAtivado(id) {
-  const now = new Date().toISOString();
-  const { error } = await db.from('coupons')
-    .update({ ativado: true, ativado_at: now })
-    .eq('id', id);
-  if (error) { toast('Erro ao marcar: ' + error.message, 'error', 5000); return; }
-
-  // Atualiza localStorage do contador do dashboard (+1)
-  const cur = parseInt(localStorage.getItem('cupom_ativados_count') || '0');
-  const novo = cur + 1;
-  localStorage.setItem('cupom_ativados_count', novo);
-  const el = document.getElementById('s-today');
-  if (el) el.textContent = novo;
-
-  toast('Cupom marcado como ativado!', 'success');
-  loadCoupons();
-}
-
-// ─── TROCAR CUPOM ─────────────────────────────────────────────────────────────
-let swapState = { couponId: null, userId: null };
-
-function openSwap(couponId, oldLink, userId, userName, userEmail) {
-  swapState = { couponId, userId };
-  document.getElementById('swapUserName').textContent  = userName  || '—';
-  document.getElementById('swapUserEmail').textContent = userEmail || '—';
-  document.getElementById('swapOldLink').textContent   = oldLink   || '—';
-  document.getElementById('swapNewLink').value = '';
-  document.getElementById('swapErr').style.display = 'none';
-  document.getElementById('swapModal').classList.add('show');
-  setTimeout(() => document.getElementById('swapNewLink').focus(), 120);
-}
-function closeSwap() {
-  document.getElementById('swapModal').classList.remove('show');
-  swapState = { couponId: null, userId: null };
-}
-
-async function confirmSwap() {
-  const newLink = document.getElementById('swapNewLink').value.trim();
-  const errEl   = document.getElementById('swapErr');
-  errEl.style.display = 'none';
-
-  if (!newLink.startsWith('http')) {
-    errEl.textContent = 'Informe uma URL válida (deve começar com http).';
-    errEl.style.display = 'block'; return;
+// USUÁRIOS
+async function loadUsers(){
+  document.getElementById('userBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  const {data:rOpts}=await db.from('referrals').select('id,name');
+  allRefOpts=rOpts||[];
+  // Busca em lotes de 1000 para garantir todos os registros
+  let allUs=[];
+  let from=0;
+  const BATCH=1000;
+  while(true){
+    const{data:batch}=await db.from('users')
+      .select('id,name,email,phone,referral_id,coupons_id,created_at')
+      .order('created_at',{ascending:false})
+      .range(from,from+BATCH-1);
+    if(!batch?.length) break;
+    allUs=[...allUs,...batch];
+    if(batch.length<BATCH) break;
+    from+=BATCH;
   }
-  if (!swapState.couponId) { closeSwap(); return; }
-
-  const btn = document.getElementById('swapOkBtn');
-  btn.disabled = true; btn.textContent = 'Salvando...';
-
-  // 1. Verifica se o novo link já existe no banco
-  const { data: exist } = await db.from('coupons').select('id,status').eq('link', newLink).maybeSingle();
-  if (exist) {
-    if (exist.status === 'distributed') {
-      errEl.textContent = 'Este link já foi distribuído para outro usuário.';
-      errEl.style.display = 'block'; btn.disabled = false; btn.textContent = '✓ Confirmar troca'; return;
+  const users=allUs;
+  const cids=[...new Set(users.map(u=>u.coupons_id).filter(Boolean))];
+  let couponMap={};
+  if(cids.length){
+    for(let i=0;i<cids.length;i+=500){
+      const chunk=cids.slice(i,i+500);
+      const {data:cs}=await db.from('coupons').select('id,link').in('id',chunk);
+      (cs||[]).forEach(c=>couponMap[c.id]=c);
     }
-    if (exist.status === 'blocked') {
-      errEl.textContent = 'Este link está bloqueado. Desbloqueie-o antes de usá-lo na troca.';
-      errEl.style.display = 'block'; btn.disabled = false; btn.textContent = '✓ Confirmar troca'; return;
+  }
+  // Busca usuários com erro de e-mail
+  const uids=users.map(u=>u.id).filter(Boolean);
+  let emailErrors=new Set();
+  let emailSent=new Set();
+  if(uids.length){
+    for(let i=0;i<uids.length;i+=500){
+      const chunk=uids.slice(i,i+500);
+      const {data:evs}=await db.from('events')
+        .select('users_id,event_type')
+        .in('event_type',['email_sent','email_error'])
+        .in('users_id',chunk);
+      (evs||[]).forEach(e=>{
+        if(e.event_type==='email_error') emailErrors.add(e.users_id);
+        if(e.event_type==='email_sent')  emailSent.add(e.users_id);
+      });
     }
-    // Era available no banco → usa ele diretamente
-    const newCouponId = exist.id;
-
-    // 2. Bloqueia o cupom antigo (não volta ao estoque, nunca vai para outra pessoa)
-    await db.from('coupons')
-      .update({ status: 'blocked', users_id: null, distributed_at: null })
-      .eq('id', swapState.couponId);
-
-    // 3. Marca o cupom existente como distribuído e vincula ao usuário
-    const now = new Date().toISOString();
-    await db.from('coupons')
-      .update({ status: 'distributed', users_id: swapState.userId, distributed_at: now })
-      .eq('id', newCouponId);
-
-    // 4. Atualiza o usuário com o novo cupom
-    await db.from('users').update({ coupons_id: newCouponId }).eq('id', swapState.userId);
-
-    // 5. Log
-    await db.from('events').insert({
-      coupons_id: newCouponId, users_id: swapState.userId,
-      event_type: 'swap',
-      metadata: JSON.stringify({ old_coupon_id: swapState.couponId, new_link: newLink })
-    });
-
-    btn.disabled = false; btn.textContent = '✓ Confirmar troca';
-    closeSwap();
-    toast('Cupom trocado! O antigo foi bloqueado permanentemente.', 'success', 4000);
-    loadCoupons();
-    return;
+    // Se teve erro mas depois foi enviado com sucesso, remove do erro
+    emailSent.forEach(id=>emailErrors.delete(id));
   }
-
-  // Link novo (não existe no banco) → insere já como distributed
-  const now = new Date().toISOString();
-  const { data: inserted, error: insErr } = await db.from('coupons')
-    .insert({ link: newLink, status: 'distributed', users_id: swapState.userId, distributed_at: now })
-    .select();
-
-  if (insErr) {
-    errEl.textContent = 'Erro ao inserir novo cupom: ' + insErr.message;
-    errEl.style.display = 'block'; btn.disabled = false; btn.textContent = '✓ Confirmar troca'; return;
-  }
-
-  const newCouponId = inserted[0].id;
-
-  // Bloqueia o cupom antigo permanentemente
-  await db.from('coupons')
-    .update({ status: 'blocked', users_id: null, distributed_at: null })
-    .eq('id', swapState.couponId);
-
-  // Vincula o novo ao usuário
-  await db.from('users').update({ coupons_id: newCouponId }).eq('id', swapState.userId);
-
-  // Log
-  await db.from('events').insert({
-    coupons_id: newCouponId, users_id: swapState.userId,
-    event_type: 'swap',
-    metadata: JSON.stringify({ old_coupon_id: swapState.couponId, new_link: newLink })
-  });
-
-  btn.disabled = false; btn.textContent = '✓ Confirmar troca';
-  closeSwap();
-  toast('Cupom trocado! O antigo foi bloqueado permanentemente.', 'success', 4000);
-  loadCoupons();
-}
-
-async function blockCoupon(id) {
-  const { error } = await db.from('coupons').update({ status: 'blocked' }).eq('id', id);
-  if (error) { toast('Erro ao bloquear: ' + error.message, 'error', 6000); return; }
-  toast('Cupom bloqueado.', 'info');
-  loadCoupons();
-}
-async function unblockCoupon(id) {
-  const { error } = await db.from('coupons').update({ status: 'available' }).eq('id', id);
-  if (error) { toast('Erro ao desbloquear: ' + error.message, 'error', 6000); return; }
-  toast('Cupom desbloqueado.', 'success');
-  loadCoupons();
-}
-async function returnCoupon(id) {
-  openConfirm('Devolver cupom', 'O link voltará ao estoque como disponível. O usuário vinculado perderá o vínculo.', async () => {
-    // Remove vínculo do usuário
-    await db.from('users').update({ coupons_id: null }).eq('coupons_id', id);
-    // Recoloca cupom como disponível e limpa users_id
-    const { error } = await db.from('coupons')
-      .update({ status: 'available', distributed_at: null, users_id: null })
-      .eq('id', id);
-    if (error) { toast('Erro ao devolver: ' + error.message, 'error', 6000); return; }
-    toast('Link devolvido ao estoque.', 'success');
-    loadCoupons();
-  }, 'Devolver');
-}
-async function deleteCoupon(id) {
-  openConfirm('Excluir cupom', 'Excluir este link permanentemente?\n\nEsta ação não pode ser desfeita.', async () => {
-    await db.from('users').update({ coupons_id: null }).eq('coupons_id', id);
-    await db.from('events').delete().eq('coupons_id', id);
-    const { error } = await db.from('coupons').delete().eq('id', id);
-    if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
-    toast('Cupom excluído.', 'info');
-    loadCoupons();
-  }, '🗑 Excluir');
-}
-function exportCouponsCSV() {
-  if (!allCoupons.length) { toast('Nenhum cupom para exportar.', 'error'); return; }
-  const h = 'Link,Status,Usuário,E-mail,Distribuído em,Importado em\n';
-  const r = allCoupons.map(c => [
-    c.link, statusLabel(c.status),
-    c.user?.name || '', c.user?.email || '',
-    c.distributed_at ? fmtDate(c.distributed_at) : '',
-    fmtDate(c.created_at)
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  dl('cupons.csv', h + r);
-}
-
-// ─── USUÁRIOS ─────────────────────────────────────────────────────────────────
-// Schema users: id, name, email, phone, referral, referral_id, coupons_id, created_at
-async function loadUsers() {
-  document.getElementById('userBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
-
-  if (!allRefOpts.length) {
-    const { data } = await db.from('referrals').select('id,name');
-    allRefOpts = data || [];
-  }
-
-  const { data: us, error } = await fetchAllRows(() => db
-    .from('users')
-    .select('id,name,email,phone,referral_id,coupons_id,created_at')
-    .order('created_at', { ascending: false }));
-
-  if (error) {
-    document.getElementById('userBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro: ${esc(error.message)}</div></div>`;
-    return;
-  }
-
-  // Join duplo: pelo coupons_id do usuário E pelo users_id do cupom (cobre registros antigos)
-  const cIdsFromUser = [...new Set((us || []).map(u => u.coupons_id).filter(Boolean))];
-  const uIdsForCoupon = [...new Set((us || []).map(u => u.id))];
-
-  let cMapById   = {}; // couponId  → link
-  let cMapByUser = {}; // userId    → link  (via coupons.users_id)
-
-  // 1. Busca cupons pelo coupons_id do usuário
-  if (cIdsFromUser.length) {
-    const cs1 = await fetchByIdsBatched('coupons', 'id,link', 'id', cIdsFromUser);
-    cs1.forEach(c => cMapById[c.id] = c.link);
-  }
-
-  // 2. Busca cupons pelo users_id (para registros antigos onde users.coupons_id é null)
-  const usersWithoutCouponId = (us || []).filter(u => !u.coupons_id).map(u => u.id);
-  if (usersWithoutCouponId.length) {
-    let cs2 = [];
-    for (const batch of chunk(usersWithoutCouponId, 500)) {
-      const { data } = await db.from('coupons').select('id,link,users_id').eq('status','distributed').in('users_id', batch);
-      if (data) cs2 = cs2.concat(data);
-    }
-    cs2.forEach(c => { if (c.users_id) cMapByUser[c.users_id] = c.link; });
-  }
-
-  allUsers = (us || []).map(u => ({
+  allUsers=users.map(u=>({
     ...u,
-    couponLink: (u.coupons_id ? cMapById[u.coupons_id] : null) || cMapByUser[u.id] || null
+    coupons: u.coupons_id?couponMap[u.coupons_id]||null:null,
+    emailError: emailErrors.has(u.id),
+    emailSent:  emailSent.has(u.id)
   }));
+  userPage=0;
   renderUsers();
 }
-
-function renderUsers() {
-  const q = (document.getElementById('userSearch').value || '').toLowerCase();
-  const list = q
-    ? allUsers.filter(u =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        (u.phone || '').includes(q))
-    : allUsers;
-
-  const body = document.getElementById('userBody');
-  if (!list.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Nenhum usuário encontrado</div></div>';
-    return;
-  }
-
-  const rows = list.map(u => `<tr>
-    <td class="primary">${esc(u.name)}</td>
+function renderUsers(){
+  const q=(document.getElementById('userSearch').value||'').toLowerCase();
+  const list=q?allUsers.filter(u=>u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q)||(u.phone||'').includes(q)||refLabelById(u.referral_id).toLowerCase().includes(q)):allUsers;
+  const body=document.getElementById('userBody');
+  if(!list.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Nenhum usuário encontrado</div></div>';return;}
+  const total=list.length;
+  const totalPages=Math.ceil(total/userPageSize);
+  const page=list.slice(userPage*userPageSize,(userPage+1)*userPageSize);
+  const rows=page.map(u=>`<tr ${u.emailError?'style="background:rgba(239,68,68,.04)"':''}>
+    <td class="primary">${esc(u.name)} ${u.emailError?'<span title="E-mail com erro — considere enviar WhatsApp" style="color:var(--danger);font-size:11px;cursor:help">⚠️</span>':u.emailSent?'<span title="E-mail enviado" style="color:var(--success);font-size:11px">✓</span>':''}</td>
     <td>${esc(u.email)}</td>
-    <td>${esc(u.phone || '—')}</td>
+    <td>${esc(u.phone||'—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
-    <td class="truncate mono" style="max-width:200px">
-      ${u.couponLink
-        ? `<a href="${esc(u.couponLink)}" target="_blank" rel="noopener">${esc(u.couponLink)}</a>`
-        : '—'}
-    </td>
-    <td>${fmtDate(u.created_at)}</td>
-    <td>
-      <button class="btn btn-ghost btn-sm btn-icon"
-        onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')"
-        title="Excluir">🗑</button>
-    </td>
+    <td class="truncate mono"><a href="${u.coupons?.link||'#'}" target="_blank">${u.coupons?.link||'—'}</a></td>
+    <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
+    <td><div class="btns">
+      <button class="btn btn-ghost btn-sm btn-icon${u.emailError?' btn-danger':''}" onclick="openWhatsApp('${u.phone||''}','${esc(u.name)}','${esc(refLabelById(u.referral_id))}','${u.coupons?.link||''}')" title="${u.emailError?'⚠️ E-mail com erro — enviar WhatsApp':'Enviar WhatsApp'}" ${!u.phone?'disabled':''}>📱</button>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="resendEmail('${u.id}','${u.coupons_id||''}','${esc(u.email)}')" title="Reenviar e-mail" ${!u.coupons_id?'disabled':''}>📨</button>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button>
+    </div></td>
   </tr>`).join('');
-
-  body.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  const pager=totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+    <span>Exibindo ${userPage*userPageSize+1}–${Math.min((userPage+1)*userPageSize,total)} de ${total}</span>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-ghost btn-sm" onclick="userPage--;renderUsers()" ${userPage===0?'disabled':''}>← Anterior</button>
+      <span style="padding:.35rem .75rem">${userPage+1} / ${totalPages}</span>
+      <button class="btn btn-ghost btn-sm" onclick="userPage++;renderUsers()" ${userPage>=totalPages-1?'disabled':''}>Próximo →</button>
+    </div>
+  </div>`:'';
+  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
+}
+async function deleteUser(id,name,couponId){
+  openConfirm('Excluir usuário',`Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`,async()=>{
+    const{error}=await db.rpc('admin_delete_user',{p_user_id:id, p_coupon_id:couponId||null});
+    if(error){toast('Erro ao excluir: '+error.message,'error',6000);return;}
+    toast('Usuário excluído.','info');loadUsers();loadDashboard();
+  },'🗑 Excluir');
+}
+function exportUsersCSV(){
+  if(!allUsers.length){toast('Nenhum usuário para exportar.','error');return;}
+  const h='Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
+  const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral_id),u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
+  dl('usuarios.csv',h+r);
 }
 
-async function deleteUser(id, name, couponId) {
-  openConfirm('Excluir usuário', `Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`, async () => {
-    // Libera cupom antes de deletar o usuário
-    if (couponId) {
-      await db.from('coupons')
-        .update({ status: 'available', distributed_at: null, users_id: null })
-        .eq('id', couponId);
-    }
-    await db.from('events').delete().eq('users_id', id);
-    const { error } = await db.from('users').delete().eq('id', id);
-    if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
-    toast('Usuário excluído.', 'info');
-    loadUsers();
-    loadDashboard();
-  }, '🗑 Excluir');
+async function confirmActivated(couponId){
+  openConfirm(
+    '✅ Confirmar ativação',
+    'Confirmar que o cliente ativou este cupom?\n\nO cupom será mantido como distribuído e marcado como validado.',
+    async()=>{
+      const{error}=await db.rpc('admin_validate_coupon',{p_coupon_id:couponId});
+      if(error){toast('Erro: '+error.message,'error',6000);return;}
+      toast('✅ Cupom marcado como ativado!','success');
+      loadCoupons();
+    },
+    '✅ Confirmar'
+  );
 }
 
-function exportUsersCSV() {
-  if (!allUsers.length) { toast('Nenhum usuário para exportar.', 'error'); return; }
-  const h = 'Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
-  const r = allUsers.map(u => [
-    u.name, u.email, u.phone || '',
-    refLabelById(u.referral_id),
-    u.couponLink || '',
-    fmtDate(u.created_at)
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  dl('usuarios.csv', h + r);
+// WHATSAPP
+function openWhatsApp(phone, name, indicacao, link){
+  if(!phone){ toast('Usuário sem telefone cadastrado.','error'); return; }
+  let num = phone.replace(/\D/g,'');
+  if(!num.startsWith('55')) num = '55' + num;
+  const firstName = name.split(' ')[0];
+  const h = new Date().getHours();
+  const saudacao = h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
+  const ref = indicacao && indicacao !== '—' ? ` para ${indicacao}` : '';
+  const linkTexto = link && link !== '#' ? link : '';
+  const script =
+`${saudacao} ${firstName}!
+Seu link exclusivo foi gerado para ativação do GPT Business com a condição especial${ref}:
+🔗 ${linkTexto}
+Se tiver qualquer dúvida sobre a contratação ou quiser entender qual plano faz mais sentido para você, é só responder esta mensagem. Será um prazer ajudar.
+Além disso, se você estiver buscando aplicar IA para automatizar processos, atendimento, vendas ou criar agentes inteligentes para sua empresa, também podemos conversar e mostrar algumas possibilidades.
+Equipe 12IA`;
+  window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(script)}`,'_blank');
 }
 
-// ─── LISTA DE ESPERA ──────────────────────────────────────────────────────────
-// Schema waitlist: id, name, email, phone, referral_id, created_at, notified, notified_at
-async function loadWaitlist() {
-  document.getElementById('waitlistBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+// CONFIGURAÇÕES
+const EDGE_URL = `${SUPA_URL}/functions/v1/send-coupon-email`;
 
-  if (!allRefOpts.length) {
-    const { data } = await db.from('referrals').select('id,name');
-    allRefOpts = data || [];
+async function loadSettings(){
+  const{data}=await db.from('settings').select('key,value');
+  const cfg={};
+  (data||[]).forEach(r=>cfg[r.key]=r.value);
+  document.getElementById('cfg-api-key').value   = cfg['email_api_key']    ||'';
+  document.getElementById('cfg-from').value       = cfg['email_from']       ||'contato@12ia.com.br';
+  document.getElementById('cfg-from-name').value  = cfg['email_from_name']  ||'Cupom GPT-Business';
+  document.getElementById('cfg-subject').value    = cfg['email_subject']    ||'Seu link exclusivo GPT Business chegou!';
+  document.getElementById('cfg-template').value   = cfg['email_template']   ||'Bom dia {nome}!\n\nSeu link exclusivo foi gerado para ativação do *GPT Business* com a condição especial:\n\n{link}\n\nSe tiver qualquer dúvida sobre a contratação ou quiser entender qual plano faz mais sentido para você, é só responder este e-mail. Será um prazer ajudar.';
+  loadEmailLog();
+}
+
+async function saveSettings(){
+  const updates=[
+    {key:'email_api_key',   value:document.getElementById('cfg-api-key').value.trim()},
+    {key:'email_from',      value:document.getElementById('cfg-from').value.trim()},
+    {key:'email_from_name', value:document.getElementById('cfg-from-name').value.trim()},
+    {key:'email_subject',   value:document.getElementById('cfg-subject').value.trim()},
+    {key:'email_template',  value:document.getElementById('cfg-template').value},
+  ];
+  for(const u of updates){
+    await db.from('settings').upsert({key:u.key,value:u.value,updated_at:new Date().toISOString()},{onConflict:'key'});
   }
+  const s=document.getElementById('settings-status');
+  s.style.display='block';
+  s.innerHTML='<div style="background:var(--success-bg);border:1px solid rgba(34,197,94,.2);color:var(--success);padding:.75rem 1rem;border-radius:var(--radius);font-size:13px">✅ Configurações salvas com sucesso!</div>';
+  setTimeout(()=>s.style.display='none',3000);
+  toast('Configurações salvas!','success');
+}
 
-  const { data, error } = await fetchAllRows(() => db
-    .from('waitlist')
-    .select('id,name,email,phone,referral_id,created_at,notified,notified_at')
-    .order('created_at', { ascending: false }));
-
-  const body = document.getElementById('waitlistBody');
-  allWaitlist = data || [];
-  const pending = allWaitlist.filter(w => !w.notified).length;
-  document.getElementById('waitlistCount').textContent = pending || '0';
-
-  if (!allWaitlist.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Nenhum usuário na lista de espera</div></div>';
-    return;
+async function sendCouponEmail(userId, couponId){
+  try{
+    const res=await fetch(EDGE_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPA_KEY}`},
+      body:JSON.stringify({user_id:userId,coupon_id:couponId})
+    });
+    const data=await res.json();
+    return{ok:res.ok, data};
+  }catch(e){
+    return{ok:false, data:{error:String(e)}};
   }
+}
 
-  const rows = allWaitlist.map(w => `<tr>
+async function testEmail(){
+  const apiKey=document.getElementById('cfg-api-key').value.trim();
+  if(!apiKey){toast('Configure a API Key primeiro.','error');return;}
+  // Salva antes de testar
+  await saveSettings();
+  // Busca o primeiro usuário com cupom para testar
+  const{data:us}=await db.from('users').select('id,coupons_id,email').not('coupons_id','is',null).limit(1);
+  if(!us?.length){toast('Nenhum usuário com cupom para testar.','error');return;}
+  toast('Enviando e-mail de teste...','info');
+  const{ok,data}=await sendCouponEmail(us[0].id,us[0].coupons_id);
+  if(ok){
+    toast(`✅ E-mail de teste enviado para ${us[0].email}!`,'success',5000);
+  }else{
+    toast('Erro: '+(data?.error||'Falha no envio'),'error',6000);
+  }
+  loadEmailLog();
+}
+
+async function loadEmailLog(){
+  const{data}=await db.from('events')
+    .select('id,event_type,created_at,users_id,coupons_id,metadata')
+    .in('event_type',['email_sent','email_error'])
+    .order('created_at',{ascending:false})
+    .limit(100);
+  const body=document.getElementById('emailLogBody');
+  const list=data||[];
+
+  // Atualiza badge de erros na sidebar
+  const errors=list.filter(e=>e.event_type==='email_error').length;
+  const badge=document.getElementById('emailErrorCount');
+  if(errors>0){badge.style.display='';badge.textContent=errors;}
+  else{badge.style.display='none';}
+
+  if(!list.length){
+    body.innerHTML='<div class="empty-state"><div class="empty-icon">📧</div><div class="empty-title">Nenhum e-mail enviado ainda</div></div>';return;
+  }
+  const uids=[...new Set(list.map(e=>e.users_id).filter(Boolean))];
+  let umap={};
+  if(uids.length){
+    const{data:us}=await db.from('users').select('id,name,email,coupons_id').in('id',uids);
+    (us||[]).forEach(u=>umap[u.id]=u);
+  }
+  const rows=list.map(e=>{
+    const u=umap[e.users_id]||{};
+    const meta=e.metadata?JSON.parse(e.metadata):{};
+    const ok=e.event_type==='email_sent';
+    return`<tr>
+      <td>${new Date(e.created_at).toLocaleString('pt-BR')}</td>
+      <td class="primary">${esc(u.name||'—')}</td>
+      <td>${esc(u.email||meta.to||'—')}</td>
+      <td><span class="badge ${ok?'b-distributed':'b-blocked'}">${ok?'✓ Enviado':'✗ Erro'}</span></td>
+      <td style="font-size:11px;color:var(--text3)">${ok?(meta.resend_id||''):(meta.error?.message||JSON.stringify(meta.error)||'Falha')}</td>
+      <td>${!ok&&u.id?`<button class="btn btn-ghost btn-sm" onclick="resendEmail('${u.id}','${u.coupons_id||e.coupons_id||''}','${esc(u.email||'')}')">↺ Reenviar</button>`:'—'}</td>
+    </tr>`;
+  }).join('');
+  body.innerHTML=`<table><thead><tr><th>Data/Hora</th><th>Nome</th><th>E-mail</th><th>Status</th><th>Detalhe</th><th>Ação</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function resendEmail(userId, couponId, email){
+  openConfirm('Reenviar e-mail',`Reenviar o e-mail com o cupom para ${email}?`,async()=>{
+    const{ok,data}=await sendCouponEmail(userId,couponId);
+    if(ok) toast('E-mail reenviado com sucesso!','success');
+    else   toast('Erro: '+(data?.error||'Falha no envio'),'error',5000);
+    loadEmailLog();
+  },'📨 Reenviar');
+}
+
+// LISTA DE ESPERA
+async function loadWaitlist(){
+  document.getElementById('waitlistBody').innerHTML='<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
+  const{data,error}=await db.from('waitlist').select('id,name,email,phone,referral_id,created_at,notified,notified_at').order('created_at',{ascending:false});
+  const body=document.getElementById('waitlistBody');
+  const list=data||[];
+  document.getElementById('waitlistCount').textContent=list.filter(w=>!w.notified).length||'0';
+  if(!list.length){
+    body.innerHTML='<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Nenhum usuário na lista de espera</div></div>';return;
+  }
+  const rows=list.map(w=>`<tr>
     <td class="primary">${esc(w.name)}</td>
     <td>${esc(w.email)}</td>
-    <td>${esc(w.phone || '—')}</td>
+    <td>${esc(w.phone||'—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(w.referral_id))}</span></td>
-    <td>${fmtDate(w.created_at)}</td>
-    <td><span class="badge ${w.notified ? 'b-distributed' : 'b-available'}">${w.notified ? 'Notificado' : 'Aguardando'}</span></td>
+    <td>${new Date(w.created_at).toLocaleString('pt-BR')}</td>
+    <td><span class="badge ${w.notified?'b-distributed':'b-available'}">${w.notified?'Notificado':'Aguardando'}</span></td>
     <td>
       <div class="btns">
-        ${!w.notified ? `<button class="btn btn-success btn-sm" onclick="markNotified('${w.id}')">✓ Notificado</button>` : ''}
+        ${!w.notified?`<button class="btn btn-success btn-sm" onclick="markNotified('${w.id}')">✓ Notificado</button>`:''}
         <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteWaitlist('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">🗑</button>
       </div>
     </td>
   </tr>`).join('');
-
-  body.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Cadastrado em</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+  body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Cadastrado em</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+async function markNotified(id){
+  await db.from('waitlist').update({notified:true,notified_at:new Date().toISOString()}).eq('id',id);
+  toast('Marcado como notificado.','success');loadWaitlist();
+}
+async function deleteWaitlist(id,name){
+  openConfirm('Remover da lista',`Remover "${name}" da lista de espera?`,async()=>{
+    await db.from('waitlist').delete().eq('id',id);
+    toast('Removido da lista.','info');loadWaitlist();
+  },'🗑 Remover');
+}
+async function exportWaitlistCSV(){
+  const{data,error}=await db.from('waitlist').select('name,email,phone,referral_id,created_at,notified').order('created_at',{ascending:false});
+  if(error||!data?.length){toast('Nenhum dado na lista de espera.','error');return;}
+  const h='Nome,E-mail,Telefone,Indicação,Cadastrado em,Notificado\n';
+  const r=data.map(w=>[`"${w.name}"`,w.email,w.phone||'',refLabelById(w.referral_id),new Date(w.created_at).toLocaleString('pt-BR'),w.notified?'Sim':'Não'].join(',')).join('\n');
+  dl('lista-espera.csv',h+r);
 }
 
-async function markNotified(id) {
-  await db.from('waitlist').update({ notified: true, notified_at: new Date().toISOString() }).eq('id', id);
-  toast('Marcado como notificado.', 'success');
-  loadWaitlist();
-}
-async function deleteWaitlist(id, name) {
-  openConfirm('Remover da lista', `Remover "${name}" da lista de espera?`, async () => {
-    await db.from('waitlist').delete().eq('id', id);
-    toast('Removido da lista.', 'info');
-    loadWaitlist();
-  }, '🗑 Remover');
-}
-async function exportWaitlistCSV() {
-  await loadWaitlist();
-  exportWaitlistCSVDirect();
-}
-function exportWaitlistCSVDirect() {
-  if (!allWaitlist.length) { toast('Lista de espera vazia.', 'error'); return; }
-  const h = 'Nome,E-mail,Telefone,Indicação,Cadastrado em,Status\n';
-  const r = allWaitlist.map(w => [
-    w.name, w.email, w.phone || '',
-    refLabelById(w.referral_id),
-    fmtDate(w.created_at),
-    w.notified ? 'Notificado' : 'Aguardando'
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  dl('lista-espera.csv', h + r);
-}
-
-// ─── INDICAÇÕES ───────────────────────────────────────────────────────────────
-// Schema referrals: id, name, active, created_at
-async function loadRefOptions() {
-  const { data, error } = await db
-    .from('referrals')
-    .select('*')
-    .order('created_at', { ascending: true });
-
-  if (error) { toast('Erro ao carregar indicações: ' + error.message, 'error'); return; }
-  allRefOpts = data || [];
+// INDICAÇÕES
+async function loadRefOptions(){
+  const{data,error}=await db.from('referrals').select('*').order('created_at',{ascending:true});
+  allRefOpts=data||[];
   updateRefBadge();
   renderRefList();
 }
-function updateRefBadge() {
-  const active = (allRefOpts || []).filter(o => o.active !== false).length;
-  document.getElementById('refCount').textContent = active;
+function updateRefBadge(){
+  const active=(allRefOpts||[]).filter(o=>o.active!==false).length;
+  document.getElementById('refCount').textContent=active;
 }
-function renderRefList() {
-  const list = document.getElementById('refList');
-  const count = document.getElementById('refListCount');
-  if (!allRefOpts.length) {
-    list.innerHTML = '<div class="ref-empty">Nenhuma opção cadastrada.<br>Adicione a primeira opção acima.</div>';
-    count.textContent = '';
-    return;
+function renderRefList(){
+  const list=document.getElementById('refList');
+  const count=document.getElementById('refListCount');
+  if(!allRefOpts.length){
+    list.innerHTML='<div class="ref-empty">Nenhuma opção cadastrada.<br>Adicione a primeira opção acima.</div>';
+    count.textContent='';return;
   }
-  const active = allRefOpts.filter(o => o.active !== false).length;
-  count.textContent = `${allRefOpts.length} opção(ões) · ${active} ativa(s)`;
-  list.innerHTML = allRefOpts.map(o => `
-    <div class="ref-item${o.active === false ? ' inactive' : ''}" data-id="${o.id}" draggable="true"
+  const active=allRefOpts.filter(o=>o.active!==false).length;
+  count.textContent=`${allRefOpts.length} opção(ões) · ${active} ativa(s)`;
+  list.innerHTML=allRefOpts.map(o=>`
+    <div class="ref-item${o.active===false?' inactive':''}" data-id="${o.id}" draggable="true"
       ondragstart="dStart(event)" ondragover="dOver(event)" ondrop="dDrop(event)" ondragleave="dLeave(event)">
       <div class="ref-item-left">
         <span class="ref-handle">⠿</span>
         <span class="ref-label" title="${esc(o.name)}">${esc(o.name)}</span>
       </div>
       <div class="ref-item-right">
-        <button class="toggle-btn ${o.active !== false ? 'on' : 'off'}" onclick="toggleRef('${o.id}',${o.active !== false})">
-          ${o.active !== false ? '● Ativa' : '○ Inativa'}
+        <button class="toggle-btn ${o.active!==false?'on':'off'}" onclick="toggleRef('${o.id}',${o.active!==false})">
+          ${o.active!==false?'● Ativa':'○ Inativa'}
         </button>
         <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteRef('${o.id}','${(o.name||'').replace(/'/g,"\\'")}')">🗑</button>
       </div>
     </div>`).join('');
 }
-async function addRefOption() {
-  const inp = document.getElementById('refNewLabel');
-  const name = inp.value.trim();
-  if (!name) { inp.focus(); return; }
-  if (allRefOpts.some(o => o.name.toLowerCase() === name.toLowerCase())) {
-    toast('Já existe uma opção com esse nome.', 'error'); return;
-  }
-  const { data, error } = await db.from('referrals').insert({ name, active: true }).select();
-  if (error) { toast('Erro: ' + error.message, 'error', 5000); return; }
+async function addRefOption(){
+  const inp=document.getElementById('refNewLabel');
+  const name=inp.value.trim();
+  if(!name){inp.focus();return;}
+  if(allRefOpts.some(o=>o.name.toLowerCase()===name.toLowerCase())){toast('Já existe uma opção com esse nome.','error');return;}
+  
+  const{data,error}=await db.from('referrals').insert({name, active:true}).select();
+  if(error){toast('Erro: '+error.message,'error',5000);return;}
   allRefOpts.push(data[0]);
-  renderRefList(); updateRefBadge();
-  inp.value = '';
-  toast('✓ Opção adicionada!', 'success');
+  renderRefList();updateRefBadge();inp.value='';
+  toast('✓ Opção adicionada!','success');
 }
-async function toggleRef(id, curr) {
-  const ns = !curr;
-  await db.from('referrals').update({ active: ns }).eq('id', id);
-  allRefOpts = allRefOpts.map(o => String(o.id) === String(id) ? { ...o, active: ns } : o);
-  renderRefList(); updateRefBadge();
-  toast(ns ? 'Opção ativada.' : 'Opção desativada.', 'info');
+async function toggleRef(id,curr){
+  const ns=!curr;
+  await db.from('referrals').update({active:ns}).eq('id',id);
+  allRefOpts=allRefOpts.map(o=>String(o.id)===String(id)?{...o,active:ns}:o);
+  renderRefList();updateRefBadge();
+  toast(ns?'Opção ativada.':'Opção desativada.','info');
 }
-async function deleteRef(id, label) {
-  openConfirm('Excluir opção', `Excluir a opção "${label}"?\n\nOs usuários que selecionaram esta opção mantêm o valor salvo.`, async () => {
-    await db.from('referrals').delete().eq('id', id);
-    allRefOpts = allRefOpts.filter(o => String(o.id) !== String(id));
-    renderRefList(); updateRefBadge();
-    toast('Opção excluída.', 'info');
-  }, '🗑 Excluir');
+async function deleteRef(id,label){
+  openConfirm('Excluir opção',`Excluir a opção "${label}"?\n\nOs usuários que selecionaram esta opção mantêm o valor salvo, mas o rótulo não será mais exibido.`,async()=>{
+    await db.from('referrals').delete().eq('id',id);
+    allRefOpts=allRefOpts.filter(o=>String(o.id)!==String(id));
+    renderRefList();updateRefBadge();
+    toast('Opção excluída.','info');
+  },'🗑 Excluir');
 }
-
-// Drag & drop indicações
-function dStart(e) { dragSrcId = e.currentTarget.dataset.id; e.currentTarget.style.opacity = '.4'; }
-function dOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-function dLeave(e) { e.currentTarget.classList.remove('drag-over'); e.currentTarget.style.opacity = ''; }
-async function dDrop(e) {
+function dStart(e){dragSrcId=e.currentTarget.dataset.id;e.currentTarget.style.opacity='.4';}
+function dOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
+function dLeave(e){e.currentTarget.classList.remove('drag-over');e.currentTarget.style.opacity='';}
+async function dDrop(e){
   e.preventDefault();
-  const tId = e.currentTarget.dataset.id;
+  const tId=e.currentTarget.dataset.id;
   e.currentTarget.classList.remove('drag-over');
-  document.querySelectorAll('.ref-item').forEach(el => el.style.opacity = '');
-  if (!dragSrcId || dragSrcId === tId) return;
-  const si = allRefOpts.findIndex(o => String(o.id) === dragSrcId);
-  const ti = allRefOpts.findIndex(o => String(o.id) === tId);
-  const [moved] = allRefOpts.splice(si, 1);
-  allRefOpts.splice(ti, 0, moved);
-  renderRefList();
-  dragSrcId = null;
+  document.querySelectorAll('.ref-item').forEach(el=>el.style.opacity='');
+  if(!dragSrcId||dragSrcId===tId)return;
+  const si=allRefOpts.findIndex(o=>String(o.id)===dragSrcId);
+  const ti=allRefOpts.findIndex(o=>String(o.id)===tId);
+  const[moved]=allRefOpts.splice(si,1);
+  allRefOpts.splice(ti,0,moved);
+  renderRefList();dragSrcId=null;
 }
 
-// ─── IMPORTAR ─────────────────────────────────────────────────────────────────
-function handleDrop(e) {
-  e.preventDefault();
-  document.getElementById('dropZone').classList.remove('drag');
-  handleFile(e.dataTransfer.files[0]);
-}
-function handleFile(file) {
-  if (!file) return;
-  const ext = file.name.split('.').pop().toLowerCase();
-  if (ext === 'csv' || ext === 'txt') {
-    const r = new FileReader();
-    r.onload = e => {
-      const lines = e.target.result.split(/[\r\n]+/).map(l => l.trim()).filter(l => l.startsWith('http'));
-      fillPaste(lines);
-    };
-    r.readAsText(file, 'UTF-8');
-  } else if (ext === 'xlsx' || ext === 'xls') {
-    const r = new FileReader();
-    r.onload = e => {
-      const wb = XLSX.read(e.target.result, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
-      // Detecta coluna 'link' ou usa primeira coluna
-      let col = 0;
-      if (json[0]) {
-        const headers = json[0].map(v => String(v || '').toLowerCase());
-        const ci = headers.indexOf('link');
-        if (ci >= 0) col = ci;
-      }
-      const links = json.slice(1).map(row => String(row[col] || '').trim()).filter(l => l.startsWith('http'));
+// IMPORTAR
+function handleDrop(e){e.preventDefault();document.getElementById('dropZone').classList.remove('drag');handleFile(e.dataTransfer.files[0]);}
+function handleFile(file){
+  if(!file)return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(ext==='csv'||ext==='txt'){
+    const r=new FileReader();
+    r.onload=e=>fillPaste(e.target.result.split(/[\r\n]+/).map(l=>l.split(',')[0].trim()).filter(l=>l.startsWith('http')));
+    r.readAsText(file,'UTF-8');
+  } else if(ext==='xlsx'||ext==='xls'){
+    const r=new FileReader();
+    r.onload=e=>{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const json=XLSX.utils.sheet_to_json(ws,{header:1});
+      let col=0;
+      if(json[0]){const h=json[0].map(v=>String(v).toLowerCase());const ci=h.indexOf('link');if(ci>=0)col=ci;}
+      const links=json.slice(1).map(r=>String(r[col]||'').trim()).filter(l=>l.startsWith('http'));
       fillPaste(links);
     };
     r.readAsArrayBuffer(file);
-  } else {
-    toast('Formato inválido. Use CSV, XLSX ou TXT.', 'error');
-  }
+  } else {toast('Formato inválido. Use CSV, XLSX ou TXT.','error');}
 }
-function fillPaste(links) {
-  document.getElementById('pasteArea').value = links.join('\n');
-  toast(`${links.length} link(s) carregado(s).`, 'success');
-}
-function loadDemoLinks() {
-  document.getElementById('pasteArea').value =
-    'https://chatgpt.com/p/PROMO-A1B2\nhttps://chatgpt.com/p/DESC-2024X\nhttps://chatgpt.com/p/VIP-GOLD01\nhttps://chatgpt.com/p/FLASH50OFF';
-}
-async function runImport() {
-  const raw = document.getElementById('pasteArea').value.trim();
-  if (!raw) { toast('Cole ou carregue os links primeiro.', 'error'); return; }
-
-  const input = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l.startsWith('http'));
-  const unique = [...new Set(input)];
-  const internalDups = input.length - unique.length;
-
-  const btn = document.getElementById('importBtn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Validando...';
-
-  // Verifica duplicatas no banco em lotes
-  const existMap = {};
-  for (let i = 0; i < unique.length; i += 200) {
-    const batch = unique.slice(i, i + 200);
-    const { data: existing } = await db.from('coupons').select('link,status').in('link', batch);
-    (existing || []).forEach(c => existMap[c.link] = c.status);
-  }
-
-  const toInsert = [], dupAvail = [], dupDist = [], dupBlock = [];
-  unique.forEach(link => {
-    if (existMap[link] === undefined) toInsert.push(link);
-    else if (existMap[link] === 'available') dupAvail.push(link);
-    else if (existMap[link] === 'distributed') dupDist.push(link);
+function fillPaste(links){document.getElementById('pasteArea').value=links.join('\n');toast(`${links.length} link(s) carregado(s).`,'success');}
+function loadDemoLinks(){document.getElementById('pasteArea').value='https://chatgpt.com/p/PROMO-A1B2\nhttps://chatgpt.com/p/DESC-2024X\nhttps://chatgpt.com/p/VIP-GOLD01\nhttps://chatgpt.com/p/FLASH50OFF';}
+async function runImport(){
+  const raw=document.getElementById('pasteArea').value.trim();
+  if(!raw){toast('Cole ou carregue os links primeiro.','error');return;}
+  const input=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.startsWith('http'));
+  const unique=[...new Set(input)];
+  const internalDups=input.length-unique.length;
+  const btn=document.getElementById('importBtn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Validando...';
+  const{data:existing}=await db.from('coupons').select('link,status').in('link',unique);
+  const existMap={};(existing||[]).forEach(c=>existMap[c.link]=c.status);
+  const toInsert=[],dupAvail=[],dupDist=[],dupBlock=[];
+  unique.forEach(link=>{
+    if(existMap[link]===undefined)toInsert.push(link);
+    else if(existMap[link]==='available')dupAvail.push(link);
+    else if(existMap[link]==='distributed')dupDist.push(link);
     else dupBlock.push(link);
   });
-
-  let inserted = 0;
-  if (toInsert.length) {
-    btn.innerHTML = '<span class="spinner"></span> Importando...';
-    // Insere em lotes de 100
-    for (let i = 0; i < toInsert.length; i += 100) {
-      const batch = toInsert.slice(i, i + 100).map(link => ({ link, status: 'available' }));
-      const { error } = await db.from('coupons').insert(batch);
-      if (error) {
-        btn.disabled = false; btn.innerHTML = '📥 Importar';
-        toast('Erro ao inserir: ' + error.message, 'error', 5000);
-        return;
-      }
-      inserted += batch.length;
-    }
+  let inserted=0;
+  if(toInsert.length){
+    btn.innerHTML='<span class="spinner"></span> Importando...';
+    const{data:result,error}=await db.rpc('import_coupons',{links:toInsert});
+    if(error){btn.disabled=false;btn.innerHTML='📥 Importar';toast('Erro: '+error.message,'error',5000);return;}
+    inserted=result?.[0]?.inserted||toInsert.length;
+    const auto=result?.[0]?.distributed_auto||0;
+    if(auto>0) toast(`🎉 ${auto} cupom(ns) distribuído(s) para a lista de espera!`,'success',5000);
   }
-
-  btn.disabled = false; btn.innerHTML = '📥 Importar';
-  showImportRes({ inserted, internalDups, dupAvail, dupDist, dupBlock });
-  if (inserted) {
-    document.getElementById('pasteArea').value = '';
-    loadCoupons();
-  }
+  btn.disabled=false;btn.innerHTML='📥 Importar';
+  showImportRes({inserted,internalDups,dupAvail,dupDist,dupBlock});
+  if(inserted){document.getElementById('pasteArea').value='';loadCoupons();}
 }
-function showImportRes({ inserted, internalDups, dupAvail, dupDist, dupBlock }) {
-  const box = document.getElementById('importRes');
-  const hasW = internalDups > 0 || dupAvail.length || dupDist.length || dupBlock.length;
-  const cls = inserted > 0 && !hasW ? 'ir-success' : 'ir-warn';
-  let h = `<div class="ir-head">${inserted > 0 ? `✅ ${inserted} link(s) importado(s) com sucesso.` : '⚠️ Nenhum link novo importado.'}</div><div class="ir-body">`;
-  if (internalDups)    h += `<div>• <strong>${internalDups}</strong> duplicata(s) na colagem, ignoradas.</div>`;
-  if (dupAvail.length) h += `<div>• <strong>${dupAvail.length}</strong> já disponível(is): ${dupAvail.slice(0,5).map(l => `<span class="tag-dup">${esc(l.slice(0,50))}</span>`).join('')}${dupAvail.length > 5 ? `<span class="tag-dup">+${dupAvail.length-5} mais</span>`:''}</div>`;
-  if (dupDist.length)  h += `<div>• <strong>${dupDist.length}</strong> já distribuído(s): ${dupDist.slice(0,5).map(l => `<span class="tag-used">${esc(l.slice(0,50))}</span>`).join('')}${dupDist.length > 5 ? `<span class="tag-used">+${dupDist.length-5} mais</span>`:''}</div>`;
-  if (dupBlock.length) h += `<div>• <strong>${dupBlock.length}</strong> bloqueado(s): ${dupBlock.slice(0,5).map(l => `<span class="tag-used">${esc(l.slice(0,50))}</span>`).join('')}${dupBlock.length > 5 ? `<span class="tag-used">+${dupBlock.length-5} mais</span>`:''}</div>`;
-  h += '</div>';
-  box.className = `import-res show ${cls}`;
-  box.innerHTML = h;
+function showImportRes({inserted,internalDups,dupAvail,dupDist,dupBlock}){
+  const box=document.getElementById('importRes');
+  const hasW=internalDups>0||dupAvail.length||dupDist.length||dupBlock.length;
+  const cls=inserted>0&&!hasW?'ir-success':'ir-warn';
+  let h=`<div class="ir-head">${inserted>0?`✅ ${inserted} link(s) importado(s) com sucesso.`:'⚠️ Nenhum link novo importado.'}</div><div class="ir-body">`;
+  if(internalDups)    h+=`<div>• <strong>${internalDups}</strong> duplicata(s) na colagem, ignoradas.</div>`;
+  if(dupAvail.length) h+=`<div>• <strong>${dupAvail.length}</strong> já disponível(is):<br>${dupAvail.map(l=>`<span class="tag-dup">${l.slice(0,50)}</span>`).join('')}</div>`;
+  if(dupDist.length)  h+=`<div>• <strong>${dupDist.length}</strong> já distribuído(s):<br>${dupDist.map(l=>`<span class="tag-used">${l.slice(0,50)}</span>`).join('')}</div>`;
+  if(dupBlock.length) h+=`<div>• <strong>${dupBlock.length}</strong> bloqueado(s):<br>${dupBlock.map(l=>`<span class="tag-used">${l.slice(0,50)}</span>`).join('')}</div>`;
+  h+='</div>';
+  box.className=`import-res show ${cls}`;box.innerHTML=h;
 }
 
-// ─── LOGS ─────────────────────────────────────────────────────────────────────
-// Schema events: id, coupons_id, users_id, event_type, created_at, metadata
-async function loadLogs() {
-  document.getElementById('logsBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
-
-  const { data: events, error } = await db
-    .from('events')
-    .select('id,event_type,created_at,coupons_id,users_id,metadata')
-    .order('created_at', { ascending: false })
-    .limit(200);
-
-  const body = document.getElementById('logsBody');
-  if (error) {
-    body.innerHTML = `<div class="empty-state"><div class="empty-title">Erro: ${esc(error.message)}</div></div>`;
-    return;
-  }
-  if (!events?.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Sem eventos</div></div>';
-    return;
-  }
-
-  // Join manual: busca cupons e usuários referenciados nos eventos
-  const cIds = [...new Set(events.map(e => e.coupons_id).filter(Boolean))];
-  const uIds = [...new Set(events.map(e => e.users_id).filter(Boolean))];
-
-  let cMap = {}, uMap = {};
-  const [cRes, uRes] = await Promise.all([
-    cIds.length ? db.from('coupons').select('id,link').in('id', cIds) : { data: [] },
-    uIds.length ? db.from('users').select('id,name,email').in('id', uIds) : { data: [] }
-  ]);
-  (cRes.data || []).forEach(c => cMap[c.id] = c);
-  (uRes.data || []).forEach(u => uMap[u.id] = u);
-
-  const rows = events.map(e => {
-    const coupon = cMap[e.coupons_id];
-    const user = uMap[e.users_id];
-    return `<tr>
-      <td>${fmtDate(e.created_at)}</td>
-      <td><span class="badge ${e.event_type === 'distributed' ? 'b-distributed' : 'b-available'}">${esc(e.event_type)}</span></td>
-      <td class="truncate mono" style="max-width:200px">
-        ${coupon ? `<a href="${esc(coupon.link)}" target="_blank" rel="noopener">${esc(coupon.link)}</a>` : '—'}
-      </td>
-      <td class="primary">${esc(user?.name || '—')}</td>
-      <td>${esc(user?.email || '—')}</td>
-    </tr>`;
-  }).join('');
-
-  body.innerHTML = `<table><thead><tr><th>Data/Hora</th><th>Evento</th><th>Link</th><th>Usuário</th><th>E-mail</th></tr></thead><tbody>${rows}</tbody></table>`;
+// LOGS
+async function loadLogs(){
+  const{data}=await db.from('events')
+    .select('id,event_type,created_at,coupons_id,users_id')
+    .order('created_at',{ascending:false}).limit(100);
+  const body=document.getElementById('logsBody');
+  if(!data?.length){body.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Sem eventos</div></div>';return;}
+  const rows=data.map(e=>`<tr>
+    <td>${new Date(e.created_at).toLocaleString('pt-BR')}</td>
+    <td><span class="badge b-${e.event_type==='distributed'?'distributed':'available'}">${e.event_type}</span></td>
+    <td class="truncate mono"><a href="${e.coupons?.link||'#'}" target="_blank">${e.coupons?.link||'—'}</a></td>
+    <td class="primary">${e.users?.name||'—'}</td>
+    <td>${e.users?.email||'—'}</td>
+  </tr>`).join('');
+  body.innerHTML=`<table><thead><tr><th>Data/Hora</th><th>Evento</th><th>Link</th><th>Usuário</th><th>E-mail</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// ─── ATIVADOS MANUAL ──────────────────────────────────────────────────────────
-const ATIVADOS_KEY = 'cupom_ativados_count';
-
-async function loadAtivados() {
-  // Conta do banco (fonte de verdade) e sincroniza com localStorage
-  const { count } = await db.from('coupons')
-    .select('id', { count: 'exact', head: true })
-    .eq('ativado', true);
-  const val = count || 0;
-  localStorage.setItem(ATIVADOS_KEY, val);
-  document.getElementById('s-today').textContent = val;
+// UTILS
+function dl(name,content){
+  Object.assign(document.createElement('a'),{
+    href:URL.createObjectURL(new Blob(['\uFEFF'+content],{type:'text/csv;charset=utf-8'})),
+    download:name
+  }).click();
 }
-function openAtivados() {
-  const cur = document.getElementById('s-today').textContent || '0';
-  document.getElementById('ativadosInput').value = cur;
-  document.getElementById('ativadosModal').classList.add('show');
-  setTimeout(() => {
-    const inp = document.getElementById('ativadosInput');
-    inp.focus(); inp.select();
-  }, 120);
-}
-function closeAtivados() {
-  document.getElementById('ativadosModal').classList.remove('show');
-}
-function saveAtivados() {
-  // Ajuste manual — útil para corrigir contagem sem precisar marcar cupom a cupom
-  const val = parseInt(document.getElementById('ativadosInput').value) || 0;
-  localStorage.setItem(ATIVADOS_KEY, val);
-  document.getElementById('s-today').textContent = val;
-  closeAtivados();
-  toast('Contagem de ativados ajustada para ' + val + '.', 'success');
+function esc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
