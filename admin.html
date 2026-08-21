@@ -799,7 +799,31 @@ async function loadUsers(){
       (cs||[]).forEach(c=>couponMap[c.id]=c);
     }
   }
-  allUsers=users.map(u=>({...u, coupons: u.coupons_id?couponMap[u.coupons_id]||null:null}));
+  // Busca usuários com erro de e-mail
+  const uids=users.map(u=>u.id).filter(Boolean);
+  let emailErrors=new Set();
+  let emailSent=new Set();
+  if(uids.length){
+    for(let i=0;i<uids.length;i+=500){
+      const chunk=uids.slice(i,i+500);
+      const {data:evs}=await db.from('events')
+        .select('users_id,event_type')
+        .in('event_type',['email_sent','email_error'])
+        .in('users_id',chunk);
+      (evs||[]).forEach(e=>{
+        if(e.event_type==='email_error') emailErrors.add(e.users_id);
+        if(e.event_type==='email_sent')  emailSent.add(e.users_id);
+      });
+    }
+    // Se teve erro mas depois foi enviado com sucesso, remove do erro
+    emailSent.forEach(id=>emailErrors.delete(id));
+  }
+  allUsers=users.map(u=>({
+    ...u,
+    coupons: u.coupons_id?couponMap[u.coupons_id]||null:null,
+    emailError: emailErrors.has(u.id),
+    emailSent:  emailSent.has(u.id)
+  }));
   userPage=0;
   renderUsers();
 }
@@ -812,14 +836,15 @@ function renderUsers(){
   const total=list.length;
   const totalPages=Math.ceil(total/PAGE);
   const page=list.slice(userPage*PAGE,(userPage+1)*PAGE);
-  const rows=page.map(u=>`<tr>
-    <td class="primary">${esc(u.name)}</td>
+  const rows=page.map(u=>`<tr ${u.emailError?'style="background:rgba(239,68,68,.04)"':''}>
+    <td class="primary">${esc(u.name)} ${u.emailError?'<span title="E-mail com erro — considere enviar WhatsApp" style="color:var(--danger);font-size:11px;cursor:help">⚠️</span>':u.emailSent?'<span title="E-mail enviado" style="color:var(--success);font-size:11px">✓</span>':''}</td>
     <td>${esc(u.email)}</td>
     <td>${esc(u.phone||'—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
     <td class="truncate mono"><a href="${u.coupons?.link||'#'}" target="_blank">${u.coupons?.link||'—'}</a></td>
     <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
     <td><div class="btns">
+      <button class="btn btn-ghost btn-sm btn-icon${u.emailError?' btn-danger':''}" onclick="openWhatsApp('${u.phone||''}','${esc(u.name)}','${esc(refLabelById(u.referral_id))}')" title="${u.emailError?'⚠️ E-mail com erro — enviar WhatsApp':'Enviar WhatsApp'}" ${!u.phone?'disabled':''}>📱</button>
       <button class="btn btn-ghost btn-sm btn-icon" onclick="resendEmail('${u.id}','${u.coupons_id||''}','${esc(u.email)}')" title="Reenviar e-mail" ${!u.coupons_id?'disabled':''}>📨</button>
       <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button>
     </div></td>
@@ -855,6 +880,25 @@ function exportUsersCSV(){
   const h='Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
   const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral_id),u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
   dl('usuarios.csv',h+r);
+}
+
+// WHATSAPP
+function openWhatsApp(phone, name, indicacao){
+  if(!phone){ toast('Usuário sem telefone cadastrado.','error'); return; }
+  let num = phone.replace(/\D/g,'');
+  if(!num.startsWith('55')) num = '55' + num;
+  const firstName = name.split(' ')[0];
+  const h = new Date().getHours();
+  const saudacao = h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
+  const ref = indicacao && indicacao !== '—' ? ` para ${indicacao}` : '';
+  const script =
+`${saudacao} ${firstName}!
+Seu link exclusivo foi gerado para ativação do GPT Business com a condição especial${ref}:
+🔗 Acesse seu link no e-mail que enviamos agora.
+Se tiver qualquer dúvida sobre a contratação ou quiser entender qual plano faz mais sentido para você, é só responder esta mensagem. Será um prazer ajudar.
+Além disso, se você estiver buscando aplicar IA para automatizar processos, atendimento, vendas ou criar agentes inteligentes para sua empresa, também podemos conversar e mostrar algumas possibilidades.
+Equipe 12IA`;
+  window.open(`https://api.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(script)}`,'_blank');
 }
 
 // CONFIGURAÇÕES
