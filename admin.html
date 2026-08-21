@@ -258,6 +258,15 @@ body{overflow-x:hidden}
         Lista de Espera
         <span class="sb-badge" id="waitlistCount">0</span>
       </div>
+      <div class="sb-link" id="nav-emails" onclick="goTab('emails')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        E-mails
+        <span class="sb-badge" id="emailErrorCount" style="background:rgba(239,68,68,.2);color:#f87171;display:none">!</span>
+      </div>
+      <div class="sb-link" id="nav-settings" onclick="goTab('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configurações
+      </div>
       <div class="sb-section">Dados</div>
       <div class="sb-link" id="nav-import" onclick="goTab('import')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
@@ -361,6 +370,62 @@ body{overflow-x:hidden}
             <div class="ref-count" id="refListCount"></div>
             <div class="ref-list" id="refList"><div class="ref-empty">Carregando...</div></div>
           </div>
+        </div>
+      </div>
+
+      <!-- E-MAILS -->
+      <div id="tab-emails" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">E-mails</div><div class="page-sub">Histórico de disparos automáticos</div></div>
+          <button class="btn btn-secondary btn-sm" onclick="loadEmailLog()">↺ Atualizar</button>
+        </div>
+        <div class="tbl-wrap">
+          <div id="emailLogBody"><div class="empty-state"><div class="empty-icon">📧</div><div class="empty-title">Carregando...</div></div></div>
+        </div>
+      </div>
+
+      <!-- CONFIGURAÇÕES -->
+      <div id="tab-settings" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Configurações</div><div class="page-sub">Configure o envio de e-mails do sistema</div></div>
+        </div>
+        <div class="tbl-wrap" style="padding:1.75rem;max-width:640px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)">📧 Configurações de E-mail (Resend)</div>
+
+          <div class="lf" style="margin-bottom:1.25rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">API Key do Resend <span style="color:var(--danger)">*</span></label>
+            <input type="password" id="cfg-api-key" placeholder="re_xxxxxxxxxxxxxxxxxxxx" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;color:var(--text);font-size:14px;outline:none"/>
+            <div style="font-size:11px;color:var(--text3);margin-top:.35rem">Encontre em <a href="https://resend.com/api-keys" target="_blank">resend.com/api-keys</a></div>
+          </div>
+
+          <div class="lf" style="margin-bottom:1.25rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">E-mail remetente</label>
+            <input type="email" id="cfg-from" placeholder="contato@12ia.com.br" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;color:var(--text);font-size:14px;outline:none"/>
+          </div>
+
+          <div class="lf" style="margin-bottom:1.25rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">Nome do remetente</label>
+            <input type="text" id="cfg-from-name" placeholder="Cupom GPT-Business" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;color:var(--text);font-size:14px;outline:none"/>
+          </div>
+
+          <div class="lf" style="margin-bottom:1.25rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">Assunto do e-mail</label>
+            <input type="text" id="cfg-subject" placeholder="Seu link exclusivo GPT Business chegou!" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem 1rem;color:var(--text);font-size:14px;outline:none"/>
+          </div>
+
+          <div class="lf" style="margin-bottom:1.5rem">
+            <label style="display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:.4rem">Template do e-mail</label>
+            <textarea id="cfg-template" rows="8" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;color:var(--text);font-size:13px;font-family:monospace;resize:vertical;outline:none;line-height:1.6"></textarea>
+            <div style="font-size:11px;color:var(--text3);margin-top:.35rem">
+              Variáveis: <code style="background:var(--bg4);padding:1px 5px;border-radius:3px">{nome}</code> · <code style="background:var(--bg4);padding:1px 5px;border-radius:3px">{nome_completo}</code> · <code style="background:var(--bg4);padding:1px 5px;border-radius:3px">{link}</code> · Use <code style="background:var(--bg4);padding:1px 5px;border-radius:3px">*texto*</code> para <strong>negrito</strong>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saveSettings()">💾 Salvar configurações</button>
+            <button class="btn btn-secondary" onclick="testEmail()">📨 Enviar e-mail de teste</button>
+          </div>
+          <div id="settings-status" style="margin-top:1rem;display:none"></div>
         </div>
       </div>
 
@@ -528,6 +593,8 @@ function goTab(id){
   if(id==='coupons')   loadCoupons();
   if(id==='users')     loadUsers();
   if(id==='logs')      loadLogs();
+  if(id==='emails')    loadEmailLog();
+  if(id==='settings')  loadSettings();
   if(id==='waitlist')  loadWaitlist();
   if(id==='referrals') loadRefOptions();
   closeSidebar();
@@ -732,7 +799,8 @@ function renderUsers(){
     <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
     <td class="truncate mono"><a href="${u.coupons?.link||'#'}" target="_blank">${u.coupons?.link||'—'}</a></td>
     <td>${new Date(u.created_at).toLocaleString('pt-BR')}</td>
-    <td><button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button></td>
+    <td><button class="btn btn-ghost btn-sm btn-icon" onclick="resendEmail('${u.id}','${u.coupons_id||''}','${esc(u.email)}')" title="Reenviar e-mail" ${!u.coupons_id?'disabled':''}">📨</button>
+    <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')" title="Excluir">🗑</button></td>
   </tr>`).join('');
   body.innerHTML=`<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -757,6 +825,120 @@ function exportUsersCSV(){
   const h='Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
   const r=allUsers.map(u=>[`"${u.name}"`,u.email,u.phone||'',refLabelById(u.referral_id),u.coupons?.link||'',new Date(u.created_at).toLocaleString('pt-BR')].join(',')).join('\n');
   dl('usuarios.csv',h+r);
+}
+
+// CONFIGURAÇÕES
+const EDGE_URL = `${SUPA_URL}/functions/v1/send-coupon-email`;
+
+async function loadSettings(){
+  const{data}=await db.from('settings').select('key,value');
+  const cfg={};
+  (data||[]).forEach(r=>cfg[r.key]=r.value);
+  document.getElementById('cfg-api-key').value   = cfg['email_api_key']    ||'';
+  document.getElementById('cfg-from').value       = cfg['email_from']       ||'contato@12ia.com.br';
+  document.getElementById('cfg-from-name').value  = cfg['email_from_name']  ||'Cupom GPT-Business';
+  document.getElementById('cfg-subject').value    = cfg['email_subject']    ||'Seu link exclusivo GPT Business chegou!';
+  document.getElementById('cfg-template').value   = cfg['email_template']   ||'Bom dia {nome}!\n\nSeu link exclusivo foi gerado para ativação do *GPT Business* com a condição especial:\n\n{link}\n\nSe tiver qualquer dúvida sobre a contratação ou quiser entender qual plano faz mais sentido para você, é só responder este e-mail. Será um prazer ajudar.';
+  loadEmailLog();
+}
+
+async function saveSettings(){
+  const updates=[
+    {key:'email_api_key',   value:document.getElementById('cfg-api-key').value.trim()},
+    {key:'email_from',      value:document.getElementById('cfg-from').value.trim()},
+    {key:'email_from_name', value:document.getElementById('cfg-from-name').value.trim()},
+    {key:'email_subject',   value:document.getElementById('cfg-subject').value.trim()},
+    {key:'email_template',  value:document.getElementById('cfg-template').value},
+  ];
+  for(const u of updates){
+    await db.from('settings').upsert({key:u.key,value:u.value,updated_at:new Date().toISOString()},{onConflict:'key'});
+  }
+  const s=document.getElementById('settings-status');
+  s.style.display='block';
+  s.innerHTML='<div style="background:var(--success-bg);border:1px solid rgba(34,197,94,.2);color:var(--success);padding:.75rem 1rem;border-radius:var(--radius);font-size:13px">✅ Configurações salvas com sucesso!</div>';
+  setTimeout(()=>s.style.display='none',3000);
+  toast('Configurações salvas!','success');
+}
+
+async function sendCouponEmail(userId, couponId){
+  try{
+    const res=await fetch(EDGE_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${SUPA_KEY}`},
+      body:JSON.stringify({user_id:userId,coupon_id:couponId})
+    });
+    const data=await res.json();
+    return{ok:res.ok, data};
+  }catch(e){
+    return{ok:false, data:{error:String(e)}};
+  }
+}
+
+async function testEmail(){
+  const apiKey=document.getElementById('cfg-api-key').value.trim();
+  if(!apiKey){toast('Configure a API Key primeiro.','error');return;}
+  // Salva antes de testar
+  await saveSettings();
+  // Busca o primeiro usuário com cupom para testar
+  const{data:us}=await db.from('users').select('id,coupons_id,email').not('coupons_id','is',null).limit(1);
+  if(!us?.length){toast('Nenhum usuário com cupom para testar.','error');return;}
+  toast('Enviando e-mail de teste...','info');
+  const{ok,data}=await sendCouponEmail(us[0].id,us[0].coupons_id);
+  if(ok){
+    toast(`✅ E-mail de teste enviado para ${us[0].email}!`,'success',5000);
+  }else{
+    toast('Erro: '+(data?.error||'Falha no envio'),'error',6000);
+  }
+  loadEmailLog();
+}
+
+async function loadEmailLog(){
+  const{data}=await db.from('events')
+    .select('id,event_type,created_at,users_id,coupons_id,metadata')
+    .in('event_type',['email_sent','email_error'])
+    .order('created_at',{ascending:false})
+    .limit(100);
+  const body=document.getElementById('emailLogBody');
+  const list=data||[];
+
+  // Atualiza badge de erros na sidebar
+  const errors=list.filter(e=>e.event_type==='email_error').length;
+  const badge=document.getElementById('emailErrorCount');
+  if(errors>0){badge.style.display='';badge.textContent=errors;}
+  else{badge.style.display='none';}
+
+  if(!list.length){
+    body.innerHTML='<div class="empty-state"><div class="empty-icon">📧</div><div class="empty-title">Nenhum e-mail enviado ainda</div></div>';return;
+  }
+  const uids=[...new Set(list.map(e=>e.users_id).filter(Boolean))];
+  let umap={};
+  if(uids.length){
+    const{data:us}=await db.from('users').select('id,name,email,coupons_id').in('id',uids);
+    (us||[]).forEach(u=>umap[u.id]=u);
+  }
+  const rows=list.map(e=>{
+    const u=umap[e.users_id]||{};
+    const meta=e.metadata?JSON.parse(e.metadata):{};
+    const ok=e.event_type==='email_sent';
+    return`<tr>
+      <td>${new Date(e.created_at).toLocaleString('pt-BR')}</td>
+      <td class="primary">${esc(u.name||'—')}</td>
+      <td>${esc(u.email||meta.to||'—')}</td>
+      <td><span class="badge ${ok?'b-distributed':'b-blocked'}">${ok?'✓ Enviado':'✗ Erro'}</span></td>
+      <td style="font-size:11px;color:var(--text3)">${ok?(meta.resend_id||''):(meta.error?.message||JSON.stringify(meta.error)||'Falha')}</td>
+      <td>${!ok&&u.id?`<button class="btn btn-ghost btn-sm" onclick="resendEmail('${u.id}','${u.coupons_id||e.coupons_id||''}','${esc(u.email||'')}')">↺ Reenviar</button>`:'—'}</td>
+    </tr>`;
+  }).join('');
+  body.innerHTML=`<table><thead><tr><th>Data/Hora</th><th>Nome</th><th>E-mail</th><th>Status</th><th>Detalhe</th><th>Ação</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function resendEmail(userId, couponId, email){
+  openConfirm('Reenviar e-mail',`Reenviar o e-mail com o cupom para ${email}?`,async()=>{
+    const{ok,data}=await sendCouponEmail(userId,couponId);
+    if(ok) toast('E-mail reenviado com sucesso!','success');
+    else   toast('Erro: '+(data?.error||'Falha no envio'),'error',5000);
+    loadEmailLog();
+  },'📨 Reenviar');
 }
 
 // LISTA DE ESPERA
