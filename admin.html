@@ -159,6 +159,10 @@ td.primary{color:var(--text);font-weight:500}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ref-badge{display:inline-block;background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.18);color:var(--accent-light);font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+.swap-modal-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;color:var(--text);font-size:13px;outline:none;margin-top:.5rem}
+.swap-modal-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,.15)}
+.swap-modal-info{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;font-size:12px;color:var(--text2);margin-bottom:1rem}
+.swap-modal-info strong{color:var(--text)}
 .mobile-topbar{display:none;position:fixed;top:0;left:0;right:0;height:3.25rem;background:var(--bg2);border-bottom:1px solid var(--border);align-items:center;padding:0 1rem;z-index:40;gap:.75rem}
 .mobile-menu-btn{background:none;border:1px solid var(--border);border-radius:8px;width:2.25rem;height:2.25rem;display:flex;align-items:center;justify-content:center;color:var(--text);cursor:pointer}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:45}
@@ -272,12 +276,7 @@ body{overflow-x:hidden}
           <div class="stat-card"><div class="stat-label">Bloqueados</div><div class="stat-val red" id="s-block">—</div></div>
           <div class="stat-card"><div class="stat-label">Usuários</div><div class="stat-val amber" id="s-users">—</div></div>
           <div class="stat-card"><div class="stat-label">Total cupons</div><div class="stat-val white" id="s-total">—</div></div>
-          <div class="stat-card" style="border-color:rgba(124,106,247,.35);position:relative;overflow:hidden">
-            <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,106,247,.06) 0%,transparent 60%);pointer-events:none"></div>
-            <div class="stat-label" style="color:var(--accent-light)">Ativados hoje</div>
-            <div class="stat-val" style="color:var(--accent-light)" id="s-today">—</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:.25rem" id="s-today-sub">cupons distribuídos</div>
-          </div>
+          <div class="stat-card"><div class="stat-label">Ativados</div><div class="stat-val" style="color:var(--accent-light)" id="s-today">—</div></div>
         </div>
         <div class="tbl-wrap">
           <div class="tbl-head"><div><div class="tbl-title">Últimos resgates</div><div class="tbl-sub">10 registros mais recentes</div></div></div>
@@ -301,7 +300,7 @@ body{overflow-x:hidden}
               <select class="filter-sel" id="couponFilter" onchange="renderCoupons()">
                 <option value="all">Todos</option>
                 <option value="available">Disponíveis</option>
-                <option value="distributed">Distribuídos</option>
+                <option value="distributed">Ativados</option>
                 <option value="blocked">Bloqueados</option>
               </select>
               <input class="search-input" id="couponSearch" placeholder="Buscar URL..." oninput="renderCoupons()"/>
@@ -433,7 +432,30 @@ body{overflow-x:hidden}
   </div><!-- /layout -->
 </div><!-- /adminScreen -->
 
-<!-- MODAL -->
+<!-- MODAL TROCAR CUPOM -->
+<div class="modal-overlay" id="swapModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-title">🔄 Trocar cupom do usuário</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;line-height:1.5">
+      O cupom atual será <strong style="color:var(--danger)">bloqueado</strong> e o usuário receberá o novo link informado abaixo.
+    </p>
+    <div class="swap-modal-info">
+      <div style="margin-bottom:.3rem">👤 <strong id="swapUserName">—</strong></div>
+      <div style="font-size:11px;color:var(--text3)" id="swapUserEmail">—</div>
+      <div style="margin-top:.5rem;font-size:11px;color:var(--text3)">Cupom atual:</div>
+      <div class="mono" style="font-size:11px;color:var(--danger);word-break:break-all" id="swapOldLink">—</div>
+    </div>
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block">Novo link do cupom</label>
+    <input class="swap-modal-input" id="swapNewLink" placeholder="https://chatgpt.com/p/..." />
+    <div id="swapErr" style="font-size:12px;color:var(--danger);margin-top:.5rem;display:none"></div>
+    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="closeSwap()">Cancelar</button>
+      <button class="btn btn-primary" id="swapOkBtn" onclick="confirmSwap()">✓ Confirmar troca</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRM -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal">
     <div class="modal-title" id="confirmTitle">Confirmar ação</div>
@@ -586,16 +608,10 @@ async function loadDashboard() {
   allRefOpts = rOpts || [];
 
   // Stats
-  // Início do dia atual (meia-noite, horário local → ISO)
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayISO = todayStart.toISOString();
-
-  const [{ data: cps }, { data: us }, { data: wl }, { data: todayCps }] = await Promise.all([
+  const [{ data: cps }, { data: us }, { data: wl }] = await Promise.all([
     db.from('coupons').select('status'),
     db.from('users').select('id,referral_id'),
-    db.from('waitlist').select('id').eq('notified', false),
-    db.from('coupons').select('id').eq('status', 'distributed').gte('distributed_at', todayISO)
+    db.from('waitlist').select('id').eq('notified', false)
   ]);
 
   document.getElementById('waitlistCount').textContent = wl?.length || 0;
@@ -605,11 +621,7 @@ async function loadDashboard() {
   document.getElementById('s-users').textContent  = (us || []).length;
   document.getElementById('s-total').textContent  = (cps || []).length;
 
-  const todayCount = todayCps?.length || 0;
-  document.getElementById('s-today').textContent = todayCount;
-  // Subtítulo dinâmico com a data de hoje
-  const todayLabel = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-  document.getElementById('s-today-sub').textContent = `distribuídos em ${todayLabel}`;
+  document.getElementById('s-today').textContent = (cps || []).filter(c => c.status === 'distributed').length;
 
   // Últimos resgates: busca users + join manual com coupons
   // Schema: users.coupons_id → coupons.id; coupons.link
@@ -707,28 +719,149 @@ function renderCoupons() {
     return;
   }
 
-  const rows = list.map(c => `<tr>
-    <td class="truncate mono" style="max-width:280px"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
+  const rows = list.map(c => {
+    const uid  = c.user?.id    || '';
+    const unm  = (c.user?.name  || '').replace(/'/g, "\\'");
+    const uem  = (c.user?.email || '').replace(/'/g, "\\'");
+    const lnk  = (c.link || '').replace(/'/g, "\\'");
+    return `<tr>
+    <td class="truncate mono" style="max-width:260px"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
     <td><span class="badge b-${c.status}">${statusLabel(c.status)}</span></td>
     <td class="primary">${esc(c.user?.name || '—')}</td>
     <td>${esc(c.user?.email || '—')}</td>
     <td>${fmtDate(c.distributed_at)}</td>
     <td>
       <div class="btns">
-        ${c.status === 'distributed' ? `<button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>` : ''}
-        ${c.status !== 'blocked'
-          ? `<button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>`
-          : `<button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>`}
-        ${c.status !== 'distributed' ? `<button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>` : ''}
+        ${c.status === 'distributed' ? `
+          <button class="btn btn-primary btn-sm" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom com erro ou já utilizado">🔄 Trocar</button>
+          <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
+        ` : ''}
+        ${c.status === 'available' ? `
+          <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
+        ` : ''}
+        ${c.status === 'blocked' ? `
+          <button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
+        ` : ''}
       </div>
     </td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 
   body.innerHTML = `<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Distribuído em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function statusLabel(s) {
   return s === 'available' ? 'Disponível' : s === 'distributed' ? 'Distribuído' : 'Bloqueado';
+}
+
+// ─── TROCAR CUPOM ─────────────────────────────────────────────────────────────
+let swapState = { couponId: null, userId: null };
+
+function openSwap(couponId, oldLink, userId, userName, userEmail) {
+  swapState = { couponId, userId };
+  document.getElementById('swapUserName').textContent  = userName  || '—';
+  document.getElementById('swapUserEmail').textContent = userEmail || '—';
+  document.getElementById('swapOldLink').textContent   = oldLink   || '—';
+  document.getElementById('swapNewLink').value = '';
+  document.getElementById('swapErr').style.display = 'none';
+  document.getElementById('swapModal').classList.add('show');
+  setTimeout(() => document.getElementById('swapNewLink').focus(), 120);
+}
+function closeSwap() {
+  document.getElementById('swapModal').classList.remove('show');
+  swapState = { couponId: null, userId: null };
+}
+
+async function confirmSwap() {
+  const newLink = document.getElementById('swapNewLink').value.trim();
+  const errEl   = document.getElementById('swapErr');
+  errEl.style.display = 'none';
+
+  if (!newLink.startsWith('http')) {
+    errEl.textContent = 'Informe uma URL válida (deve começar com http).';
+    errEl.style.display = 'block'; return;
+  }
+  if (!swapState.couponId) { closeSwap(); return; }
+
+  const btn = document.getElementById('swapOkBtn');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  // 1. Verifica se o novo link já existe no banco
+  const { data: exist } = await db.from('coupons').select('id,status').eq('link', newLink).maybeSingle();
+  if (exist) {
+    if (exist.status === 'distributed') {
+      errEl.textContent = 'Este link já foi distribuído para outro usuário.';
+      errEl.style.display = 'block'; btn.disabled = false; btn.textContent = '✓ Confirmar troca'; return;
+    }
+    if (exist.status === 'blocked') {
+      errEl.textContent = 'Este link está bloqueado. Desbloqueie-o antes de usá-lo na troca.';
+      errEl.style.display = 'block'; btn.disabled = false; btn.textContent = '✓ Confirmar troca'; return;
+    }
+    // Era available no banco → usa ele diretamente
+    const newCouponId = exist.id;
+
+    // 2. Bloqueia o cupom antigo (não volta ao estoque, nunca vai para outra pessoa)
+    await db.from('coupons')
+      .update({ status: 'blocked', users_id: null, distributed_at: null })
+      .eq('id', swapState.couponId);
+
+    // 3. Marca o cupom existente como distribuído e vincula ao usuário
+    const now = new Date().toISOString();
+    await db.from('coupons')
+      .update({ status: 'distributed', users_id: swapState.userId, distributed_at: now })
+      .eq('id', newCouponId);
+
+    // 4. Atualiza o usuário com o novo cupom
+    await db.from('users').update({ coupons_id: newCouponId }).eq('id', swapState.userId);
+
+    // 5. Log
+    await db.from('events').insert({
+      coupons_id: newCouponId, users_id: swapState.userId,
+      event_type: 'swap',
+      metadata: JSON.stringify({ old_coupon_id: swapState.couponId, new_link: newLink })
+    });
+
+    btn.disabled = false; btn.textContent = '✓ Confirmar troca';
+    closeSwap();
+    toast('Cupom trocado! O antigo foi bloqueado permanentemente.', 'success', 4000);
+    loadCoupons();
+    return;
+  }
+
+  // Link novo (não existe no banco) → insere já como distributed
+  const now = new Date().toISOString();
+  const { data: inserted, error: insErr } = await db.from('coupons')
+    .insert({ link: newLink, status: 'distributed', users_id: swapState.userId, distributed_at: now })
+    .select();
+
+  if (insErr) {
+    errEl.textContent = 'Erro ao inserir novo cupom: ' + insErr.message;
+    errEl.style.display = 'block'; btn.disabled = false; btn.textContent = '✓ Confirmar troca'; return;
+  }
+
+  const newCouponId = inserted[0].id;
+
+  // Bloqueia o cupom antigo permanentemente
+  await db.from('coupons')
+    .update({ status: 'blocked', users_id: null, distributed_at: null })
+    .eq('id', swapState.couponId);
+
+  // Vincula o novo ao usuário
+  await db.from('users').update({ coupons_id: newCouponId }).eq('id', swapState.userId);
+
+  // Log
+  await db.from('events').insert({
+    coupons_id: newCouponId, users_id: swapState.userId,
+    event_type: 'swap',
+    metadata: JSON.stringify({ old_coupon_id: swapState.couponId, new_link: newLink })
+  });
+
+  btn.disabled = false; btn.textContent = '✓ Confirmar troca';
+  closeSwap();
+  toast('Cupom trocado! O antigo foi bloqueado permanentemente.', 'success', 4000);
+  loadCoupons();
 }
 
 async function blockCoupon(id) {
