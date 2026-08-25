@@ -724,7 +724,7 @@ async function loadCoupons() {
   const BATCH = 1000;
   while(true){
     const{data:batch,error}=await db.from('coupons')
-      .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at,users(id,name,email,referral_id,coupons_id)')
+      .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at,users!coupons_users_id_fkey(id,name,email,referral_id,coupons_id)')
       .order('created_at',{ascending:false})
       .range(from, from+BATCH-1);
     if(error){ console.error('loadCoupons error:',error); break; }
