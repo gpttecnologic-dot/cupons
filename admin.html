@@ -488,6 +488,8 @@ const db = createClient(SUPA_URL, SUPA_KEY);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let allCoupons = [], allUsers = [], allRefOpts = [], allWaitlist = [];
+let couponPage = 0, couponPageSize = 20;
+let userPage = 0, userPageSize = 20;
 let loginAttempts = 0, currentTab = 'dashboard';
 let confirmCallback = null, dragSrcId = null;
 
