@@ -718,85 +718,125 @@ async function loadDashboard() {
 async function loadCoupons() {
   document.getElementById('couponBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
 
-  const { data: cps, error } = await db
-    .from('coupons')
-    .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    document.getElementById('couponBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro ao carregar: ${esc(error.message)}</div></div>`;
-    return;
+  // Busca em lotes com join direto em users
+  let allCps = [];
+  let from = 0;
+  const BATCH = 1000;
+  while(true){
+    const{data:batch,error}=await db.from('coupons')
+      .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at,users(id,name,email,referral_id,coupons_id)')
+      .order('created_at',{ascending:false})
+      .range(from, from+BATCH-1);
+    if(error){ console.error('loadCoupons error:',error); break; }
+    if(!batch?.length) break;
+    allCps=[...allCps,...batch];
+    if(batch.length<BATCH) break;
+    from+=BATCH;
   }
 
-  // Busca todos os usuários de uma vez (join duplo: por users_id no cupom OU por coupons_id no usuário)
-  const couponIds = (cps || []).map(c => c.id);
-  const uIdsFromCoupon = [...new Set((cps || []).map(c => c.users_id).filter(Boolean))];
-
-  // Busca usuários pelo users_id do cupom
-  let uMap = {}; // userId → user
-  if (uIdsFromCoupon.length) {
-    const { data: us1 } = await db.from('users').select('id,name,email,referral_id,coupons_id').in('id', uIdsFromCoupon);
-    (us1 || []).forEach(u => uMap[u.id] = u);
-  }
-
-  // Busca usuários pelo coupons_id (para registros antigos onde users_id no cupom é null)
-  let couponToUser = {}; // couponId → user
-  // Para cupons distribuídos sem users_id, busca via users.coupons_id
-  const cpsWithoutUser = (cps || []).filter(c => c.status === 'delivered' && !c.users_id).map(c => c.id);
-  if (cpsWithoutUser.length) {
-    const { data: us2 } = await db.from('users').select('id,name,email,referral_id,coupons_id').in('coupons_id', cpsWithoutUser);
-    (us2 || []).forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
-  }
-  // Também indexa por couponId os usuários já encontrados via users_id
-  Object.values(uMap).forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
-
-  allCoupons = (cps || []).map(c => ({
+  allCoupons = allCps.map(c => ({
     ...c,
     ativado: c.ativado || false,
     ativado_at: c.ativado_at || null,
-    user: c.users_id ? (uMap[c.users_id] || couponToUser[c.id] || null) : (couponToUser[c.id] || null)
+    user: c.users || null
   }));
+  couponPage = 0;
   renderCoupons();
 }
 
 function renderCoupons() {
   const f = document.getElementById('couponFilter').value;
   const q = (document.getElementById('couponSearch').value || '').toLowerCase();
-  let list = f === 'all'
-    ? allCoupons
-    : f === 'ativado'
-      ? allCoupons.filter(c => c.ativado === true)
-      : allCoupons.filter(c => c.status === f);
-  if (q) list = list.filter(c => (c.link || '').toLowerCase().includes(q));
+  const now = Date.now();
+  const HOURS_72 = 72 * 60 * 60 * 1000;
+
+  let list;
+  if(f === 'validate'){
+    // Cupons delivered há mais de 72h e não resgatados
+    list = allCoupons.filter(c =>
+      c.status === 'delivered' &&
+      c.distributed_at &&
+      (now - new Date(c.distributed_at).getTime()) > HOURS_72
+    );
+    list.sort((a,b) => new Date(a.distributed_at) - new Date(b.distributed_at));
+  } else if(f === 'all'){
+    list = allCoupons;
+  } else if(f === 'ativado'){
+    list = allCoupons.filter(c => c.ativado === true);
+  } else {
+    list = allCoupons.filter(c => c.status === f);
+    if(f === 'delivered') list.sort((a,b) => new Date(a.distributed_at) - new Date(b.distributed_at));
+  }
+
+  if(q) list = list.filter(c =>
+    (c.link||'').toLowerCase().includes(q) ||
+    (c.user?.name||'').toLowerCase().includes(q) ||
+    (c.user?.email||'').toLowerCase().includes(q)
+  );
 
   const body = document.getElementById('couponBody');
-  if (!list.length) {
+  if(!list.length){
     body.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';
     return;
   }
 
-  const rows = list.map(c => {
-    const uid  = c.user?.id    || '';
-    const unm  = (c.user?.name  || '').replace(/'/g, "\\'");
-    const uem  = (c.user?.email || '').replace(/'/g, "\\'");
-    const lnk  = (c.link || '').replace(/'/g, "\\'");
-    return `<tr>
+  // Alerta de pendentes
+  const pendentes = allCoupons.filter(c =>
+    c.status === 'delivered' &&
+    c.distributed_at &&
+    (now - new Date(c.distributed_at).getTime()) > HOURS_72
+  ).length;
+
+  const alertPendentes = pendentes > 0 ? `
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.875rem 1.25rem;background:rgba(245,158,11,.08);border-bottom:1px solid rgba(245,158,11,.15);font-size:13px;color:#fbbf24">
+      <span style="font-size:16px">⏳</span>
+      <span><strong>${pendentes}</strong> cupom(ns) entregue(s) há mais de 72h aguardando validação.</span>
+      <button class="btn btn-ghost btn-sm" style="color:#fbbf24;border-color:rgba(245,158,11,.3);margin-left:auto"
+        onclick="document.getElementById('couponFilter').value='validate';couponPage=0;renderCoupons()">
+        Ver todos
+      </button>
+    </div>` : '';
+
+  const total = list.length;
+  const totalPages = Math.ceil(total / couponPageSize);
+  const page = list.slice(couponPage * couponPageSize, (couponPage + 1) * couponPageSize);
+
+  const rows = page.map(c => {
+    const uid = c.user?.id || '';
+    const unm = (c.user?.name  || '').replace(/'/g, "\\'");
+    const uem = (c.user?.email || '').replace(/'/g, "\\'");
+    const lnk = (c.link || '').replace(/'/g, "\\'");
+    const aguardando = c.status === 'delivered' &&
+      c.distributed_at &&
+      (now - new Date(c.distributed_at).getTime()) > HOURS_72;
+
+    return `<tr ${aguardando ? 'style="background:rgba(245,158,11,.04)"' : ''}>
     <td class="truncate mono" style="max-width:260px"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
-    <td><span class="badge b-${c.status}">${statusLabel(c.status)}</span></td>
+    <td>
+      <span class="badge b-${c.status}">${statusLabel(c.status)}</span>
+      ${aguardando ? `<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;margin-left:4px">⏳ Validar</span>` : ''}
+    </td>
     <td class="primary">${esc(c.user?.name || '—')}</td>
     <td>${esc(c.user?.email || '—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(c.user?.referral_id))}</span></td>
     <td>${fmtDate(c.distributed_at)}</td>
     <td>
-      ${c.status === 'delivered' ? (c.ativado
-        ? `<span class="badge" style="background:rgba(34,197,94,.15);color:#4ade80;gap:4px">✓ Ativado<span style="font-size:9px;opacity:.7">${c.ativado_at ? ' · ' + fmtDate(c.ativado_at).split(',')[0] : ''}</span></span>`
-        : `<button class="btn btn-success btn-sm" onclick="marcarAtivado('${c.id}')">✓ Marcar ativado</button>`)
+      ${aguardando ? `
+        <div class="btns">
+          <button class="btn btn-success btn-sm" onclick="confirmActivated('${c.id}')">✅ Resgatado</button>
+          <button class="btn btn-secondary btn-sm" onclick="returnCoupon('${c.id}')">↩ Devolver</button>
+        </div>
+      ` : c.status === 'delivered' ? (c.ativado
+        ? `<span class="badge" style="background:rgba(34,197,94,.15);color:#4ade80">✓ Resgatado</span>`
+        : `<button class="btn btn-success btn-sm" onclick="confirmActivated('${c.id}')">✅ Resgatado</button>`)
+      : c.status === 'redeemed' ? `<span class="badge b-redeemed">✓ Resgatado</span>`
       : '—'}
     </td>
     <td>
       <div class="btns">
-        ${c.status === 'delivered' ? `
-          <button class="btn btn-primary btn-sm" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom com erro ou já utilizado">🔄 Trocar</button>
+        ${c.status === 'delivered' && !aguardando ? `
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>
+          <button class="btn btn-primary btn-sm" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom">🔄</button>
           <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
         ` : ''}
         ${c.status === 'available' ? `
@@ -807,12 +847,25 @@ function renderCoupons() {
           <button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
         ` : ''}
+        ${c.status === 'invalid' ? `
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
+        ` : ''}
       </div>
     </td>
   </tr>`;
   }).join('');
 
-  body.innerHTML = `<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Indicação</th><th>Ativado em</th><th>Resgate</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const pager = totalPages > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+      <span>Exibindo ${couponPage*couponPageSize+1}–${Math.min((couponPage+1)*couponPageSize,total)} de ${total}</span>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-ghost btn-sm" onclick="couponPage--;renderCoupons()" ${couponPage===0?'disabled':''}>← Anterior</button>
+        <span style="padding:.35rem .75rem">${couponPage+1} / ${totalPages}</span>
+        <button class="btn btn-ghost btn-sm" onclick="couponPage++;renderCoupons()" ${couponPage>=totalPages-1?'disabled':''}>Próximo →</button>
+      </div>
+    </div>` : '';
+
+  body.innerHTML = `${alertPendentes}<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Indicação</th><th>Entregue em</th><th>Resgate</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
 }
 
 function statusLabel(s){
@@ -828,16 +881,23 @@ function statusLabel(s){
 }
 
 // ─── MARCAR ATIVADO ───────────────────────────────────────────────────────────
-async function marcarAtivado(id) {
-  const now = new Date().toISOString();
-  const { error } = await db.from('coupons')
-    .update({ ativado: true, ativado_at: now })
-    .eq('id', id);
-  if (error) { toast('Erro ao marcar: ' + error.message, 'error', 5000); return; }
+async function confirmActivated(couponId){
+  openConfirm(
+    '✅ Confirmar resgate',
+    'Confirmar que o cliente resgatou este cupom?\n\nO status será alterado para Resgatado.',
+    async()=>{
+      const{error}=await db.rpc('admin_validate_coupon',{p_coupon_id:couponId});
+      if(error){toast('Erro: '+error.message,'error',6000);return;}
+      toast('✅ Cupom marcado como Resgatado!','success');
+      loadCoupons();
+      loadDashboard();
+    },
+    '✅ Confirmar'
+  );
+}
 
-  toast('✅ Cupom marcado como ativado!', 'success');
-  loadCoupons();
-  loadDashboard();
+async function marcarAtivado(id) {
+  confirmActivated(id);
 }
 
 // ─── TROCAR CUPOM ─────────────────────────────────────────────────────────────
