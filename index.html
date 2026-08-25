@@ -388,7 +388,7 @@ async function submitForm() {
     // 3. Marca cupom como distributed (guard race condition)
     const { data: locked } = await db
       .from('coupons')
-      .update({ status: 'distributed', distributed_at: new Date().toISOString() })
+      .update({ status: 'delivered', distributed_at: new Date().toISOString() })
       .eq('id', coupon.id)
       .eq('status', 'available')
       .select();
@@ -419,7 +419,7 @@ async function submitForm() {
     await db.from('events').insert({
       coupons_id: coupon.id,
       users_id: newUser[0].id,
-      event_type: 'distributed',
+      event_type: 'delivered',
       metadata: JSON.stringify({ email, phone, referral_id: referral })
     });
 
