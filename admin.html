@@ -72,6 +72,8 @@ a{color:var(--accent-light);text-decoration:none}
 .stat-val.green{color:var(--success)}.stat-val.purple{color:var(--accent-light)}.stat-val.red{color:var(--danger)}.stat-val.amber{color:var(--warning)}.stat-val.white{color:var(--text)}
 
 .tbl-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1.5rem}
+.tbl-wrap table{min-width:600px}
+#couponBody,#userBody,#logsBody,#recentBody,#emailLogBody,#waitlistBody{overflow-x:auto;display:block;width:100%}
 .tbl-head{display:flex;align-items:center;justify-content:space-between;padding:.875rem 1.25rem;border-bottom:1px solid var(--border);gap:.75rem;flex-wrap:wrap}
 .tbl-title{font-size:13px;font-weight:600}
 .tbl-sub{font-size:11px;color:var(--text3);margin-top:1px}
@@ -175,7 +177,7 @@ body{overflow-x:hidden}
 @media(max-width:768px){
   .sidebar{display:flex;transform:translateX(-100%);transition:transform .25s ease;box-shadow:2px 0 24px rgba(0,0,0,.4)}
   .sidebar.open{transform:translateX(0)}
-  .main{margin-left:0;padding:1rem;padding-top:4.25rem;max-width:100vw;overflow-x:hidden}
+  .main{margin-left:0;padding:1rem;padding-top:4.25rem;max-width:100vw}
   .stats-grid{grid-template-columns:repeat(2,1fr)}
   .mobile-topbar{display:flex}
   .sidebar-overlay.show{display:block}
@@ -530,11 +532,9 @@ function openConfirm(title, msg, cb, lbl = 'Confirmar') {
   confirmCallback = cb;
   document.getElementById('confirmModal').classList.add('show');
 }
-function closeConfirm() {
-  document.getElementById('confirmModal').classList.remove('show');
-  confirmCallback = null;
-}
-document.getElementById('confirmOkBtn').onclick = () => { closeConfirm(); if (confirmCallback) confirmCallback(); };
+function closeConfirm(){document.getElementById('confirmModal').classList.remove('show');confirmCallback=null;}
+function executeConfirm(){const cb=confirmCallback;confirmCallback=null;closeConfirm();if(cb)cb();}
+document.getElementById('confirmOkBtn').onclick=executeConfirm;
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 async function doLogin() {
