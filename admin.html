@@ -1001,40 +1001,29 @@ async function confirmSwap() {
   loadCoupons();
 }
 
-async function blockCoupon(id) {
-  const { error } = await db.from('coupons').update({ status: 'blocked' }).eq('id', id);
-  if (error) { toast('Erro ao bloquear: ' + error.message, 'error', 6000); return; }
-  toast('Cupom bloqueado.', 'info');
-  loadCoupons();
+async function blockCoupon(id){
+  const{error}=await db.rpc('admin_block_coupon',{p_coupon_id:id});
+  if(error){toast('Erro ao bloquear: '+error.message,'error',6000);return;}
+  toast('Cupom bloqueado.','info');loadCoupons();
 }
-async function unblockCoupon(id) {
-  const { error } = await db.from('coupons').update({ status: 'available' }).eq('id', id);
-  if (error) { toast('Erro ao desbloquear: ' + error.message, 'error', 6000); return; }
-  toast('Cupom desbloqueado.', 'success');
-  loadCoupons();
+async function unblockCoupon(id){
+  const{error}=await db.rpc('admin_unblock_coupon',{p_coupon_id:id});
+  if(error){toast('Erro ao desbloquear: '+error.message,'error',6000);return;}
+  toast('Cupom desbloqueado.','success');loadCoupons();
 }
-async function returnCoupon(id) {
-  openConfirm('Devolver cupom', 'O link voltará ao estoque como disponível. O usuário vinculado perderá o vínculo.', async () => {
-    // Remove vínculo do usuário
-    await db.from('users').update({ coupons_id: null }).eq('coupons_id', id);
-    // Recoloca cupom como disponível e limpa users_id
-    const { error } = await db.from('coupons')
-      .update({ status: 'available', distributed_at: null, users_id: null })
-      .eq('id', id);
-    if (error) { toast('Erro ao devolver: ' + error.message, 'error', 6000); return; }
-    toast('Link devolvido ao estoque.', 'success');
-    loadCoupons();
-  }, 'Devolver');
+async function returnCoupon(id){
+  openConfirm('Devolver cupom','O link voltará ao estoque como disponível. O usuário vinculado perderá o vínculo.',async()=>{
+    const{error}=await db.rpc('admin_return_coupon',{p_coupon_id:id});
+    if(error){toast('Erro ao devolver: '+error.message,'error',6000);return;}
+    toast('Link devolvido ao estoque.','success');loadCoupons();loadDashboard();
+  },'Devolver');
 }
-async function deleteCoupon(id) {
-  openConfirm('Excluir cupom', 'Excluir este link permanentemente?\n\nEsta ação não pode ser desfeita.', async () => {
-    await db.from('users').update({ coupons_id: null }).eq('coupons_id', id);
-    await db.from('events').delete().eq('coupons_id', id);
-    const { error } = await db.from('coupons').delete().eq('id', id);
-    if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
-    toast('Cupom excluído.', 'info');
-    loadCoupons();
-  }, '🗑 Excluir');
+async function deleteCoupon(id){
+  openConfirm('Excluir cupom','Excluir este link permanentemente?\n\nEsta ação não pode ser desfeita.',async()=>{
+    const{error}=await db.rpc('admin_delete_coupon',{p_coupon_id:id});
+    if(error){toast('Erro ao excluir: '+error.message,'error',6000);return;}
+    toast('Cupom excluído.','info');loadCoupons();
+  },'🗑 Excluir');
 }
 function exportCouponsCSV() {
   if (!allCoupons.length) { toast('Nenhum cupom para exportar.', 'error'); return; }
