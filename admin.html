@@ -825,8 +825,9 @@ function renderCoupons() {
     <td>
       <div class="btns">
         ${aguardando ? `
-          <button class="btn btn-success btn-sm" onclick="confirmActivated('${c.id}')" title="Marcar como resgatado">✅</button>
-          <button class="btn btn-secondary btn-sm" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>
+          <button class="btn btn-success btn-sm btn-icon" onclick="confirmActivated('${c.id}')" title="Marcar como resgatado">✅</button>
+          <button class="btn btn-secondary btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom">🔄</button>
         ` : c.status === 'delivered' ? `
           <button class="btn btn-success btn-sm btn-icon" onclick="confirmActivated('${c.id}')" title="Marcar como resgatado">✅</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>
