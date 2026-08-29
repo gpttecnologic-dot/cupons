@@ -878,7 +878,15 @@ function setDashGroup(g){
   renderDashCharts();
 }
 function dashKey(dateStr){
-  const d=new Date(dateStr+'T12:00:00-03:00');
+  // dateStr sempre chega como timestamp completo (created_at/distributed_at
+  // do Supabase, ou cur.toISOString() em dashAllKeys) — nunca como "YYYY-MM-DD"
+  // puro. O código antigo fazia `dateStr+'T12:00:00-03:00'`, o que colava um
+  // segundo "T..." depois de um timestamp que já tinha hora/timezone (ex:
+  // "2026-08-24T14:23:01+00:00" virava "...+00:00T12:00:00-03:00"), gerando
+  // uma string de data inválida. Isso fazia TODAS as chaves do gráfico
+  // colapsarem em "Invalid Date" — por isso o eixo e o tooltip só mostravam
+  // essa string em vez das datas reais.
+  const d=new Date(dateStr);
   if(dashGroup==='month') return d.toLocaleDateString('pt-BR',{month:'short',year:'2-digit',timeZone:'America/Sao_Paulo'});
   if(dashGroup==='week'){const m=new Date(d);m.setDate(d.getDate()-d.getDay()+1);return m.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});}
   return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'America/Sao_Paulo'});
