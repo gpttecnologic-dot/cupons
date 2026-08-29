@@ -356,12 +356,14 @@ body{overflow-x:hidden}
         <div class="tbl-wrap">
           <div class="tbl-head">
             <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
-              <select class="filter-sel" id="couponFilter" onchange="renderCoupons()">
+              <select class="filter-sel" id="couponFilter" onchange="couponPage=0;renderCoupons()">
                 <option value="all">Todos</option>
                 <option value="available">Disponíveis</option>
-                <option value="distributed">Distribuídos</option>
-                <option value="ativado">✓ Ativados</option>
+                <option value="delivered">Entregues</option>
+                <option value="redeemed">Resgatados</option>
                 <option value="blocked">Bloqueados</option>
+                <option value="invalid">Inválidos</option>
+                <option value="validate">⏳ Aguardando validação</option>
               </select>
               <input class="search-input" id="couponSearch" placeholder="Buscar URL..." oninput="renderCoupons()"/>
             </div>
@@ -1154,56 +1156,111 @@ async function loadCoupons() {
 function renderCoupons() {
   const f = document.getElementById('couponFilter').value;
   const q = (document.getElementById('couponSearch').value || '').toLowerCase();
-  let list = f === 'all'
-    ? allCoupons
-    : f === 'ativado'
-      ? allCoupons.filter(c => c.ativado === true)
-      : allCoupons.filter(c => c.status === f);
-  if (q) list = list.filter(c => (c.link || '').toLowerCase().includes(q));
+  const now = Date.now();
+  const HOURS_72 = 72 * 60 * 60 * 1000;
+
+  let list;
+  if(f === 'validate'){
+    list = allCoupons.filter(c =>
+      c.status === 'delivered' &&
+      c.distributed_at &&
+      (now - new Date(c.distributed_at).getTime()) > HOURS_72
+    );
+    list.sort((a,b) => new Date(a.distributed_at) - new Date(b.distributed_at));
+  } else if(f === 'all'){
+    list = allCoupons;
+  } else {
+    list = allCoupons.filter(c => c.status === f);
+    if(f === 'delivered') list.sort((a,b) => new Date(a.distributed_at) - new Date(b.distributed_at));
+  }
+
+  if(q) list = list.filter(c =>
+    (c.link||'').toLowerCase().includes(q) ||
+    (c.user?.name||'').toLowerCase().includes(q) ||
+    (c.user?.email||'').toLowerCase().includes(q)
+  );
 
   const body = document.getElementById('couponBody');
-  if (!list.length) {
+  if(!list.length){
     body.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';
     return;
   }
 
-  const rows = list.map(c => {
-    const uid  = c.user?.id    || '';
-    const unm  = (c.user?.name  || '').replace(/'/g, "\\'");
-    const uem  = (c.user?.email || '').replace(/'/g, "\\'");
-    const lnk  = (c.link || '').replace(/'/g, "\\'");
-    return `<tr>
+  const pendentes = allCoupons.filter(c =>
+    c.status === 'delivered' &&
+    c.distributed_at &&
+    (now - new Date(c.distributed_at).getTime()) > HOURS_72
+  ).length;
+
+  const alertPendentes = pendentes > 0 ? `
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.875rem 1.25rem;background:rgba(245,158,11,.08);border-bottom:1px solid rgba(245,158,11,.15);font-size:13px;color:#fbbf24">
+      <span style="font-size:16px">⏳</span>
+      <span><strong>${pendentes}</strong> cupom(ns) entregue(s) há mais de 72h aguardando validação.</span>
+      <button class="btn btn-ghost btn-sm" style="color:#fbbf24;border-color:rgba(245,158,11,.3);margin-left:auto"
+        onclick="document.getElementById('couponFilter').value='validate';couponPage=0;renderCoupons()">Ver todos</button>
+    </div>` : '';
+
+  const total = list.length;
+  const totalPages = Math.ceil(total / couponPageSize);
+  const page = list.slice(couponPage * couponPageSize, (couponPage + 1) * couponPageSize);
+
+  const rows = page.map(c => {
+    const uid = c.user?.id || '';
+    const unm = (c.user?.name || '').replace(/'/g, "\\'");
+    const uem = (c.user?.email || '').replace(/'/g, "\\'");
+    const lnk = (c.link || '').replace(/'/g, "\\'");
+    const aguardando = c.status === 'delivered' &&
+      c.distributed_at &&
+      (now - new Date(c.distributed_at).getTime()) > HOURS_72;
+
+    return `<tr ${aguardando ? 'style="background:rgba(245,158,11,.04)"' : ''}>
     <td class="truncate mono" style="max-width:260px"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
-    <td><span class="badge b-${c.status}">${statusLabel(c.status)}</span></td>
+    <td>
+      <span class="badge b-${c.status}">${statusLabel(c.status)}</span>
+      ${aguardando ? `<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;margin-left:4px">⏳ Validar</span>` : ''}
+    </td>
     <td class="primary">${esc(c.user?.name || '—')}</td>
     <td>${esc(c.user?.email || '—')}</td>
+    <td><span class="ref-badge">${esc(refLabelById(c.user?.referral_id))}</span></td>
     <td>${fmtDate(c.distributed_at)}</td>
     <td>
-      ${c.status === 'distributed' ? (c.ativado
-        ? `<span class="badge" style="background:rgba(34,197,94,.15);color:#4ade80;gap:4px">✓ Ativado<span style="font-size:9px;opacity:.7">${c.ativado_at ? ' · ' + fmtDate(c.ativado_at).split(',')[0] : ''}</span></span>`
-        : `<button class="btn btn-success btn-sm" onclick="marcarAtivado('${c.id}')">✓ Marcar ativado</button>`)
-      : '—'}
-    </td>
-    <td>
       <div class="btns">
-        ${c.status === 'distributed' ? `
-          <button class="btn btn-primary btn-sm" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom com erro ou já utilizado">🔄 Trocar</button>
+        ${aguardando ? `
+          <button class="btn btn-success btn-sm btn-icon" onclick="confirmActivated('${c.id}')" title="Marcar como resgatado">✅</button>
+          <button class="btn btn-secondary btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom">🔄</button>
+        ` : c.status === 'delivered' ? `
+          <button class="btn btn-success btn-sm btn-icon" onclick="confirmActivated('${c.id}')" title="Marcar como resgatado">✅</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom">🔄</button>
           <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
-        ` : ''}
-        ${c.status === 'available' ? `
+        ` : c.status === 'redeemed' ? `
+          <span class="badge b-redeemed">✓ Resgatado</span>
+        ` : c.status === 'available' ? `
           <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
-        ` : ''}
-        ${c.status === 'blocked' ? `
+        ` : c.status === 'blocked' ? `
           <button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
-        ` : ''}
+        ` : c.status === 'invalid' ? `
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
+        ` : '—'}
       </div>
     </td>
   </tr>`;
   }).join('');
 
-  body.innerHTML = `<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Ativado em</th><th>Resgate</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const pager = totalPages > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+      <span>Exibindo ${couponPage*couponPageSize+1}–${Math.min((couponPage+1)*couponPageSize,total)} de ${total}</span>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-ghost btn-sm" onclick="couponPage--;renderCoupons()" ${couponPage===0?'disabled':''}>← Anterior</button>
+        <span style="padding:.35rem .75rem">${couponPage+1} / ${totalPages}</span>
+        <button class="btn btn-ghost btn-sm" onclick="couponPage++;renderCoupons()" ${couponPage>=totalPages-1?'disabled':''}>Próximo →</button>
+      </div>
+    </div>` : '';
+
+  body.innerHTML = `${alertPendentes}<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Indicação</th><th>Entregue em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
 }
 
 function statusLabel(s) {
