@@ -766,7 +766,11 @@ async function loadIndicadores(force=false){
     getDashCoupons(force)
   ]);
 
-  const refMap={};(refs||[]).forEach(r=>refMap[r.id]=r.name);
+  // Nome da indicação: usa allRefOpts (TODAS as indicações, inclusive as
+  // desativadas depois), não `refs` (só ativas) — senão qualquer indicação
+  // desativada aparece aqui como "Não informado", mesmo o usuário tendo
+  // informado a origem normalmente.
+  const refMap={};(allRefOpts||[]).forEach(r=>refMap[r.id]=r.name);
   const allC=(coupons||[]).filter(c=>c.status==='redeemed');
   const noC=allU.filter(u=>!u.coupons_id);
 
@@ -907,7 +911,16 @@ async function loadDashCharts(force=false){
     getDashCoupons(force)
   ]);
   dashRefs=refs||[];dashUsers=usersAll;dashCoupons=coupons||[];
-  (refs||[]).forEach(r=>dashRefMap[r.id]=r.name);
+  // dashRefMap alimenta o gráfico "Conversão por indicação" mais abaixo e
+  // precisa cobrir TODAS as indicações (allRefOpts), não só as ativas
+  // (`refs`) — senão uma indicação que foi desativada depois de já ter
+  // gerado cadastros aparece incorretamente como "Não informado" no
+  // gráfico, mesmo o usuário tendo informado a origem normalmente.
+  // `dashRefs` (ativas) continua sendo o que decide quais indicações
+  // ganham checkbox/linha própria no gráfico de linha — isso é intencional,
+  // só a resolução de NOME é que precisa da lista completa.
+  dashRefMap={};
+  (allRefOpts||[]).forEach(r=>dashRefMap[r.id]=r.name);
 
   const RCOLS=['#eb6834','#eda100','#e87ba4','#6250d6','#e34948'];
   const refsEl=document.getElementById('ds-refs-checks');
