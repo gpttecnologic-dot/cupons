@@ -565,6 +565,42 @@ let allCoupons = [], allUsers = [], allRefOpts = [], allWaitlist = [];
 let couponPage = 0, couponPageSize = 20;
 let userPage = 0, userPageSize = 20;
 let loginAttempts = 0, currentTab = 'dashboard';
+// Ordenação das tabelas de Cupons e Usuários (clicando no cabeçalho da
+// coluna). null = usa a ordenação padrão de cada tela (a que já vinha antes
+// dessa funcionalidade existir).
+let couponSort = null; // {col, dir}
+let userSort = null;   // {col, dir}
+
+// Compara dois valores pra ordenação: texto usa comparação de português
+// (acentos/maiúsculas não atrapalham), número/data compara direto, e nulo
+// sempre vai pro fim da lista (não fica misturado no meio, tanto crescente
+// quanto decrescente).
+function cmpSortValues(a, b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  if (typeof a === 'string' && typeof b === 'string') return a.localeCompare(b, 'pt-BR', { sensitivity: 'base' });
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+function sortArrow(state, col) {
+  if (!state || state.col !== col) return '';
+  return state.dir === 'asc' ? ' ▲' : ' ▼';
+}
+// Nota: cada função mexe direto na sua própria variável de estado (não usa
+// window[...] pra achar a variável, porque `let`/`const` no topo do script
+// não viram propriedade de `window` como `var` virava — só pareceria
+// funcionar até a primeira tentativa de reordenar).
+function sortCoupons(col) {
+  if (couponSort && couponSort.col === col) couponSort.dir = couponSort.dir === 'asc' ? 'desc' : 'asc';
+  else couponSort = { col, dir: 'asc' };
+  couponPage = 0;
+  renderCoupons();
+}
+function sortUsers(col) {
+  if (userSort && userSort.col === col) userSort.dir = userSort.dir === 'asc' ? 'desc' : 'asc';
+  else userSort = { col, dir: 'asc' };
+  renderUsers();
+}
 let confirmCallback = null, dragSrcId = null;
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -1431,6 +1467,22 @@ function renderCoupons() {
     (c.user?.email||'').toLowerCase().includes(q)
   );
 
+  // Ordenação por coluna (clicando no cabeçalho) sobrepõe a ordenação
+  // padrão do filtro acima, quando o usuário já clicou em algum cabeçalho.
+  if (couponSort) {
+    const getters = {
+      link:     c => c.link || '',
+      status:   c => statusLabel(c.status) || '',
+      name:     c => c.user?.name || '',
+      email:    c => c.user?.email || '',
+      referral: c => refLabelById(c.user?.referral_id) || '',
+      date:     c => c.distributed_at ? new Date(c.distributed_at).getTime() : null,
+    };
+    const get = getters[couponSort.col];
+    const dir = couponSort.dir === 'asc' ? 1 : -1;
+    if (get) list = [...list].sort((a,b) => cmpSortValues(get(a), get(b)) * dir);
+  }
+
   const body = document.getElementById('couponBody');
   if(!list.length){
     body.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';
@@ -1512,7 +1564,18 @@ function renderCoupons() {
       </div>
     </div>` : '';
 
-  body.innerHTML = `${alertPendentes}<table><thead><tr><th>Link</th><th>Status</th><th>Usuário</th><th>E-mail</th><th>Indicação</th><th>Entregue em</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>${pager}`;
+  const sortableTh = (label, col) =>
+    `<th style="cursor:pointer;user-select:none" onclick="sortCoupons('${col}')" title="Ordenar">${label}${sortArrow(couponSort,col)}</th>`;
+
+  body.innerHTML = `${alertPendentes}<table><thead><tr>
+    ${sortableTh('Link','link')}
+    ${sortableTh('Status','status')}
+    ${sortableTh('Usuário','name')}
+    ${sortableTh('E-mail','email')}
+    ${sortableTh('Indicação','referral')}
+    ${sortableTh('Entregue em','date')}
+    <th>Ações</th>
+  </tr></thead><tbody>${rows}</tbody></table>${pager}`;
 }
 
 function statusLabel(s) {
@@ -1781,12 +1844,25 @@ async function loadUsers() {
 
 function renderUsers() {
   const q = (document.getElementById('userSearch').value || '').toLowerCase();
-  const list = q
+  let list = q
     ? allUsers.filter(u =>
         u.name.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
         (u.phone || '').includes(q))
     : allUsers;
+
+  if (userSort) {
+    const getters = {
+      name:     u => u.name || '',
+      email:    u => u.email || '',
+      phone:    u => u.phone || '',
+      referral: u => refLabelById(u.referral_id) || '',
+      date:     u => u.created_at ? new Date(u.created_at).getTime() : null,
+    };
+    const get = getters[userSort.col];
+    const dir = userSort.dir === 'asc' ? 1 : -1;
+    if (get) list = [...list].sort((a,b) => cmpSortValues(get(a), get(b)) * dir);
+  }
 
   const body = document.getElementById('userBody');
   if (!list.length) {
@@ -1812,7 +1888,18 @@ function renderUsers() {
     </td>
   </tr>`).join('');
 
-  body.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Link do cupom</th><th>Cadastrado em</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+  const sortableTh = (label, col) =>
+    `<th style="cursor:pointer;user-select:none" onclick="sortUsers('${col}')" title="Ordenar">${label}${sortArrow(userSort,col)}</th>`;
+
+  body.innerHTML = `<table><thead><tr>
+    ${sortableTh('Nome','name')}
+    ${sortableTh('E-mail','email')}
+    ${sortableTh('Telefone','phone')}
+    ${sortableTh('Indicação','referral')}
+    <th>Link do cupom</th>
+    ${sortableTh('Cadastrado em','date')}
+    <th></th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 async function deleteUser(id, name, couponId) {
