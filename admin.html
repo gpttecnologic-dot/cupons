@@ -771,21 +771,24 @@ async function loadIndicadores(force=false){
   // desativada aparece aqui como "Não informado", mesmo o usuário tendo
   // informado a origem normalmente.
   const refMap={};(allRefOpts||[]).forEach(r=>refMap[r.id]=r.name);
-  const allC=(coupons||[]).filter(c=>c.status==='redeemed');
-  const noC=allU.filter(u=>!u.coupons_id);
 
   // Mapa de users por id para lookup O(1)
   const userById={};allU.forEach(u=>userById[u.id]=u);
 
-  // RESGATADOS: todos com status=redeemed
-  const redeemed=allC;
-
-  // SEM CUPOM VINCULADO: coupons_id=NULL (devolvido ao estoque)
-  // Não filtra por 72h — qualquer devolução conta
-  const naoConv=noC;
+  // Total analisado = Resgatados + Usuários sem cupom vinculado.
+  // "Entregue" NÃO entra: alguém recebeu o cupom mas ainda não teve
+  // desfecho nenhum (nem resgatou, nem devolveu) — não dá pra analisar
+  // quem ainda está em aberto.
+  // "Sem cupom vinculado" só dá pra saber pelo lado do USUÁRIO
+  // (coupons_id=NULL): um cupom devolvido ao estoque volta pro status
+  // "Disponível" e fica indistinguível de um cupom que nunca foi
+  // distribuído — só o registro do usuário preserva que ele já teve (e
+  // perdeu) um cupom.
+  const redeemed = (coupons||[]).filter(c => c.status==='redeemed');
+  const naoConv = allU.filter(u => !u.coupons_id);
 
   // Total analisado = resgatados + sem cupom vinculado
-  const analisados=redeemed.length+naoConv.length;
+  const analisados = redeemed.length + naoConv.length;
 
   // Conversão = resgatados ÷ total analisado × 100
   const conv=analisados>0?(redeemed.length/analisados*100):0;
@@ -939,20 +942,37 @@ function renderDashCharts(){
   const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
   const since=dashDays>0?new Date(now.getTime()-dashDays*24*60*60*1000):new Date('2026-01-01');
 
+  // Mapa de users por id — usado pra achar a indicação de um cupom
+  // resgatado e pra achar quem está "sem cupom vinculado".
+  const userById = {};dashUsers.forEach(u => userById[u.id] = u);
+
   const filtU=dashUsers.filter(u=>new Date(u.created_at)>=since);
 
-  // Status corretos — todos os cupons sem filtro de período para o donut
+  // allRedeemed fica de propósito sem filtro de período — é usado mais abaixo
+  // só na conversão GERAL do gráfico de linha, pra não perder cupons
+  // resgatados sem distributed_at (comentário mais abaixo explica). Todo o
+  // resto (pizza "Status dos cupons" e barras "Conversão por indicação")
+  // agora respeita o período selecionado (7d/30d/90d/6m) — antes esses dois
+  // gráficos sempre mostravam o histórico completo, ignorando os botões de
+  // período.
+  // "Tudo" (dashDays===0) precisa continuar mostrando TUDO mesmo — inclusive
+  // cupons bloqueados/inválidos que nunca chegaram a ter distributed_at
+  // preenchido (ex: marcados inválidos direto na importação, sem nunca
+  // terem sido distribuídos). Por isso só exige a data quando um período
+  // específico (7d/30d/90d/6m) está selecionado; em "Tudo" não filtra nada.
+  const inPeriod = c => dashDays===0 || (c.distributed_at && new Date(c.distributed_at) >= since);
   const allRedeemed=dashCoupons.filter(c=>c.status==='redeemed');
-  const filtRedeemed=dashCoupons.filter(c=>c.status==='redeemed'&&c.distributed_at&&new Date(c.distributed_at)>=since);
-  const filtDelivered=dashCoupons.filter(c=>c.status==='delivered');
-  const filtBlocked=dashCoupons.filter(c=>c.status==='blocked');
-  const filtInvalid=dashCoupons.filter(c=>c.status==='invalid');
+  const filtRedeemed=dashCoupons.filter(c=>c.status==='redeemed'&&inPeriod(c));
+  const filtDelivered=dashCoupons.filter(c=>c.status==='delivered'&&inPeriod(c));
+  const filtBlocked=dashCoupons.filter(c=>c.status==='blocked'&&inPeriod(c));
+  const filtInvalid=dashCoupons.filter(c=>c.status==='invalid'&&inPeriod(c));
 
   // Usuários sem cupom no período (devolvidos)
   const semCupom=dashUsers.filter(u=>!u.coupons_id&&new Date(u.created_at)>=since);
 
-  // Conversão correta: redeemed ÷ (redeemed + sem cupom)
-  const analisados=filtRedeemed.length+semCupom.length;
+  // Total analisado = resgatados + sem cupom vinculado. "Entregue" fica de
+  // fora: alguém recebeu o cupom mas ainda não teve nenhum desfecho.
+  const analisados=filtRedeemed.length + semCupom.length;
 
   const isDark=document.documentElement.dataset.mode==='dark'||matchMedia('(prefers-color-scheme:dark)').matches;
   const gridColor=isDark?'#2c2c2a':'#e1e0d9';
@@ -973,8 +993,7 @@ function renderDashCharts(){
     : filtU;
 
   // Redeemed e semCupom filtrados pelas indicações selecionadas
-  const userById = {};dashUsers.forEach(u => userById[u.id] = u);
-
+  // (userById já foi montado no topo da função)
   const filtRedeemedForConv = selectedRefs.length > 0
     ? filtRedeemed.filter(c => {
         if(!c.users_id) return false;
@@ -1015,14 +1034,16 @@ function renderDashCharts(){
 
   filtSemCupomForConv.forEach(u=>{const k=dashKey(u.created_at);noCByKey[k]=(noCByKey[k]||0)+1;});
 
-  // Total geral para conversão acumulada — soma os mesmos buckets por período
-  // que alimentam a linha do gráfico (redByKey/noCByKey), para o rótulo
-  // "Conversão % (geral X%)" nunca divergir da curva desenhada no período
-  // selecionado (7d/30d/90d/...). Antes esse total ignorava o período e
-  // usava o histórico inteiro, então o número do rótulo podia não bater
-  // com o que a linha mostrava.
-  const totalRedGeral = keys.reduce((s,k)=>s+(redByKey[k]||0),0);
-  const totalNoCGeral = keys.reduce((s,k)=>s+(noCByKey[k]||0),0);
+  // Total geral (Conversão geral) = resgatados ÷ total analisado × 100.
+  // Usa a contagem BRUTA de filtRedeemedForConv/filtSemCupomForConv — não a
+  // soma dos buckets por período (redByKey/noCByKey) — porque um resgate
+  // sem usuário vinculado não tem `created_at` pra cair em nenhum bucket
+  // semanal e ficava de fora da soma. Com a contagem bruta, todo resgate
+  // conta — com ou sem usuário vinculado — batendo com o cálculo já usado
+  // na aba Indicadores (resgatados + sem cupom vinculado; "Entregue" fica
+  // de fora, pois ainda não teve nenhum desfecho).
+  const totalRedGeral = filtRedeemedForConv.length;
+  const totalNoCGeral = filtSemCupomForConv.length;
   const convGeral = (totalRedGeral+totalNoCGeral)>0 ? +(totalRedGeral/(totalRedGeral+totalNoCGeral)*100).toFixed(1) : null;
 
   const convByKey={};
@@ -1054,7 +1075,13 @@ function renderDashCharts(){
     borderColor:'#7c6af7',backgroundColor:'rgba(124,106,247,0.12)',
     borderWidth:3,pointRadius:5,pointHoverRadius:8,
     pointBackgroundColor:'#7c6af7',pointBorderColor:'#16161c',pointBorderWidth:2,
-    fill:true,tension:0.4,yAxisID:'y'
+    // tension:0 (linha reta entre os pontos reais). Com tension>0 o Chart.js
+    // desenha uma curva suavizada (spline) que pode ultrapassar os valores
+    // reais entre dois pontos — com dado esparso (indicação de baixo
+    // volume, várias semanas em 0) isso criava "morros" enormes entre um
+    // pico isolado e as semanas vizinhas em zero, dando a impressão de
+    // crescimento gradual onde na real é um pico pontual.
+    fill:true,tension:0,yAxisID:'y'
   });
   if(showConv) {
     // Linha de conversão por período
@@ -1063,7 +1090,7 @@ function renderDashCharts(){
       borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0)',
       borderWidth:3,pointRadius:5,pointHoverRadius:8,
       pointBackgroundColor:'#22c55e',pointBorderColor:'#16161c',pointBorderWidth:2,
-      borderDash:[6,4],fill:false,tension:0.4,yAxisID:'y2',spanGaps:true
+      borderDash:[6,4],fill:false,tension:0,yAxisID:'y2',spanGaps:true
     });
     // Linha horizontal de referência — conversão total real
     if(selectedRefs.length===0 && convGeral!==null){
@@ -1093,7 +1120,7 @@ function renderDashCharts(){
       borderColor:RCOLS[i%RCOLS.length],backgroundColor:'rgba(0,0,0,0)',
       borderWidth:2.5,pointRadius:4,pointHoverRadius:7,
       pointBackgroundColor:RCOLS[i%RCOLS.length],pointBorderColor:'#16161c',pointBorderWidth:2,
-      fill:false,tension:0.4,yAxisID:'y'
+      fill:false,tension:0,yAxisID:'y'
     });
   });
 
@@ -1123,15 +1150,28 @@ function renderDashCharts(){
     }
   });
 
-  // SETORES — status corretos
+  // Indicação de um cupom: só dá pra saber via o usuário vinculado
+  // (c.users_id). Sem usuário, não tem como saber — undefined.
+  const refOfCoupon = c => c.users_id ? userById[c.users_id]?.referral_id : undefined;
+  // Quando uma ou mais indicações estão marcadas nos checkboxes do gráfico
+  // de linha, "Status dos cupons" e "Resultados por indicação" agora
+  // respeitam esse mesmo filtro — antes eles sempre mostravam o histórico
+  // completo de todas as indicações, ignorando a seleção.
+  const matchesSelectedRef = c => selectedRefs.length===0 || selectedRefs.some(r=>r.id===refOfCoupon(c));
+
+  // SETORES — status corretos, já filtrado por período e por indicação selecionada
   destroyDash('pie');
   const pieEl=document.getElementById('dashPieChart');
+  const donutRedeemed=filtRedeemed.filter(matchesSelectedRef);
+  const donutDelivered=filtDelivered.filter(matchesSelectedRef);
+  const donutBlocked=filtBlocked.filter(matchesSelectedRef);
+  const donutInvalid=filtInvalid.filter(matchesSelectedRef);
   if(pieEl) dashCharts['pie']=new Chart(pieEl,{
     type:'doughnut',
     data:{
       labels:['Resgatados','Entregues','Bloqueados','Inválidos'],
       datasets:[{
-        data:[allRedeemed.length,filtDelivered.length,filtBlocked.length,filtInvalid.length],
+        data:[donutRedeemed.length,donutDelivered.length,donutBlocked.length,donutInvalid.length],
         backgroundColor:['#22c55e','#7c6af7','#ef4444','#f59e0b'],
         borderWidth:2,borderColor:'var(--bg2)'
       }]
@@ -1144,39 +1184,53 @@ function renderDashCharts(){
     }
   });
 
-  // BARRAS — conversão por indicação, baseada 100% em CUPONS (não mistura
-  // "usuários sem cupom" como antes). Para cada cupom já distribuído
-  // (presente em dashCoupons: delivered/redeemed/blocked/invalid — o que
-  // nunca saiu do estoque como "available" fica fora, pois nunca teve
-  // usuário/indicação pra atribuir):
-  //   total[indicação]++              sempre
-  //   redeemed[indicação]++           se o cupom está com status 'redeemed'
-  // Não importa se o cupom tem usuário vinculado ou não — o que decide o
-  // rótulo é só se dá pra saber a indicação:
-  //   • indicação resolvida (nome real) — cupom tem usuário com referral_id
-  //     que existe em dashRefMap.
-  //   • "Indicação removida" — usuário tem referral_id, mas a opção foi
-  //     excluída depois de `referrals` (deleteRef apagava mesmo com
-  //     vínculo — isso já foi bloqueado, mas exclusões antigas continuam
-  //     órfãs).
-  //   • "Não informado" — qualquer outro caso: sem usuário vinculado, ou
-  //     usuário vinculado sem referral_id. Nos dois, não dá pra saber a
-  //     indicação, então contam juntos.
-  function refLabelForUser(u){
+  // BARRAS — "Resultados por indicação": conversão própria de cada
+  // indicação, não participação no total.
+  //   Resultado da indicação = resgatados da indicação ÷ analisados da
+  //   indicação × 100
+  // "Analisados da indicação" = resgatados da indicação + usuários sem
+  // cupom vinculado (devolvidos) da indicação. "Entregue" (ainda pendente,
+  // sem desfecho) fica de fora. Cada barra é independente das outras — não
+  // precisam somar 100%.
+  // Indicação desconhecida (usuário sem referral_id, ou indicação excluída
+  // depois de `referrals`) fica de fora do gráfico. Cupom resgatado SEM
+  // usuário vinculado é diferente: a gente sabe que houve resgate, só não
+  // sabe de qual indicação — em vez de sumir do gráfico, esses entram numa
+  // barra própria "Indicação não identificada" (só aparece na visão geral,
+  // sem indicação marcada, já que ele não pertence a nenhuma indicação
+  // específica pra aparecer quando uma é filtrada).
+  // Usa filtRedeemed/semCupom, que já respeitam o período selecionado
+  // (7d/30d/90d/6m/Tudo — ver `inPeriod` mais acima).
+  const NAO_IDENTIFICADA = 'Indicação não identificada';
+  const redByRef={}, anzByRef={};
+  let redSemVinculo=0, anzSemVinculo=0;
+  filtRedeemed.forEach(c=>{
+    if(!c.users_id){ redSemVinculo++; anzSemVinculo++; return; } // resgatado sem vínculo: não dá pra saber a indicação
+    const u = userById[c.users_id];
     const rid = u?.referral_id;
-    return rid ? (dashRefMap[rid] || 'Indicação removida') : 'Não informado';
-  }
-  const byRef={};
-  dashCoupons.forEach(c=>{
-    const u=userById[c.users_id];
-    const name=refLabelForUser(u);
-    if(!byRef[name])byRef[name]={redeemed:0,total:0};
-    byRef[name].total++;
-    if(c.status==='redeemed') byRef[name].redeemed++;
+    if(!rid || !dashRefMap[rid]) return; // sem indicação / indicação órfã: fora
+    redByRef[rid]=(redByRef[rid]||0)+1;
+    anzByRef[rid]=(anzByRef[rid]||0)+1;
   });
-  const entries=Object.entries(byRef).sort((a,b)=>b[1].total-a[1].total);
+  semCupom.forEach(u=>{
+    const rid = u.referral_id;
+    if(!rid || !dashRefMap[rid]) return;
+    anzByRef[rid]=(anzByRef[rid]||0)+1;
+  });
+  let entries;
+  if(selectedRefs.length>0){
+    // Filtro ativo: só as indicações marcadas (não identificada nunca entra aqui)
+    entries = selectedRefs
+      .map(r=>[dashRefMap[r.id]||r.name, anzByRef[r.id]>0?+((redByRef[r.id]||0)/anzByRef[r.id]*100).toFixed(1):0])
+      .sort((a,b)=>b[1]-a[1]);
+  } else {
+    entries = Object.keys(anzByRef)
+      .map(rid=>[dashRefMap[rid], anzByRef[rid]>0?+((redByRef[rid]||0)/anzByRef[rid]*100).toFixed(1):0])
+      .sort((a,b)=>b[1]-a[1]);
+    if(anzSemVinculo>0) entries.push([NAO_IDENTIFICADA, +(redSemVinculo/anzSemVinculo*100).toFixed(1)]);
+  }
   const barLabels=entries.map(([k])=>k);
-  const barConvs=entries.map(([,v])=>v.total>0?+(v.redeemed/v.total*100).toFixed(1):0);
+  const barConvs=entries.map(([,v])=>v);
 
   destroyDash('bar');
   const barEl=document.getElementById('dashBarChart');
@@ -1461,7 +1515,17 @@ function renderCoupons() {
 }
 
 function statusLabel(s) {
-  return s === 'available' ? 'Disponível' : s === 'delivered' ? 'Entregue' : 'Bloqueado';
+  // BUG antigo: qualquer status que não fosse 'available' ou 'delivered'
+  // caía direto em "Bloqueado" — ou seja, cupons 'redeemed' (resgatados) e
+  // 'invalid' (inválidos) apareciam como "Bloqueado" tanto na coluna Status
+  // da lista de cupons quanto no CSV exportado. Isso é o que fazia o
+  // export de cupons mostrar 0 "Resgatado": todos os resgatados de verdade
+  // estavam disfarçados de "Bloqueado" no arquivo.
+  return s === 'available' ? 'Disponível'
+    : s === 'delivered' ? 'Entregue'
+    : s === 'redeemed' ? 'Resgatado'
+    : s === 'invalid' ? 'Inválido'
+    : 'Bloqueado';
 }
 
 // ─── MARCAR ATIVADO/RESGATADO ─────────────────────────────────────────────────
