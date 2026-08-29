@@ -864,18 +864,108 @@ function renderDashCharts(){
   const showConv=document.getElementById('ds-conv')?.checked;
   const RCOLS=['#eb6834','#eda100','#e87ba4','#6250d6','#e34948'];
   const datasets=[];
-  if(showCad) datasets.push({label:'Cadastros',data:keys.map(k=>cadByKey[k]||0),borderColor:'#2a78d6',backgroundColor:'rgba(42,120,214,0.08)',borderWidth:2,pointRadius:2,fill:true,tension:0.3,yAxisID:'y'});
-  if(showConv) datasets.push({label:'Conversão %',data:keys.map(k=>convByKey[k]),borderColor:'#1baf7a',backgroundColor:'rgba(0,0,0,0)',borderWidth:2,pointRadius:2,borderDash:[5,4],fill:false,tension:0.3,yAxisID:'y2',spanGaps:true});
+  if(showCad) datasets.push({
+    label:'Cadastros',
+    data:keys.map(k=>cadByKey[k]||0),
+    borderColor:'#7c6af7',
+    backgroundColor:'rgba(124,106,247,0.12)',
+    borderWidth:3,
+    pointRadius:5,
+    pointHoverRadius:8,
+    pointBackgroundColor:'#7c6af7',
+    pointBorderColor:'#16161c',
+    pointBorderWidth:2,
+    fill:true,
+    tension:0.4,
+    yAxisID:'y'
+  });
+  if(showConv) datasets.push({
+    label:'Conversão %',
+    data:keys.map(k=>convByKey[k]),
+    borderColor:'#22c55e',
+    backgroundColor:'rgba(34,197,94,0)',
+    borderWidth:3,
+    pointRadius:5,
+    pointHoverRadius:8,
+    pointBackgroundColor:'#22c55e',
+    pointBorderColor:'#16161c',
+    pointBorderWidth:2,
+    borderDash:[6,4],
+    fill:false,
+    tension:0.4,
+    yAxisID:'y2',
+    spanGaps:true
+  });
   dashRefs.forEach((r,i)=>{
     const el=document.getElementById('ds-ref-'+r.id.replace(/-/g,''));
     if(!el?.checked)return;
     const byKey={};filtU.filter(u=>u.referral_id===r.id).forEach(u=>{const k=dashKey(u.created_at);byKey[k]=(byKey[k]||0)+1;});
-    datasets.push({label:r.name,data:keys.map(k=>byKey[k]||0),borderColor:RCOLS[i%RCOLS.length],backgroundColor:'rgba(0,0,0,0)',borderWidth:2,pointRadius:2,fill:false,tension:0.3,yAxisID:'y'});
+    datasets.push({
+      label:r.name,
+      data:keys.map(k=>byKey[k]||0),
+      borderColor:RCOLS[i%RCOLS.length],
+      backgroundColor:'rgba(0,0,0,0)',
+      borderWidth:2.5,
+      pointRadius:4,
+      pointHoverRadius:7,
+      pointBackgroundColor:RCOLS[i%RCOLS.length],
+      pointBorderColor:'#16161c',
+      pointBorderWidth:2,
+      fill:false,
+      tension:0.4,
+      yAxisID:'y'
+    });
   });
 
   destroyDash('line');
   const lineEl=document.getElementById('dashLineChart');
-  if(lineEl) dashCharts['line']=new Chart(lineEl,{type:'line',data:{labels:keys,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.yAxisID==='y2'?`${ctx.dataset.label}: ${ctx.parsed.y!==null?ctx.parsed.y+'%':'—'}`:`${ctx.dataset.label}: ${ctx.parsed.y}`}}},scales:{x:{grid:{display:false},ticks:{color:tickColor,maxTicksLimit:12,maxRotation:30}},y:{grid:{color:gridColor},ticks:{color:tickColor,stepSize:1},beginAtZero:true},y2:{position:'right',grid:{display:false},ticks:{color:'#1baf7a',callback:v=>v+'%'},min:0,max:100}}}});
+  if(lineEl) dashCharts['line']=new Chart(lineEl,{
+    type:'line',
+    data:{labels:keys,datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#1e1e26',
+          borderColor:'#3a3a48',
+          borderWidth:1,
+          titleColor:'#f0f0f5',
+          bodyColor:'#a0a0b0',
+          padding:12,
+          callbacks:{
+            label:ctx=>{
+              if(ctx.dataset.yAxisID==='y2')
+                return`  ${ctx.dataset.label}: ${ctx.parsed.y!==null?ctx.parsed.y+'%':'—'}`;
+              return`  ${ctx.dataset.label}: ${ctx.parsed.y}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{display:false},
+          ticks:{color:tickColor,maxTicksLimit:12,maxRotation:0,font:{size:11}},
+          border:{display:false}
+        },
+        y:{
+          grid:{color:gridColor,drawBorder:false},
+          ticks:{color:'#9d8fff',stepSize:1,font:{size:11}},
+          beginAtZero:true,
+          border:{display:false}
+        },
+        y2:{
+          position:'right',
+          grid:{display:false},
+          ticks:{color:'#22c55e',callback:v=>v+'%',font:{size:11}},
+          min:0,max:100,
+          border:{display:false}
+        }
+      }
+    }
+  });
 
   destroyDash('pie');
   const pieEl=document.getElementById('dashPieChart');
@@ -894,25 +984,40 @@ function renderDashCharts(){
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
-  // Carrega indicações
   const { data: rOpts } = await db.from('referrals').select('id,name');
   allRefOpts = rOpts || [];
 
-  // Stats
-  const [{ data: cps }, { data: us }, { data: wl }] = await Promise.all([
-    db.from('coupons').select('status'),
-    db.from('users').select('id,referral_id'),
-    db.from('waitlist').select('id').eq('notified', false)
+  // Contagens via count exact — sem limite de 1000
+  const [
+    {count:availCount},
+    {count:distCount},
+    {count:redeemedCount},
+    {count:blockCount},
+    {count:invalidCount},
+    {count:userCount},
+    {count:totalCount},
+    {data:wl}
+  ] = await Promise.all([
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','available'),
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','delivered'),
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','redeemed'),
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','blocked'),
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','invalid'),
+    db.from('users').select('*',{count:'exact',head:true}),
+    db.from('coupons').select('*',{count:'exact',head:true}),
+    db.from('waitlist').select('id').eq('notified',false)
   ]);
 
-  document.getElementById('waitlistCount').textContent = wl?.length || 0;
-  document.getElementById('s-avail').textContent  = (cps || []).filter(c => c.status === 'available').length;
-  document.getElementById('s-dist').textContent   = (cps || []).filter(c => c.status === 'distributed').length;
-  document.getElementById('s-block').textContent  = (cps || []).filter(c => c.status === 'blocked').length;
-  document.getElementById('s-users').textContent  = (us || []).length;
-  document.getElementById('s-total').textContent  = (cps || []).length;
+  document.getElementById('waitlistCount').textContent = wl?.length||0;
+  document.getElementById('s-avail').textContent     = availCount||0;
+  document.getElementById('s-dist').textContent      = distCount||0;
+  document.getElementById('s-activated').textContent = redeemedCount||0;
+  document.getElementById('s-block').textContent     = blockCount||0;
+  document.getElementById('s-invalid').textContent   = invalidCount||0;
+  document.getElementById('s-users').textContent     = userCount||0;
+  document.getElementById('s-total').textContent     = totalCount||0;
 
-  // Carrega indicadores e gráficos analíticos
+  // Carrega indicadores e gráficos
   loadIndicadores();
   loadDashCharts();
 
