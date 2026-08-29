@@ -700,8 +700,8 @@ async function loadIndicadores(){
 
   const [{data:refs},{data:coupons},{data:usersNoC}]=await Promise.all([
     db.from('referrals').select('id,name').eq('active',true),
-    db.from('coupons').select('id,status,ativado,users_id'),
-    db.from('users').select('id,created_at,referral_id').is('coupons_id',null).lt('created_at',cut72.toISOString())
+    db.from('coupons').select('id,status,ativado,users_id').eq('status','redeemed'),
+    db.from('users').select('id,created_at,referral_id').is('coupons_id',null)
   ]);
 
   const refMap={};(refs||[]).forEach(r=>refMap[r.id]=r.name);
@@ -710,14 +710,20 @@ async function loadIndicadores(){
   // Mapa de users por id para lookup O(1)
   const userById={};allU.forEach(u=>userById[u.id]=u);
 
-  // RESGATADOS com desfecho >72h
+  // RESGATADOS: status=redeemed, usuário cadastrado há mais de 72h
   const redeemed=allC.filter(c=>{
-    if(c.status!=='redeemed'&&!c.ativado)return false;
     const u=userById[c.users_id];
     return u&&(now-new Date(u.created_at))>H72;
   });
 
-  const analisados=redeemed.length+noC.length;
+  // SEM CUPOM VINCULADO: coupons_id=NULL (devolvido ao estoque)
+  // Não filtra por 72h — qualquer devolução conta
+  const naoConv=noC;
+
+  // Total analisado = resgatados + sem cupom vinculado
+  const analisados=redeemed.length+naoConv.length;
+
+  // Conversão = resgatados ÷ total analisado × 100
   const conv=analisados>0?(redeemed.length/analisados*100):0;
   const cadDia=allU.filter(u=>new Date(u.created_at)>=startOfDay);
   const cad72=allU.filter(u=>new Date(u.created_at)>=cut72);
