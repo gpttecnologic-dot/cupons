@@ -880,9 +880,6 @@ function renderDashCharts(){
 
   // Séries temporais
   const keys=dashAllKeys(since,now);
-  // Cadastros filtrados pela seleção
-  const cadByKey={};
-  filtUForConv.forEach(u=>{const k=dashKey(u.created_at);cadByKey[k]=(cadByKey[k]||0)+1;});
 
   // Séries de indicações selecionadas
   const selectedRefs = dashRefs.filter(r => {
@@ -908,6 +905,10 @@ function renderDashCharts(){
   const filtSemCupomForConv = selectedRefs.length > 0
     ? semCupom.filter(u => selectedRefs.some(r => r.id === u.referral_id))
     : semCupom;
+
+  // Cadastros filtrados pela seleção
+  const cadByKey={};
+  filtUForConv.forEach(u=>{const k=dashKey(u.created_at);cadByKey[k]=(cadByKey[k]||0)+1;});
 
   // Conversão por período baseada na seleção
   const redByKey={}, noCByKey={};
