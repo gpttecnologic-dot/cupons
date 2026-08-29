@@ -276,19 +276,23 @@ body{overflow-x:hidden}
         </div>
         <div class="stats-grid">
           <div class="stat-card"><div class="stat-label">Disponíveis</div><div class="stat-val green" id="s-avail">—</div></div>
-          <div class="stat-card"><div class="stat-label">Distribuídos</div><div class="stat-val purple" id="s-dist">—</div></div>
+          <div class="stat-card"><div class="stat-label">Entregues</div><div class="stat-val purple" id="s-dist">—</div></div>
+          <div class="stat-card"><div class="stat-label">✅ Resgatados</div><div class="stat-val green" id="s-activated">—</div></div>
           <div class="stat-card"><div class="stat-label">Bloqueados</div><div class="stat-val red" id="s-block">—</div></div>
+          <div class="stat-card"><div class="stat-label">Inválidos</div><div class="stat-val red" id="s-invalid">—</div></div>
           <div class="stat-card"><div class="stat-label">Usuários</div><div class="stat-val amber" id="s-users">—</div></div>
           <div class="stat-card"><div class="stat-label">Total cupons</div><div class="stat-val white" id="s-total">—</div></div>
-          <div class="stat-card" style="cursor:pointer;position:relative" onclick="openAtivados()" title="Clique para editar">
-            <div class="stat-label" style="display:flex;align-items:center;justify-content:space-between">
-              Ativados
-              <span style="font-size:9px;color:var(--text3);font-weight:400;letter-spacing:0">✏ editar</span>
-            </div>
-            <div class="stat-val" style="color:var(--accent-light)" id="s-today">—</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:.2rem">informado manualmente</div>
-          </div>
         </div>
+
+        <!-- INDICADORES OPERACIONAIS -->
+        <div class="tbl-wrap" style="margin-bottom:1.5rem">
+          <div class="tbl-head" style="justify-content:space-between">
+            <div><div class="tbl-title">Indicadores operacionais</div><div class="tbl-sub">Conversão e cadastros em tempo real</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="loadIndicadores()">↺ Atualizar</button>
+          </div>
+          <div id="indicadoresWrap"><div class="empty-state"><div class="empty-title">Carregando...</div></div></div>
+        </div>
+
         <div class="tbl-wrap">
           <div class="tbl-head"><div><div class="tbl-title">Últimos resgates</div><div class="tbl-sub">10 registros mais recentes</div></div></div>
           <div id="recentBody"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Carregando...</div></div></div>
@@ -677,6 +681,106 @@ function closeSidebar() {
   document.getElementById('sidebarOverlay').classList.remove('show');
 }
 
+// ─── INDICADORES OPERACIONAIS ─────────────────────────────────────────────────
+async function loadIndicadores(){
+  const H72=72*60*60*1000;
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'America/Sao_Paulo'}));
+  const cut72=new Date(now.getTime()-H72);
+  const startOfDay=new Date(now);startOfDay.setHours(0,0,0,0);
+
+  const [{data:refs},{data:users},{data:coupons},{data:usersNoC}]=await Promise.all([
+    db.from('referrals').select('id,name').eq('active',true),
+    db.from('users').select('id,created_at,referral_id,coupons_id'),
+    db.from('coupons').select('id,status,ativado,users_id'),
+    db.from('users').select('id,created_at,referral_id').is('coupons_id',null).lt('created_at',cut72.toISOString())
+  ]);
+
+  const refMap={};(refs||[]).forEach(r=>refMap[r.id]=r.name);
+  const allU=users||[];const allC=coupons||[];const noC=usersNoC||[];
+
+  const redeemed=allC.filter(c=>{
+    if(c.status!=='redeemed'&&!c.ativado)return false;
+    const u=allU.find(u=>u.id===c.users_id);
+    return u&&(now-new Date(u.created_at))>H72;
+  });
+  const analisados=redeemed.length+noC.length;
+  const conv=analisados>0?(redeemed.length/analisados*100):0;
+  const cadDia=allU.filter(u=>new Date(u.created_at)>=startOfDay);
+  const cad72=allU.filter(u=>new Date(u.created_at)>=cut72);
+  const totalDia=cadDia.length;const total72=cad72.length;
+
+  const byRef={};
+  (refs||[]).forEach(r=>byRef[r.id]={name:r.name,cadDia:0,cad72:0});
+  allU.forEach(u=>{
+    const rid=u.referral_id||'_sem';
+    if(!byRef[rid])byRef[rid]={name:refMap[rid]||'Não informado',cadDia:0,cad72:0};
+    if(new Date(u.created_at)>=startOfDay)byRef[rid].cadDia++;
+    if(new Date(u.created_at)>=cut72)byRef[rid].cad72++;
+  });
+  const entries=Object.entries(byRef).filter(([,v])=>v.cadDia>0||v.cad72>0).sort((a,b)=>b[1].cad72-a[1].cad72);
+  const p=(a,b)=>b?+(a/b*100).toFixed(1)+'%':'—';
+  const updAt=now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  document.getElementById('indicadoresWrap').innerHTML=`
+    <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3)">Atualizado às ${updAt} (Brasília)</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Total analisado</th>
+          <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Resgatados</th>
+          <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Conversão geral</th>
+          <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Cadastros do dia</th>
+          <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Últimas 72h</th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:var(--text)">${analisados}</td>
+            <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:#22c55e">${redeemed.length}</td>
+            <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:var(--accent-light)">${conv.toFixed(1)}%</td>
+            <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:#f59e0b">${totalDia}</td>
+            <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:#eb6834">${total72}</td>
+          </tr>
+          <tr style="border-top:1px solid var(--border)">
+            <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">com desfecho &gt;72h</td>
+            <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">cupom ativado</td>
+            <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">resgatados ÷ analisados</td>
+            <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">desde meia-noite</td>
+            <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">janela móvel</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:.75rem 1.25rem;border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">Desempenho por indicação</div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          <th style="text-align:left;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Indicação</th>
+          <th style="text-align:right;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Cadastros do dia</th>
+          <th style="text-align:right;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Participação</th>
+          <th style="text-align:right;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Últimas 72h</th>
+          <th style="text-align:right;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Participação</th>
+        </tr></thead>
+        <tbody>
+          ${entries.map(([,v])=>`
+            <tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:8px 1rem;font-weight:500;color:var(--text)">${esc(v.name)}</td>
+              <td style="text-align:right;padding:8px 1rem">${v.cadDia||'—'}</td>
+              <td style="text-align:right;padding:8px 1rem;color:var(--text3)">${p(v.cadDia,totalDia)}</td>
+              <td style="text-align:right;padding:8px 1rem">${v.cad72||'—'}</td>
+              <td style="text-align:right;padding:8px 1rem;color:var(--text3)">${p(v.cad72,total72)}</td>
+            </tr>`).join('')}
+          <tr style="border-top:2px solid var(--border2)">
+            <td style="padding:8px 1rem;font-weight:600;color:var(--text2)">Total</td>
+            <td style="text-align:right;padding:8px 1rem;font-weight:600">${totalDia}</td>
+            <td style="text-align:right;padding:8px 1rem;color:var(--text3)">100%</td>
+            <td style="text-align:right;padding:8px 1rem;font-weight:600">${total72}</td>
+            <td style="text-align:right;padding:8px 1rem;color:var(--text3)">100%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 // ─── GRÁFICOS ANALÍTICOS ──────────────────────────────────────────────────────
 let dashCharts={}, dashDays=90, dashGroup='week';
@@ -797,7 +901,8 @@ async function loadDashboard() {
   document.getElementById('s-users').textContent  = (us || []).length;
   document.getElementById('s-total').textContent  = (cps || []).length;
 
-  // Carrega gráficos analíticos
+  // Carrega indicadores e gráficos analíticos
+  loadIndicadores();
   loadDashCharts();
 
   // Últimos resgates: busca users + join manual com coupons
