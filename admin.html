@@ -688,21 +688,35 @@ async function loadIndicadores(){
   const cut72=new Date(now.getTime()-H72);
   const startOfDay=new Date(now);startOfDay.setHours(0,0,0,0);
 
-  const [{data:refs},{data:users},{data:coupons},{data:usersNoC}]=await Promise.all([
+  // Busca usuários em lotes para não perder nenhum
+  let allU=[];let from=0;
+  while(true){
+    const{data:batch}=await db.from('users').select('id,created_at,referral_id,coupons_id').range(from,from+999);
+    if(!batch?.length)break;
+    allU=[...allU,...batch];
+    if(batch.length<1000)break;
+    from+=1000;
+  }
+
+  const [{data:refs},{data:coupons},{data:usersNoC}]=await Promise.all([
     db.from('referrals').select('id,name').eq('active',true),
-    db.from('users').select('id,created_at,referral_id,coupons_id'),
     db.from('coupons').select('id,status,ativado,users_id'),
     db.from('users').select('id,created_at,referral_id').is('coupons_id',null).lt('created_at',cut72.toISOString())
   ]);
 
   const refMap={};(refs||[]).forEach(r=>refMap[r.id]=r.name);
-  const allU=users||[];const allC=coupons||[];const noC=usersNoC||[];
+  const allC=coupons||[];const noC=usersNoC||[];
 
+  // Mapa de users por id para lookup O(1)
+  const userById={};allU.forEach(u=>userById[u.id]=u);
+
+  // RESGATADOS com desfecho >72h
   const redeemed=allC.filter(c=>{
     if(c.status!=='redeemed'&&!c.ativado)return false;
-    const u=allU.find(u=>u.id===c.users_id);
+    const u=userById[c.users_id];
     return u&&(now-new Date(u.created_at))>H72;
   });
+
   const analisados=redeemed.length+noC.length;
   const conv=analisados>0?(redeemed.length/analisados*100):0;
   const cadDia=allU.filter(u=>new Date(u.created_at)>=startOfDay);
@@ -727,7 +741,6 @@ async function loadIndicadores(){
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="border-bottom:1px solid var(--border)">
           <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Total analisado</th>
-          <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Resgatados</th>
           <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Conversão geral</th>
           <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Cadastros do dia</th>
           <th style="text-align:left;padding:8px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Últimas 72h</th>
@@ -735,14 +748,12 @@ async function loadIndicadores(){
         <tbody>
           <tr>
             <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:var(--text)">${analisados}</td>
-            <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:#22c55e">${redeemed.length}</td>
             <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:var(--accent-light)">${conv.toFixed(1)}%</td>
             <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:#f59e0b">${totalDia}</td>
             <td style="padding:10px 1rem;font-size:24px;font-weight:700;color:#eb6834">${total72}</td>
           </tr>
           <tr style="border-top:1px solid var(--border)">
             <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">com desfecho &gt;72h</td>
-            <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">cupom ativado</td>
             <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">resgatados ÷ analisados</td>
             <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">desde meia-noite</td>
             <td style="padding:4px 1rem;font-size:10px;color:var(--text3)">janela móvel</td>
