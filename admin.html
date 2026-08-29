@@ -554,7 +554,7 @@ body{overflow-x:hidden}
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const SUPA_URL = 'https://eunnrjqeuczhtghbbzos.supabase.co';
-const SUPA_KEY = 'sb_publishable_A08jf3_gfKj6-PH826bNNA_pEF8QaNB';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bm5yanFldWN6aHRnaGJiem9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjQ3NzMsImV4cCI6MjA5NjU0MDc3M30.rdRVhWZOxYGKZBmY9IBGcbAiPwYt4CGcYKiv9T-Umys';
 const MAX_ATTEMPTS = 5;
 
 const { createClient } = supabase;
@@ -830,12 +830,21 @@ function dashAllKeys(since,now){
 function destroyDash(id){if(dashCharts[id]){dashCharts[id].destroy();delete dashCharts[id];}}
 
 async function loadDashCharts(){
-  const[{data:refs},{data:users},{data:coupons}]=await Promise.all([
+  // Busca users em lotes para não perder nenhum
+  let usersAll=[];let from=0;
+  while(true){
+    const{data:batch}=await db.from('users').select('id,created_at,referral_id,coupons_id').range(from,from+999);
+    if(!batch?.length)break;
+    usersAll=[...usersAll,...batch];
+    if(batch.length<1000)break;
+    from+=1000;
+  }
+
+  const[{data:refs},{data:coupons}]=await Promise.all([
     db.from('referrals').select('id,name').eq('active',true),
-    db.from('users').select('id,created_at,referral_id,coupons_id'),
     db.from('coupons').select('id,status,ativado,distributed_at,users_id').in('status',['delivered','redeemed','blocked','invalid'])
   ]);
-  dashRefs=refs||[];dashUsers=users||[];dashCoupons=coupons||[];
+  dashRefs=refs||[];dashUsers=usersAll;dashCoupons=coupons||[];
   (refs||[]).forEach(r=>dashRefMap[r.id]=r.name);
 
   const RCOLS=['#eb6834','#eda100','#e87ba4','#6250d6','#e34948'];
@@ -1064,7 +1073,7 @@ async function loadDashboard() {
       (cs1 || []).forEach(c => cMapById[c.id] = c.link);
     }
     if (uIdsForLookup.length) {
-      const { data: cs2 } = await db.from('coupons').select('link,users_id').eq('status','distributed').in('users_id', uIdsForLookup);
+      const { data: cs2 } = await db.from('coupons').select('link,users_id').eq('status','delivered').in('users_id', uIdsForLookup);
       (cs2 || []).forEach(c => { if (c.users_id) cMapByUser[c.users_id] = c.link; });
     }
 
@@ -1111,45 +1120,30 @@ async function loadDashboard() {
 // Schema users: id, name, email, phone, referral_id, coupons_id, created_at
 async function loadCoupons() {
   document.getElementById('couponBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
 
-  const { data: cps, error } = await db
-    .from('coupons')
-    .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    document.getElementById('couponBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro ao carregar: ${esc(error.message)}</div></div>`;
-    return;
+  // Busca em lotes de 1000 com join direto em users
+  let allCps = [];
+  let from = 0;
+  while(true){
+    const{data:batch,error}=await db.from('coupons')
+      .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at,users!coupons_users_id_fkey(id,name,email,referral_id,coupons_id)')
+      .order('created_at',{ascending:false})
+      .range(from, from+999);
+    if(error){console.error('loadCoupons error:',error);break;}
+    if(!batch?.length) break;
+    allCps=[...allCps,...batch];
+    if(batch.length<1000) break;
+    from+=1000;
   }
 
-  // Busca todos os usuários de uma vez (join duplo: por users_id no cupom OU por coupons_id no usuário)
-  const couponIds = (cps || []).map(c => c.id);
-  const uIdsFromCoupon = [...new Set((cps || []).map(c => c.users_id).filter(Boolean))];
-
-  // Busca usuários pelo users_id do cupom
-  let uMap = {}; // userId → user
-  if (uIdsFromCoupon.length) {
-    const { data: us1 } = await db.from('users').select('id,name,email,coupons_id').in('id', uIdsFromCoupon);
-    (us1 || []).forEach(u => uMap[u.id] = u);
-  }
-
-  // Busca usuários pelo coupons_id (para registros antigos onde users_id no cupom é null)
-  let couponToUser = {}; // couponId → user
-  // Para cupons distribuídos sem users_id, busca via users.coupons_id
-  const cpsWithoutUser = (cps || []).filter(c => c.status === 'distributed' && !c.users_id).map(c => c.id);
-  if (cpsWithoutUser.length) {
-    const { data: us2 } = await db.from('users').select('id,name,email,coupons_id').in('coupons_id', cpsWithoutUser);
-    (us2 || []).forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
-  }
-  // Também indexa por couponId os usuários já encontrados via users_id
-  Object.values(uMap).forEach(u => { if (u.coupons_id) couponToUser[u.coupons_id] = u; });
-
-  allCoupons = (cps || []).map(c => ({
+  allCoupons = allCps.map(c => ({
     ...c,
     ativado: c.ativado || false,
     ativado_at: c.ativado_at || null,
-    user: c.users_id ? (uMap[c.users_id] || couponToUser[c.id] || null) : (couponToUser[c.id] || null)
+    user: c.users || null
   }));
+  couponPage = 0;
   renderCoupons();
 }
 
@@ -1264,7 +1258,7 @@ function renderCoupons() {
 }
 
 function statusLabel(s) {
-  return s === 'available' ? 'Disponível' : s === 'distributed' ? 'Ativado' : 'Bloqueado';
+  return s === 'available' ? 'Disponível' : s === 'delivered' ? 'Entregue' : 'Bloqueado';
 }
 
 // ─── MARCAR ATIVADO ───────────────────────────────────────────────────────────
@@ -1321,7 +1315,7 @@ async function confirmSwap() {
   // 1. Verifica se o novo link já existe no banco
   const { data: exist } = await db.from('coupons').select('id,status').eq('link', newLink).maybeSingle();
   if (exist) {
-    if (exist.status === 'distributed') {
+    if (exist.status === 'delivered') {
       errEl.textContent = 'Este link já foi distribuído para outro usuário.';
       errEl.style.display = 'block'; btn.disabled = false; btn.textContent = '✓ Confirmar troca'; return;
     }
@@ -1340,7 +1334,7 @@ async function confirmSwap() {
     // 3. Marca o cupom existente como distribuído e vincula ao usuário
     const now = new Date().toISOString();
     await db.from('coupons')
-      .update({ status: 'distributed', users_id: swapState.userId, distributed_at: now })
+      .update({ status: 'delivered', users_id: swapState.userId, distributed_at: now })
       .eq('id', newCouponId);
 
     // 4. Atualiza o usuário com o novo cupom
@@ -1363,7 +1357,7 @@ async function confirmSwap() {
   // Link novo (não existe no banco) → insere já como distributed
   const now = new Date().toISOString();
   const { data: inserted, error: insErr } = await db.from('coupons')
-    .insert({ link: newLink, status: 'distributed', users_id: swapState.userId, distributed_at: now })
+    .insert({ link: newLink, status: 'delivered', users_id: swapState.userId, distributed_at: now })
     .select();
 
   if (insErr) {
@@ -1479,7 +1473,7 @@ async function loadUsers() {
   if (usersWithoutCouponId.length) {
     const { data: cs2 } = await db
       .from('coupons').select('id,link,users_id')
-      .eq('status','distributed')
+      .eq('status','delivered')
       .in('users_id', usersWithoutCouponId);
     (cs2 || []).forEach(c => { if (c.users_id) cMapByUser[c.users_id] = c.link; });
   }
