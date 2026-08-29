@@ -562,6 +562,8 @@ const db = createClient(SUPA_URL, SUPA_KEY);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let allCoupons = [], allUsers = [], allRefOpts = [], allWaitlist = [];
+let couponPage = 0, couponPageSize = 20;
+let userPage = 0, userPageSize = 20;
 let loginAttempts = 0, currentTab = 'dashboard';
 let confirmCallback = null, dragSrcId = null;
 
@@ -1050,6 +1052,9 @@ async function loadDashboard() {
   // Carrega indicadores e gráficos
   loadIndicadores();
   loadDashCharts();
+
+  // Busca users para gráfico de canais
+  const {data:us} = await db.from('users').select('id,referral_id');
 
   // Últimos resgates: busca users + join manual com coupons
   // Schema: users.coupons_id → coupons.id; coupons.link
