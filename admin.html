@@ -1048,16 +1048,16 @@ function renderDashCharts(){
     }
   });
 
-  // BARRAS — conversão por indicação (redeemed ÷ analisados por indicação)
+  // BARRAS — conversão por indicação usando allRedeemed e userById
   const byRef={};
-  filtRedeemed.forEach(c=>{
-    const u=dashUsers.find(u=>u.id===c.users_id);
+  allRedeemed.forEach(c=>{
+    const u=userById[c.users_id];
     const rid=u?.referral_id||'_sem';
     const name=dashRefMap[rid]||'Não informado';
     if(!byRef[name])byRef[name]={redeemed:0,semCupom:0};
     byRef[name].redeemed++;
   });
-  semCupom.forEach(u=>{
+  allSemCupom.forEach(u=>{
     const rid=u.referral_id||'_sem';
     const name=dashRefMap[rid]||'Não informado';
     if(!byRef[name])byRef[name]={redeemed:0,semCupom:0};
