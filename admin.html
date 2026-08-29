@@ -915,14 +915,28 @@ function renderDashCharts(){
   const cadByKey={};
   filtUForConv.forEach(u=>{const k=dashKey(u.created_at);cadByKey[k]=(cadByKey[k]||0)+1;});
 
-  // Conversão por período baseada na seleção
+  // Conversão por período
   const redByKey={}, noCByKey={};
-  filtRedeemedForConv.forEach(c=>{if(c.distributed_at){const k=dashKey(c.distributed_at);redByKey[k]=(redByKey[k]||0)+1;}});
+  // Redeemed com distributed_at — entra no período correto
+  filtRedeemedForConv.filter(c=>c.distributed_at).forEach(c=>{
+    const k=dashKey(c.distributed_at);
+    redByKey[k]=(redByKey[k]||0)+1;
+  });
+  // Redeemed SEM distributed_at — distribui no total mas não em período específico
+  const redSemData = filtRedeemedForConv.filter(c=>!c.distributed_at).length;
+
   filtSemCupomForConv.forEach(u=>{const k=dashKey(u.created_at);noCByKey[k]=(noCByKey[k]||0)+1;});
+
+  // Total geral para conversão acumulada
+  const totalRedGeral = filtRedeemedForConv.length; // inclui sem distributed_at
+  const totalNoCGeral = filtSemCupomForConv.length;
+  const convGeral = (totalRedGeral+totalNoCGeral)>0 ? +(totalRedGeral/(totalRedGeral+totalNoCGeral)*100).toFixed(1) : null;
+
   const convByKey={};
   keys.forEach(k=>{
     const r=redByKey[k]||0;
     const n=noCByKey[k]||0;
+    // Se não tem dado no período, mostra a conversão geral como referência
     convByKey[k]=(r+n)>0?+(r/(r+n)*100).toFixed(1):null;
   });
 
@@ -930,7 +944,7 @@ function renderDashCharts(){
     ? `Conversão % (${selectedRefs[0].name})`
     : selectedRefs.length > 1
       ? `Conversão % (${selectedRefs.map(r=>r.name).join('+')})`
-      : 'Conversão % (geral)';
+      : `Conversão % (geral ${convGeral||0}%)`;
 
   const showCad=document.getElementById('ds-cad')?.checked;
   const showConv=document.getElementById('ds-conv')?.checked;
@@ -949,13 +963,31 @@ function renderDashCharts(){
     pointBackgroundColor:'#7c6af7',pointBorderColor:'#16161c',pointBorderWidth:2,
     fill:true,tension:0.4,yAxisID:'y'
   });
-  if(showConv) datasets.push({
-    label:convLabel,data:keys.map(k=>convByKey[k]),
-    borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0)',
-    borderWidth:3,pointRadius:5,pointHoverRadius:8,
-    pointBackgroundColor:'#22c55e',pointBorderColor:'#16161c',pointBorderWidth:2,
-    borderDash:[6,4],fill:false,tension:0.4,yAxisID:'y2',spanGaps:true
-  });
+  if(showConv) {
+    // Linha de conversão por período
+    datasets.push({
+      label:convLabel,data:keys.map(k=>convByKey[k]),
+      borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0)',
+      borderWidth:3,pointRadius:5,pointHoverRadius:8,
+      pointBackgroundColor:'#22c55e',pointBorderColor:'#16161c',pointBorderWidth:2,
+      borderDash:[6,4],fill:false,tension:0.4,yAxisID:'y2',spanGaps:true
+    });
+    // Linha horizontal de referência — conversão total real
+    if(selectedRefs.length===0 && convGeral!==null){
+      datasets.push({
+        label:`Total: ${convGeral}%`,
+        data:keys.map(()=>convGeral),
+        borderColor:'rgba(34,197,94,0.35)',
+        backgroundColor:'rgba(0,0,0,0)',
+        borderWidth:1.5,
+        pointRadius:0,
+        borderDash:[2,4],
+        fill:false,
+        tension:0,
+        yAxisID:'y2'
+      });
+    }
+  }
   dashRefs.forEach((r,i)=>{
     const el=document.getElementById('ds-ref-'+r.id.replace(/-/g,''));
     if(!el?.checked)return;
