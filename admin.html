@@ -1253,20 +1253,25 @@ function renderDashCharts(){
     if(!rid || !dashRefMap[rid]) return;
     anzByRef[rid]=(anzByRef[rid]||0)+1;
   });
+  // Cada item guarda [label, percentual, resgatados, analisados] — o número
+  // bruto aparece tanto no rótulo do eixo (sempre visível) quanto no
+  // tooltip (passando o mouse), além do percentual.
+  const mkEntry = (label, red, anz) => [label, anz>0?+(red/anz*100).toFixed(1):0, red, anz];
   let entries;
   if(selectedRefs.length>0){
     // Filtro ativo: só as indicações marcadas (não identificada nunca entra aqui)
     entries = selectedRefs
-      .map(r=>[dashRefMap[r.id]||r.name, anzByRef[r.id]>0?+((redByRef[r.id]||0)/anzByRef[r.id]*100).toFixed(1):0])
+      .map(r=>mkEntry(dashRefMap[r.id]||r.name, redByRef[r.id]||0, anzByRef[r.id]||0))
       .sort((a,b)=>b[1]-a[1]);
   } else {
     entries = Object.keys(anzByRef)
-      .map(rid=>[dashRefMap[rid], anzByRef[rid]>0?+((redByRef[rid]||0)/anzByRef[rid]*100).toFixed(1):0])
+      .map(rid=>mkEntry(dashRefMap[rid], redByRef[rid]||0, anzByRef[rid]))
       .sort((a,b)=>b[1]-a[1]);
-    if(anzSemVinculo>0) entries.push([NAO_IDENTIFICADA, +(redSemVinculo/anzSemVinculo*100).toFixed(1)]);
+    if(anzSemVinculo>0) entries.push(mkEntry(NAO_IDENTIFICADA, redSemVinculo, anzSemVinculo));
   }
-  const barLabels=entries.map(([k])=>k);
-  const barConvs=entries.map(([,v])=>v);
+  const barLabels=entries.map(([label,,red,anz])=>`${label} (${red}/${anz})`);
+  const barConvs=entries.map(([,pct])=>pct);
+  const barCounts=entries.map(([,,red,anz])=>({red,anz}));
 
   destroyDash('bar');
   const barEl=document.getElementById('dashBarChart');
@@ -1279,7 +1284,10 @@ function renderDashCharts(){
     }]},
     options:{
       indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x}%`}}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{
+        const {red,anz}=barCounts[ctx.dataIndex];
+        return `${ctx.parsed.x}% (${red} de ${anz} resgatados)`;
+      }}}},
       scales:{
         x:{max:100,grid:{color:gridColor},ticks:{color:tickColor,callback:v=>v+'%'}},
         y:{grid:{display:false},ticks:{color:tickColor,font:{size:10}}}
