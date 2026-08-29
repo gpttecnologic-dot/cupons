@@ -862,7 +862,8 @@ function renderDashCharts(){
 
   const filtU=dashUsers.filter(u=>new Date(u.created_at)>=since);
 
-  // Status corretos
+  // Status corretos — todos os cupons sem filtro de período para o donut
+  const allRedeemed=dashCoupons.filter(c=>c.status==='redeemed');
   const filtRedeemed=dashCoupons.filter(c=>c.status==='redeemed'&&c.distributed_at&&new Date(c.distributed_at)>=since);
   const filtDelivered=dashCoupons.filter(c=>c.status==='delivered');
   const filtBlocked=dashCoupons.filter(c=>c.status==='blocked');
@@ -999,7 +1000,7 @@ function renderDashCharts(){
     data:{
       labels:['Resgatados','Entregues','Bloqueados','Inválidos'],
       datasets:[{
-        data:[filtRedeemed.length,filtDelivered.length,filtBlocked.length,filtInvalid.length],
+        data:[allRedeemed.length,filtDelivered.length,filtBlocked.length,filtInvalid.length],
         backgroundColor:['#22c55e','#7c6af7','#ef4444','#f59e0b'],
         borderWidth:2,borderColor:'var(--bg2)'
       }]
