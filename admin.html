@@ -608,7 +608,17 @@ function closeConfirm() {
   document.getElementById('confirmModal').classList.remove('show');
   confirmCallback = null;
 }
-document.getElementById('confirmOkBtn').onclick = () => { closeConfirm(); if (confirmCallback) confirmCallback(); };
+document.getElementById('confirmOkBtn').onclick = () => {
+  // Precisa guardar o callback ANTES de fechar o modal: closeConfirm() zera
+  // confirmCallback, então chamar closeConfirm() primeiro e só depois checar
+  // "if (confirmCallback)" sempre resultava em null — nenhuma ação confirmada
+  // (excluir cupom, devolver ao estoque, excluir usuário, marcar como
+  // resgatado, etc.) chegava a rodar. Por isso o botão "Confirmar" parecia
+  // não fazer nada.
+  const cb = confirmCallback;
+  closeConfirm();
+  if (cb) cb();
+};
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 async function doLogin() {
