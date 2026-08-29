@@ -880,13 +880,39 @@ function renderDashCharts(){
 
   // Séries temporais
   const keys=dashAllKeys(since,now);
+  // Cadastros filtrados pela seleção
   const cadByKey={};
-  filtU.forEach(u=>{const k=dashKey(u.created_at);cadByKey[k]=(cadByKey[k]||0)+1;});
+  filtUForConv.forEach(u=>{const k=dashKey(u.created_at);cadByKey[k]=(cadByKey[k]||0)+1;});
 
-  // Conversão por período: redeemed ÷ (redeemed + semCupom) por intervalo
-  const redByKey={},noCByKey={};
-  filtRedeemed.forEach(c=>{if(c.distributed_at){const k=dashKey(c.distributed_at);redByKey[k]=(redByKey[k]||0)+1;}});
-  semCupom.forEach(u=>{const k=dashKey(u.created_at);noCByKey[k]=(noCByKey[k]||0)+1;});
+  // Séries de indicações selecionadas
+  const selectedRefs = dashRefs.filter(r => {
+    const el = document.getElementById('ds-ref-'+r.id.replace(/-/g,''));
+    return el?.checked;
+  });
+
+  // Filtrar usuários pelas indicações selecionadas (ou todos se nenhuma marcada)
+  const filtUForConv = selectedRefs.length > 0
+    ? filtU.filter(u => selectedRefs.some(r => r.id === u.referral_id))
+    : filtU;
+
+  // Redeemed e semCupom filtrados pelas indicações selecionadas
+  const userById = {};dashUsers.forEach(u => userById[u.id] = u);
+
+  const filtRedeemedForConv = selectedRefs.length > 0
+    ? filtRedeemed.filter(c => {
+        const u = userById[c.users_id];
+        return u && selectedRefs.some(r => r.id === u.referral_id);
+      })
+    : filtRedeemed;
+
+  const filtSemCupomForConv = selectedRefs.length > 0
+    ? semCupom.filter(u => selectedRefs.some(r => r.id === u.referral_id))
+    : semCupom;
+
+  // Conversão por período baseada na seleção
+  const redByKey={}, noCByKey={};
+  filtRedeemedForConv.forEach(c=>{if(c.distributed_at){const k=dashKey(c.distributed_at);redByKey[k]=(redByKey[k]||0)+1;}});
+  filtSemCupomForConv.forEach(u=>{const k=dashKey(u.created_at);noCByKey[k]=(noCByKey[k]||0)+1;});
   const convByKey={};
   keys.forEach(k=>{
     const r=redByKey[k]||0;
@@ -894,19 +920,31 @@ function renderDashCharts(){
     convByKey[k]=(r+n)>0?+(r/(r+n)*100).toFixed(1):null;
   });
 
+  const convLabel = selectedRefs.length === 1
+    ? `Conversão % (${selectedRefs[0].name})`
+    : selectedRefs.length > 1
+      ? `Conversão % (${selectedRefs.map(r=>r.name).join('+')})`
+      : 'Conversão % (geral)';
+
   const showCad=document.getElementById('ds-cad')?.checked;
   const showConv=document.getElementById('ds-conv')?.checked;
   const RCOLS=['#eb6834','#eda100','#e87ba4','#6250d6','#e34948'];
   const datasets=[];
+  const cadLabel = selectedRefs.length === 1
+    ? `Cadastros (${selectedRefs[0].name})`
+    : selectedRefs.length > 1
+      ? `Cadastros (${selectedRefs.map(r=>r.name).join('+')})`
+      : 'Cadastros';
+
   if(showCad) datasets.push({
-    label:'Cadastros',data:keys.map(k=>cadByKey[k]||0),
+    label:cadLabel,data:keys.map(k=>cadByKey[k]||0),
     borderColor:'#7c6af7',backgroundColor:'rgba(124,106,247,0.12)',
     borderWidth:3,pointRadius:5,pointHoverRadius:8,
     pointBackgroundColor:'#7c6af7',pointBorderColor:'#16161c',pointBorderWidth:2,
     fill:true,tension:0.4,yAxisID:'y'
   });
   if(showConv) datasets.push({
-    label:'Conversão %',data:keys.map(k=>convByKey[k]),
+    label:convLabel,data:keys.map(k=>convByKey[k]),
     borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0)',
     borderWidth:3,pointRadius:5,pointHoverRadius:8,
     pointBackgroundColor:'#22c55e',pointBorderColor:'#16161c',pointBorderWidth:2,
