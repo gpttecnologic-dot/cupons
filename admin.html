@@ -830,8 +830,8 @@ function destroyDash(id){if(dashCharts[id]){dashCharts[id].destroy();delete dash
 async function loadDashCharts(){
   const[{data:refs},{data:users},{data:coupons}]=await Promise.all([
     db.from('referrals').select('id,name').eq('active',true),
-    db.from('users').select('id,created_at,referral_id'),
-    db.from('coupons').select('id,status,ativado,distributed_at,users_id,users!coupons_users_id_fkey(referral_id)').in('status',['delivered','redeemed','blocked'])
+    db.from('users').select('id,created_at,referral_id,coupons_id'),
+    db.from('coupons').select('id,status,ativado,distributed_at,users_id').in('status',['delivered','redeemed','blocked','invalid'])
   ]);
   dashRefs=refs||[];dashUsers=users||[];dashCoupons=coupons||[];
   (refs||[]).forEach(r=>dashRefMap[r.id]=r.name);
@@ -848,141 +848,157 @@ function renderDashCharts(){
   const since=dashDays>0?new Date(now.getTime()-dashDays*24*60*60*1000):new Date('2026-01-01');
 
   const filtU=dashUsers.filter(u=>new Date(u.created_at)>=since);
-  const filtC=dashCoupons.filter(c=>c.distributed_at&&new Date(c.distributed_at)>=since&&c.users_id);
-  const filtR=filtC.filter(c=>c.status==='redeemed'||c.ativado);
-  const filtD=filtC.filter(c=>c.status==='delivered'&&!c.ativado);
-  const filtB=dashCoupons.filter(c=>c.status==='blocked');
+
+  // Status corretos
+  const filtRedeemed=dashCoupons.filter(c=>c.status==='redeemed'&&c.distributed_at&&new Date(c.distributed_at)>=since);
+  const filtDelivered=dashCoupons.filter(c=>c.status==='delivered');
+  const filtBlocked=dashCoupons.filter(c=>c.status==='blocked');
+  const filtInvalid=dashCoupons.filter(c=>c.status==='invalid');
+
+  // Usuários sem cupom no período (devolvidos)
+  const semCupom=dashUsers.filter(u=>!u.coupons_id&&new Date(u.created_at)>=since);
+
+  // Conversão correta: redeemed ÷ (redeemed + sem cupom)
+  const analisados=filtRedeemed.length+semCupom.length;
 
   const isDark=document.documentElement.dataset.mode==='dark'||matchMedia('(prefers-color-scheme:dark)').matches;
   const gridColor=isDark?'#2c2c2a':'#e1e0d9';
   const tickColor='#898781';
 
+  // Séries temporais
   const keys=dashAllKeys(since,now);
-  const cadByKey={};filtU.forEach(u=>{const k=dashKey(u.created_at);cadByKey[k]=(cadByKey[k]||0)+1;});
-  const distByKey={},redByKey={};
-  filtC.forEach(c=>{const k=dashKey(c.distributed_at);distByKey[k]=(distByKey[k]||0)+1;if(c.status==='redeemed'||c.ativado)redByKey[k]=(redByKey[k]||0)+1;});
-  const convByKey={};keys.forEach(k=>{const d=distByKey[k]||0;convByKey[k]=d>0?+((redByKey[k]||0)/d*100).toFixed(1):null;});
+  const cadByKey={};
+  filtU.forEach(u=>{const k=dashKey(u.created_at);cadByKey[k]=(cadByKey[k]||0)+1;});
+
+  // Conversão por período: redeemed ÷ (redeemed + semCupom) por intervalo
+  const redByKey={},noCByKey={};
+  filtRedeemed.forEach(c=>{if(c.distributed_at){const k=dashKey(c.distributed_at);redByKey[k]=(redByKey[k]||0)+1;}});
+  semCupom.forEach(u=>{const k=dashKey(u.created_at);noCByKey[k]=(noCByKey[k]||0)+1;});
+  const convByKey={};
+  keys.forEach(k=>{
+    const r=redByKey[k]||0;
+    const n=noCByKey[k]||0;
+    convByKey[k]=(r+n)>0?+(r/(r+n)*100).toFixed(1):null;
+  });
 
   const showCad=document.getElementById('ds-cad')?.checked;
   const showConv=document.getElementById('ds-conv')?.checked;
   const RCOLS=['#eb6834','#eda100','#e87ba4','#6250d6','#e34948'];
   const datasets=[];
   if(showCad) datasets.push({
-    label:'Cadastros',
-    data:keys.map(k=>cadByKey[k]||0),
-    borderColor:'#7c6af7',
-    backgroundColor:'rgba(124,106,247,0.12)',
-    borderWidth:3,
-    pointRadius:5,
-    pointHoverRadius:8,
-    pointBackgroundColor:'#7c6af7',
-    pointBorderColor:'#16161c',
-    pointBorderWidth:2,
-    fill:true,
-    tension:0.4,
-    yAxisID:'y'
+    label:'Cadastros',data:keys.map(k=>cadByKey[k]||0),
+    borderColor:'#7c6af7',backgroundColor:'rgba(124,106,247,0.12)',
+    borderWidth:3,pointRadius:5,pointHoverRadius:8,
+    pointBackgroundColor:'#7c6af7',pointBorderColor:'#16161c',pointBorderWidth:2,
+    fill:true,tension:0.4,yAxisID:'y'
   });
   if(showConv) datasets.push({
-    label:'Conversão %',
-    data:keys.map(k=>convByKey[k]),
-    borderColor:'#22c55e',
-    backgroundColor:'rgba(34,197,94,0)',
-    borderWidth:3,
-    pointRadius:5,
-    pointHoverRadius:8,
-    pointBackgroundColor:'#22c55e',
-    pointBorderColor:'#16161c',
-    pointBorderWidth:2,
-    borderDash:[6,4],
-    fill:false,
-    tension:0.4,
-    yAxisID:'y2',
-    spanGaps:true
+    label:'Conversão %',data:keys.map(k=>convByKey[k]),
+    borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0)',
+    borderWidth:3,pointRadius:5,pointHoverRadius:8,
+    pointBackgroundColor:'#22c55e',pointBorderColor:'#16161c',pointBorderWidth:2,
+    borderDash:[6,4],fill:false,tension:0.4,yAxisID:'y2',spanGaps:true
   });
   dashRefs.forEach((r,i)=>{
     const el=document.getElementById('ds-ref-'+r.id.replace(/-/g,''));
     if(!el?.checked)return;
     const byKey={};filtU.filter(u=>u.referral_id===r.id).forEach(u=>{const k=dashKey(u.created_at);byKey[k]=(byKey[k]||0)+1;});
     datasets.push({
-      label:r.name,
-      data:keys.map(k=>byKey[k]||0),
-      borderColor:RCOLS[i%RCOLS.length],
-      backgroundColor:'rgba(0,0,0,0)',
-      borderWidth:2.5,
-      pointRadius:4,
-      pointHoverRadius:7,
-      pointBackgroundColor:RCOLS[i%RCOLS.length],
-      pointBorderColor:'#16161c',
-      pointBorderWidth:2,
-      fill:false,
-      tension:0.4,
-      yAxisID:'y'
+      label:r.name,data:keys.map(k=>byKey[k]||0),
+      borderColor:RCOLS[i%RCOLS.length],backgroundColor:'rgba(0,0,0,0)',
+      borderWidth:2.5,pointRadius:4,pointHoverRadius:7,
+      pointBackgroundColor:RCOLS[i%RCOLS.length],pointBorderColor:'#16161c',pointBorderWidth:2,
+      fill:false,tension:0.4,yAxisID:'y'
     });
   });
 
   destroyDash('line');
   const lineEl=document.getElementById('dashLineChart');
   if(lineEl) dashCharts['line']=new Chart(lineEl,{
-    type:'line',
-    data:{labels:keys,datasets},
+    type:'line',data:{labels:keys,datasets},
     options:{
-      responsive:true,
-      maintainAspectRatio:false,
+      responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
       plugins:{
         legend:{display:false},
         tooltip:{
-          backgroundColor:'#1e1e26',
-          borderColor:'#3a3a48',
-          borderWidth:1,
-          titleColor:'#f0f0f5',
-          bodyColor:'#a0a0b0',
-          padding:12,
-          callbacks:{
-            label:ctx=>{
-              if(ctx.dataset.yAxisID==='y2')
-                return`  ${ctx.dataset.label}: ${ctx.parsed.y!==null?ctx.parsed.y+'%':'—'}`;
-              return`  ${ctx.dataset.label}: ${ctx.parsed.y}`;
-            }
-          }
+          backgroundColor:'#1e1e26',borderColor:'#3a3a48',borderWidth:1,
+          titleColor:'#f0f0f5',bodyColor:'#a0a0b0',padding:12,
+          callbacks:{label:ctx=>{
+            if(ctx.dataset.yAxisID==='y2')return`  ${ctx.dataset.label}: ${ctx.parsed.y!==null?ctx.parsed.y+'%':'—'}`;
+            return`  ${ctx.dataset.label}: ${ctx.parsed.y}`;
+          }}
         }
       },
       scales:{
-        x:{
-          grid:{display:false},
-          ticks:{color:tickColor,maxTicksLimit:12,maxRotation:0,font:{size:11}},
-          border:{display:false}
-        },
-        y:{
-          grid:{color:gridColor,drawBorder:false},
-          ticks:{color:'#9d8fff',stepSize:1,font:{size:11}},
-          beginAtZero:true,
-          border:{display:false}
-        },
-        y2:{
-          position:'right',
-          grid:{display:false},
-          ticks:{color:'#22c55e',callback:v=>v+'%',font:{size:11}},
-          min:0,max:100,
-          border:{display:false}
-        }
+        x:{grid:{display:false},ticks:{color:tickColor,maxTicksLimit:12,maxRotation:0,font:{size:11}},border:{display:false}},
+        y:{grid:{color:gridColor,drawBorder:false},ticks:{color:'#9d8fff',stepSize:1,font:{size:11}},beginAtZero:true,border:{display:false}},
+        y2:{position:'right',grid:{display:false},ticks:{color:'#22c55e',callback:v=>v+'%',font:{size:11}},min:0,max:100,border:{display:false}}
       }
     }
   });
 
+  // SETORES — status corretos
   destroyDash('pie');
   const pieEl=document.getElementById('dashPieChart');
-  if(pieEl) dashCharts['pie']=new Chart(pieEl,{type:'doughnut',data:{labels:['Resgatados','Entregues','Bloqueados'],datasets:[{data:[filtR.length,filtD.length,filtB.length],backgroundColor:['#1baf7a','#2a78d6','#e34948'],borderWidth:2,borderColor:'var(--bg2)'}]},options:{responsive:true,maintainAspectRatio:false,cutout:'55%',plugins:{legend:{display:true,position:'bottom',labels:{color:tickColor,font:{size:10},boxWidth:8,padding:6}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed}`}}}}});
+  if(pieEl) dashCharts['pie']=new Chart(pieEl,{
+    type:'doughnut',
+    data:{
+      labels:['Resgatados','Entregues','Bloqueados','Inválidos'],
+      datasets:[{
+        data:[filtRedeemed.length,filtDelivered.length,filtBlocked.length,filtInvalid.length],
+        backgroundColor:['#22c55e','#7c6af7','#ef4444','#f59e0b'],
+        borderWidth:2,borderColor:'var(--bg2)'
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+      plugins:{
+        legend:{display:true,position:'bottom',labels:{color:tickColor,font:{size:10},boxWidth:8,padding:6}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.parsed}`}}
+      }
+    }
+  });
 
+  // BARRAS — conversão por indicação (redeemed ÷ analisados por indicação)
   const byRef={};
-  filtC.forEach(c=>{const rid=c.users?.referral_id||'_sem';const name=dashRefMap[rid]||'Não informado';if(!byRef[name])byRef[name]={total:0,redeemed:0};byRef[name].total++;if(c.status==='redeemed'||c.ativado)byRef[name].redeemed++;});
-  const entries=Object.entries(byRef).sort((a,b)=>b[1].total-a[1].total);
+  filtRedeemed.forEach(c=>{
+    const u=dashUsers.find(u=>u.id===c.users_id);
+    const rid=u?.referral_id||'_sem';
+    const name=dashRefMap[rid]||'Não informado';
+    if(!byRef[name])byRef[name]={redeemed:0,semCupom:0};
+    byRef[name].redeemed++;
+  });
+  semCupom.forEach(u=>{
+    const rid=u.referral_id||'_sem';
+    const name=dashRefMap[rid]||'Não informado';
+    if(!byRef[name])byRef[name]={redeemed:0,semCupom:0};
+    byRef[name].semCupom++;
+  });
+  const entries=Object.entries(byRef).sort((a,b)=>(b[1].redeemed+b[1].semCupom)-(a[1].redeemed+a[1].semCupom));
   const barLabels=entries.map(([k])=>k);
-  const barConvs=entries.map(([,v])=>v.total>0?+(v.redeemed/v.total*100).toFixed(1):0);
+  const barConvs=entries.map(([,v])=>{
+    const total=v.redeemed+v.semCupom;
+    return total>0?+(v.redeemed/total*100).toFixed(1):0;
+  });
 
   destroyDash('bar');
   const barEl=document.getElementById('dashBarChart');
-  if(barEl) dashCharts['bar']=new Chart(barEl,{type:'bar',data:{labels:barLabels,datasets:[{label:'Conversão %',data:barConvs,backgroundColor:barLabels.map((_,i)=>['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#6250d6'][i%6]),borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x}%`}}},scales:{x:{max:100,grid:{color:gridColor},ticks:{color:tickColor,callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:tickColor,font:{size:10}}}}}});
+  if(barEl) dashCharts['bar']=new Chart(barEl,{
+    type:'bar',
+    data:{labels:barLabels,datasets:[{
+      label:'Conversão %',data:barConvs,
+      backgroundColor:barLabels.map((_,i)=>['#7c6af7','#eb6834','#22c55e','#eda100','#e87ba4','#6250d6'][i%6]),
+      borderRadius:4
+    }]},
+    options:{
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.parsed.x}%`}}},
+      scales:{
+        x:{max:100,grid:{color:gridColor},ticks:{color:tickColor,callback:v=>v+'%'}},
+        y:{grid:{display:false},ticks:{color:tickColor,font:{size:10}}}
+      }
+    }
+  });
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
