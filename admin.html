@@ -898,15 +898,18 @@ function renderDashCharts(){
 
   const filtRedeemedForConv = selectedRefs.length > 0
     ? filtRedeemed.filter(c => {
-        if(!c.users_id) return false; // sem usuário não pode ser atribuído a indicação
+        if(!c.users_id) return false;
         const u = userById[c.users_id];
         return u && selectedRefs.some(r => r.id === u.referral_id);
       })
-    : filtRedeemed; // geral inclui todos — com e sem users_id
+    : allRedeemed; // geral usa TODOS os redeemed — inclui os 69 sem users_id
+
+  // Todos os usuários sem cupom (devolvidos) — sem filtro de período para conversão geral
+  const allSemCupom = dashUsers.filter(u => !u.coupons_id);
 
   const filtSemCupomForConv = selectedRefs.length > 0
     ? semCupom.filter(u => selectedRefs.some(r => r.id === u.referral_id))
-    : semCupom;
+    : allSemCupom; // geral usa TODOS sem cupom
 
   // Cadastros filtrados pela seleção
   const cadByKey={};
