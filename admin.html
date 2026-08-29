@@ -710,8 +710,8 @@ async function loadIndicadores(){
   // Mapa de users por id para lookup O(1)
   const userById={};allU.forEach(u=>userById[u.id]=u);
 
-  // RESGATADOS: todos com status=redeemed, sem filtro de tempo
-  const redeemed=allC.filter(c=>c.users_id);
+  // RESGATADOS: todos com status=redeemed
+  const redeemed=allC;
 
   // SEM CUPOM VINCULADO: coupons_id=NULL (devolvido ao estoque)
   // Não filtra por 72h — qualquer devolução conta
