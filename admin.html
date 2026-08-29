@@ -897,10 +897,11 @@ function renderDashCharts(){
 
   const filtRedeemedForConv = selectedRefs.length > 0
     ? filtRedeemed.filter(c => {
+        if(!c.users_id) return false; // sem usuário não pode ser atribuído a indicação
         const u = userById[c.users_id];
         return u && selectedRefs.some(r => r.id === u.referral_id);
       })
-    : filtRedeemed;
+    : filtRedeemed; // geral inclui todos — com e sem users_id
 
   const filtSemCupomForConv = selectedRefs.length > 0
     ? semCupom.filter(u => selectedRefs.some(r => r.id === u.referral_id))
