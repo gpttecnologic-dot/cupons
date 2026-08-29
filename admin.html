@@ -1487,6 +1487,7 @@ function renderCoupons() {
           <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
         ` : c.status === 'redeemed' ? `
           <span class="badge b-redeemed">✓ Resgatado</span>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="undoRedeem('${c.id}')" title="Desfazer resgate / devolver ao estoque">↩</button>
         ` : c.status === 'available' ? `
           <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
@@ -1685,6 +1686,26 @@ async function returnCoupon(id) {
     toast('Link devolvido ao estoque.', 'success');
     loadCoupons();
   }, 'Devolver');
+}
+// Desfaz um "Marcar como resgatado" clicado por engano — devolve o cupom
+// ao estoque igual ao returnCoupon(), mas também limpa os campos que só
+// existem em cupom resgatado (ativado/ativado_at), senão ficariam presos
+// num cupom que voltou a estar "Disponível".
+async function undoRedeem(id) {
+  openConfirm(
+    'Desfazer resgate',
+    'Isso desfaz a marcação de "Resgatado" e devolve o link ao estoque como disponível — use só pra corrigir um clique errado.\n\nO usuário vinculado perderá o vínculo com esse cupom.',
+    async () => {
+      await db.from('users').update({ coupons_id: null }).eq('coupons_id', id);
+      const { error } = await db.from('coupons')
+        .update({ status: 'available', distributed_at: null, users_id: null, ativado: false, ativado_at: null })
+        .eq('id', id);
+      if (error) { toast('Erro ao desfazer: ' + error.message, 'error', 6000); return; }
+      toast('Resgate desfeito — link de volta ao estoque.', 'success');
+      loadCoupons();
+    },
+    '↩ Desfazer'
+  );
 }
 async function deleteCoupon(id) {
   openConfirm('Excluir cupom', 'Excluir este link permanentemente?\n\nEsta ação não pode ser desfeita.', async () => {
