@@ -1824,8 +1824,9 @@ async function loadUsers() {
   const cIdsFromUser = [...new Set((us || []).map(u => u.coupons_id).filter(Boolean))];
   const uIdsForCoupon = [...new Set((us || []).map(u => u.id))];
 
-  let cMapById   = {}; // couponId  → link
-  let cMapByUser = {}; // userId    → link  (via coupons.users_id)
+  let cMapById     = {}; // couponId  → link
+  let cMapByUser   = {}; // userId    → link  (via coupons.users_id)
+  let cIdMapByUser = {}; // userId    → couponId (via coupons.users_id, registros antigos)
 
   // 1. Busca cupons pelo coupons_id do usuário
   if (cIdsFromUser.length) {
@@ -1840,12 +1841,17 @@ async function loadUsers() {
       .from('coupons').select('id,link,users_id')
       .eq('status','delivered')
       .in('users_id', usersWithoutCouponId);
-    (cs2 || []).forEach(c => { if (c.users_id) cMapByUser[c.users_id] = c.link; });
+    (cs2 || []).forEach(c => { if (c.users_id) { cMapByUser[c.users_id] = c.link; cIdMapByUser[c.users_id] = c.id; } });
   }
 
   allUsers = (us || []).map(u => ({
     ...u,
-    couponLink: (u.coupons_id ? cMapById[u.coupons_id] : null) || cMapByUser[u.id] || null
+    couponLink: (u.coupons_id ? cMapById[u.coupons_id] : null) || cMapByUser[u.id] || null,
+    // Id do cupom efetivamente vinculado (cobre tanto o caminho normal —
+    // users.coupons_id — quanto o registro antigo em que só coupons.users_id
+    // aponta pra cá). É esse id que "Trocar cupom" precisa pra bloquear o
+    // cupom certo.
+    effCouponId: u.coupons_id || cIdMapByUser[u.id] || null
   }));
   renderUsers();
 }
@@ -1890,9 +1896,15 @@ function renderUsers() {
     </td>
     <td>${fmtDate(u.created_at)}</td>
     <td>
-      <button class="btn btn-ghost btn-sm btn-icon"
-        onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')"
-        title="Excluir">🗑</button>
+      <div class="btns">
+        ${u.effCouponId
+          ? `<button class="btn btn-ghost btn-sm" onclick="trocarCupomUsuario('${u.id}','${u.effCouponId}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular outro cupom disponível e bloquear o atual">🔄 Trocar</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="gerarCupomUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Gerar/vincular um cupom disponível para este usuário">🎟 Gerar cupom</button>`
+        }
+        <button class="btn btn-ghost btn-sm btn-icon"
+          onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')"
+          title="Excluir">🗑</button>
+      </div>
     </td>
   </tr>`).join('');
 
@@ -1925,6 +1937,94 @@ async function deleteUser(id, name, couponId) {
     loadUsers();
     loadDashboard();
   }, '🗑 Excluir');
+}
+
+// Gera/vincula um cupom disponível para um usuário que está "sem cupom"
+// (coupons_id nulo e nenhum cupom antigo apontando pra ele via users_id).
+// Pega o próximo disponível do estoque, igual ao fluxo público de cadastro
+// (index.html): marca como "entregue" + distributed_at agora + vincula ao
+// usuário, e espelha o vínculo em users.coupons_id.
+async function gerarCupomUsuario(userId, userName) {
+  openConfirm(
+    'Gerar cupom para usuário',
+    `Vincular um cupom disponível do estoque a "${userName}"?\n\nO cupom será marcado como "Entregue" e associado a este usuário.`,
+    async () => {
+      const { data: avail, error: availErr } = await db
+        .from('coupons').select('id,link').eq('status', 'available').limit(1);
+      if (availErr) { toast('Erro ao buscar cupom disponível: ' + availErr.message, 'error', 6000); return; }
+      if (!avail?.length) { toast('Não há cupons disponíveis em estoque.', 'error', 5000); return; }
+      const coupon = avail[0];
+      const now = new Date().toISOString();
+
+      // Guard contra corrida: só efetiva se o cupom ainda estiver 'available'
+      const { data: locked, error: lockErr } = await db.from('coupons')
+        .update({ status: 'delivered', distributed_at: now, users_id: userId })
+        .eq('id', coupon.id).eq('status', 'available')
+        .select();
+      if (lockErr) { toast('Erro ao reservar cupom: ' + lockErr.message, 'error', 6000); return; }
+      if (!locked?.length) { toast('Conflito ao reservar cupom — tente novamente.', 'error'); return; }
+
+      const { error: uErr } = await db.from('users').update({ coupons_id: coupon.id }).eq('id', userId);
+      if (uErr) { toast('Erro ao vincular cupom ao usuário: ' + uErr.message, 'error', 6000); return; }
+
+      await db.from('events').insert({
+        coupons_id: coupon.id, users_id: userId,
+        event_type: 'manual_assign',
+        metadata: JSON.stringify({ origin: 'admin_gerar_cupom_usuario' })
+      });
+
+      toast('Cupom gerado e vinculado ao usuário!', 'success');
+      loadUsers();
+      loadDashboard();
+    },
+    '🎟 Gerar cupom'
+  );
+}
+
+// Troca o cupom de um usuário que já tem um vinculado: pega o próximo
+// disponível do estoque (igual gerarCupomUsuario) e BLOQUEIA permanentemente
+// o cupom antigo — não devolve ao estoque, pra não circular de novo pra
+// outra pessoa (mesma regra já usada na troca manual da aba Cupons).
+async function trocarCupomUsuario(userId, oldCouponId, userName) {
+  openConfirm(
+    'Trocar cupom do usuário',
+    `Vincular um novo cupom disponível do estoque a "${userName}"?\n\nO cupom atual será bloqueado permanentemente (não volta ao estoque) e o novo será marcado como "Entregue".`,
+    async () => {
+      const { data: avail, error: availErr } = await db
+        .from('coupons').select('id,link').eq('status', 'available').limit(1);
+      if (availErr) { toast('Erro ao buscar cupom disponível: ' + availErr.message, 'error', 6000); return; }
+      if (!avail?.length) { toast('Não há cupons disponíveis em estoque.', 'error', 5000); return; }
+      const coupon = avail[0];
+      const now = new Date().toISOString();
+
+      const { data: locked, error: lockErr } = await db.from('coupons')
+        .update({ status: 'delivered', distributed_at: now, users_id: userId })
+        .eq('id', coupon.id).eq('status', 'available')
+        .select();
+      if (lockErr) { toast('Erro ao reservar cupom: ' + lockErr.message, 'error', 6000); return; }
+      if (!locked?.length) { toast('Conflito ao reservar cupom — tente novamente.', 'error'); return; }
+
+      if (oldCouponId) {
+        await db.from('coupons')
+          .update({ status: 'blocked', users_id: null, distributed_at: null })
+          .eq('id', oldCouponId);
+      }
+
+      const { error: uErr } = await db.from('users').update({ coupons_id: coupon.id }).eq('id', userId);
+      if (uErr) { toast('Erro ao vincular novo cupom: ' + uErr.message, 'error', 6000); return; }
+
+      await db.from('events').insert({
+        coupons_id: coupon.id, users_id: userId,
+        event_type: 'swap',
+        metadata: JSON.stringify({ old_coupon_id: oldCouponId, origin: 'admin_trocar_cupom_usuario' })
+      });
+
+      toast('Cupom trocado! O antigo foi bloqueado permanentemente.', 'success', 4000);
+      loadUsers();
+      loadDashboard();
+    },
+    '🔄 Trocar cupom'
+  );
 }
 
 function exportUsersCSV() {
