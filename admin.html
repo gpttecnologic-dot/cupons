@@ -376,11 +376,11 @@ body{overflow-x:hidden}
       <div id="tab-users" class="hidden">
         <div class="page-header">
           <div class="page-header-left"><div class="page-title">Usuários</div><div class="page-sub">Todos os cadastros</div></div>
-          <button class="btn btn-ghost btn-sm" onclick="exportUsersCSV()">⬇ CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="openExportUsersModal()">⬇ CSV</button>
         </div>
         <div class="tbl-wrap">
           <div class="tbl-head">
-            <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail ou telefone..." oninput="renderUsers()" style="width:280px"/>
+            <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail, telefone ou link..." oninput="renderUsers()" style="width:280px"/>
           </div>
           <div id="userBody"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Carregando...</div></div></div>
         </div>
@@ -473,7 +473,7 @@ body{overflow-x:hidden}
             <div style="font-size:24px;margin-bottom:.75rem">👥</div>
             <div style="font-weight:600;margin-bottom:.5rem">Usuários cadastrados</div>
             <div style="font-size:12px;color:var(--text3);margin-bottom:1.25rem;line-height:1.5">Nome, e-mail, telefone, indicação, link do cupom e data.</div>
-            <button class="btn btn-primary btn-sm" onclick="exportUsersCSV()">⬇ Exportar usuários</button>
+            <button class="btn btn-primary btn-sm" onclick="openExportUsersModal()">⬇ Exportar usuários</button>
           </div>
           <div class="tbl-wrap" style="padding:1.5rem">
             <div style="font-size:24px;margin-bottom:.75rem">🎫</div>
@@ -533,6 +533,35 @@ body{overflow-x:hidden}
     <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
       <button class="btn btn-secondary" onclick="closeSwap()">Cancelar</button>
       <button class="btn btn-primary" id="swapOkBtn" onclick="confirmSwap()">✓ Confirmar troca</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EXPORTAR USUÁRIOS -->
+<div class="modal-overlay" id="exportUsersModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title">⬇ Exportar usuários</div>
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.5rem">Campos a exportar</label>
+    <div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem" id="expUserFields">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-name" checked> Nome</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-email" checked> E-mail</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-phone" checked> Telefone</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-referral" checked> Indicação</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-link" checked> Link do cupom</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-date" checked> Cadastrado em</label>
+    </div>
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.4rem">Ordenar por</label>
+    <select class="swap-modal-input" id="expUserSort" style="margin-bottom:1rem">
+      <option value="date_desc">Data de cadastro (mais recente primeiro)</option>
+      <option value="date_asc">Data de cadastro (mais antigo primeiro)</option>
+      <option value="name_asc">Nome (A → Z)</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;padding-top:.5rem;border-top:1px solid var(--border)">
+      <input type="checkbox" id="expOnlySemLink" onchange="document.getElementById('expF-link').disabled=this.checked"> Exportar somente quem está sem link vinculado
+    </label>
+    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="closeExportUsersModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="runExportUsersCSV()">⬇ Exportar CSV</button>
     </div>
   </div>
 </div>
@@ -1862,7 +1891,8 @@ function renderUsers() {
     ? allUsers.filter(u =>
         u.name.toLowerCase().includes(q) ||
         u.email.toLowerCase().includes(q) ||
-        (u.phone || '').includes(q))
+        (u.phone || '').includes(q) ||
+        (u.couponLink || '').toLowerCase().includes(q))
     : allUsers;
 
   if (userSort) {
@@ -2027,16 +2057,59 @@ async function trocarCupomUsuario(userId, oldCouponId, userName) {
   );
 }
 
-function exportUsersCSV() {
+// Modal de exportação: escolhe quais colunas vão pro CSV, a ordenação, e
+// se é pra exportar todo mundo ou só quem está sem link vinculado.
+function openExportUsersModal() {
   if (!allUsers.length) { toast('Nenhum usuário para exportar.', 'error'); return; }
-  const h = 'Nome,E-mail,Telefone,Indicação,Link do cupom,Cadastrado em\n';
-  const r = allUsers.map(u => [
-    u.name, u.email, u.phone || '',
-    refLabelById(u.referral_id),
-    u.couponLink || '',
-    fmtDate(u.created_at)
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  dl('usuarios.csv', h + r);
+  document.getElementById('expOnlySemLink').checked = false;
+  document.getElementById('expF-link').disabled = false;
+  document.getElementById('exportUsersModal').classList.add('show');
+}
+function closeExportUsersModal() {
+  document.getElementById('exportUsersModal').classList.remove('show');
+}
+
+function runExportUsersCSV() {
+  const fields = {
+    name:     document.getElementById('expF-name').checked,
+    email:    document.getElementById('expF-email').checked,
+    phone:    document.getElementById('expF-phone').checked,
+    referral: document.getElementById('expF-referral').checked,
+    link:     document.getElementById('expF-link').checked,
+    date:     document.getElementById('expF-date').checked,
+  };
+  if (!Object.values(fields).some(Boolean)) {
+    toast('Selecione ao menos um campo para exportar.', 'error'); return;
+  }
+
+  const onlySemLink = document.getElementById('expOnlySemLink').checked;
+  let list = onlySemLink ? allUsers.filter(u => !u.couponLink) : allUsers.slice();
+
+  if (!list.length) {
+    toast(onlySemLink ? 'Nenhum usuário sem link vinculado.' : 'Nenhum usuário para exportar.', 'error');
+    return;
+  }
+
+  const sortMode = document.getElementById('expUserSort').value;
+  if (sortMode === 'date_desc') list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  else if (sortMode === 'date_asc') list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  else if (sortMode === 'name_asc') list.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' }));
+
+  const colDefs = [
+    { key: 'name',     label: 'Nome',           get: u => u.name },
+    { key: 'email',    label: 'E-mail',         get: u => u.email },
+    { key: 'phone',    label: 'Telefone',       get: u => u.phone || '' },
+    { key: 'referral', label: 'Indicação',      get: u => refLabelById(u.referral_id) },
+    { key: 'link',     label: 'Link do cupom',  get: u => u.couponLink || '' },
+    { key: 'date',     label: 'Cadastrado em',  get: u => fmtDate(u.created_at) },
+  ].filter(c => fields[c.key]);
+
+  const h = colDefs.map(c => c.label).join(',') + '\n';
+  const r = list.map(u => colDefs.map(c => `"${String(c.get(u)).replace(/"/g, '""')}"`).join(',')).join('\n');
+
+  closeExportUsersModal();
+  dl(onlySemLink ? 'usuarios-sem-link.csv' : 'usuarios.csv', h + r);
+  toast(`Exportado: ${list.length} usuário(s).`, 'success');
 }
 
 // ─── LISTA DE ESPERA ──────────────────────────────────────────────────────────
