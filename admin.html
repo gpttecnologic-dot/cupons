@@ -2221,6 +2221,7 @@ function renderRefList() {
         <button class="toggle-btn ${o.active !== false ? 'on' : 'off'}" onclick="toggleRef('${o.id}',${o.active !== false})">
           ${o.active !== false ? '● Ativa' : '○ Inativa'}
         </button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="renameRef('${o.id}','${(o.name||'').replace(/'/g,"\\'")}')" title="Renomear">✏️</button>
         <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteRef('${o.id}','${(o.name||'').replace(/'/g,"\\'")}')">🗑</button>
       </div>
     </div>`).join('');
@@ -2238,6 +2239,24 @@ async function addRefOption() {
   renderRefList(); updateRefBadge();
   inp.value = '';
   toast('✓ Opção adicionada!', 'success');
+}
+// Renomeia uma opção de indicação. Só troca o texto (`name`) — o `id`
+// continua o mesmo, então todo usuário já vinculado a essa indicação
+// (referral_id) automaticamente passa a mostrar o novo nome em todo lugar
+// (formulário público, filtros do dashboard, gráficos, exportações),
+// sem precisar tocar em nenhum registro de `users`. Diferente de excluir,
+// renomear nunca deixa ninguém órfão.
+async function renameRef(id, oldName) {
+  const novo = (prompt('Renomear indicação:', oldName) || '').trim();
+  if (!novo || novo === oldName) return;
+  if (allRefOpts.some(o => String(o.id) !== String(id) && o.name.toLowerCase() === novo.toLowerCase())) {
+    toast('Já existe uma opção com esse nome.', 'error'); return;
+  }
+  const { error } = await db.from('referrals').update({ name: novo }).eq('id', id);
+  if (error) { toast('Erro ao renomear: ' + error.message, 'error', 6000); return; }
+  allRefOpts = allRefOpts.map(o => String(o.id) === String(id) ? { ...o, name: novo } : o);
+  renderRefList(); updateRefBadge();
+  toast(`Renomeado para "${novo}".`, 'success');
 }
 async function toggleRef(id, curr) {
   const ns = !curr;
