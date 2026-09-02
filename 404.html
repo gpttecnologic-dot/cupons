@@ -35,6 +35,11 @@ a{color:var(--accent-light);text-decoration:none}
 .logo-name{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;letter-spacing:-.3px}
 .logo-sub{font-size:11px;color:var(--text3);margin-top:1px}
 
+/* Logo do parceiro (por indicação, opcional) */
+.partner-logo{display:flex;align-items:center;gap:10px;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)}
+.partner-logo-label{font-size:11px;color:var(--text3)}
+.partner-logo img{height:34px;max-width:150px;object-fit:contain;border-radius:6px;background:#fff;padding:3px}
+
 .title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:.4rem}
 .subtitle{color:var(--text2);font-size:13px;margin-bottom:2rem;line-height:1.5}
 
@@ -114,12 +119,19 @@ a{color:var(--accent-light);text-decoration:none}
 <body>
 <div class="wrap">
   <div class="card">
-    <div class="logo">      
+    <div class="logo">
       <img src="assets/img/logo-12ia.png" alt="Cupom GPT-Business" class="logo-img">
       <div>
         <div class="logo-name">Cupom GPT-Business</div>
         <div class="logo-sub">Links exclusivos de desconto</div>
       </div>
+    </div>
+    <!-- Logo do parceiro: só aparece quando a indicação usada no link tiver
+    uma logo cadastrada (aba Indicações do admin). Fica escondida por
+    padrão e initReferral() mostra se encontrar match.logo_url. -->
+    <div id="partnerLogoWrap" class="partner-logo hidden">
+      <span class="partner-logo-label">em parceria com</span>
+      <img id="partnerLogoImg" src="" alt="Logo do parceiro">
     </div>
 
     <!-- FORMULÁRIO -->
@@ -328,11 +340,23 @@ const normalizeRef = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 async function initReferral() {
   try {
-    const { data, error } = await db
+    let { data, error } = await db
       .from('referrals')
-      .select('id, name')
+      .select('id, name, logo_url')
       .eq('active', true)
       .order('created_at', { ascending: true });
+
+    // A coluna logo_url só existe depois de rodar o SQL
+    // "logo_parceiro_setup.sql" no Supabase. Sem ela, tenta de novo sem
+    // essa coluna em vez de quebrar o formulário inteiro pra todo mundo.
+    if (error && /logo_url/i.test(error.message || '')) {
+      const retry = await db
+        .from('referrals')
+        .select('id, name')
+        .eq('active', true)
+        .order('created_at', { ascending: true });
+      data = retry.data; error = retry.error;
+    }
 
     if (error || !data) { showState('stateInvalidRef'); return; }
 
@@ -350,6 +374,17 @@ async function initReferral() {
     if (!match) { showState('stateInvalidRef'); return; }
 
     document.getElementById('f-referral').value = match.id;
+
+    // Logo do parceiro (opcional, por indicação) — só aparece quando essa
+    // indicação tiver uma logo cadastrada na aba Indicações do admin.
+    if (match.logo_url) {
+      const img = document.getElementById('partnerLogoImg');
+      const wrap = document.getElementById('partnerLogoWrap');
+      if (img && wrap) {
+        img.src = match.logo_url;
+        wrap.classList.remove('hidden');
+      }
+    }
   } catch (e) {
     showState('stateInvalidRef');
   }
