@@ -617,6 +617,18 @@ body{overflow-x:hidden}
   </div>
 </div>
 
+<!-- MODAL VER CUPONS VINCULADOS -->
+<div class="modal-overlay" id="viewCouponsModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title" id="viewCouponsTitle">🔗 Cupons vinculados</div>
+    <div id="viewCouponsBody" style="max-height:360px;overflow-y:auto;margin-bottom:1rem"></div>
+    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="closeViewCouponsModal()">Fechar</button>
+      <button class="btn btn-primary" id="viewCouponsSendBtn" onclick="enviarEmailCupons()">✉ Enviar e-mail com estes cupons</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CONFIRM -->
 <div class="modal-overlay" id="confirmModal">
   <div class="modal">
@@ -2038,6 +2050,10 @@ function renderUsers() {
              <button class="btn btn-ghost btn-sm" onclick="adicionarCupomExtra('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular mais um cupom a esta pessoa, sem mexer no(s) que já tem (uso: pedidos de mais de 1 licença)">➕ Extra</button>`
           : `<button class="btn btn-ghost btn-sm" onclick="gerarCupomUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Gerar/vincular um cupom disponível para este usuário">🎟 Gerar cupom</button>`
         }
+        ${u.couponsIssued > 0
+          ? `<button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Ver todos os links de cupom vinculados a esta pessoa, e opcionalmente enviar um e-mail com eles">🔗 Ver (${u.couponsIssued})</button>`
+          : ''
+        }
         <button class="btn btn-ghost btn-sm btn-icon"
           onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')"
           title="Excluir">🗑</button>
@@ -2071,8 +2087,20 @@ function renderUsers() {
 }
 
 async function deleteUser(id, name, couponId) {
-  openConfirm('Excluir usuário', `Excluir "${name}"?\n\nSe tiver link vinculado, ele voltará ao estoque. Esta ação não pode ser desfeita.`, async () => {
-    // Libera cupom antes de deletar o usuário
+  openConfirm('Excluir usuário', `Excluir "${name}"?\n\nTodos os cupons vinculados a essa pessoa (o principal e eventuais extras) voltarão ao estoque. Esta ação não pode ser desfeita.`, async () => {
+    // Libera TODOS os cupons vinculados a esse usuário antes de excluir —
+    // não só o "principal" (o couponId recebido aqui, espelhado em
+    // users.coupons_id), mas qualquer cupom extra vinculado só via
+    // coupons.users_id (pedidos corporativos, "➕ Extra"). Antes disso,
+    // quando a pessoa tinha mais de 1 cupom, o(s) extra(s) continuava(m)
+    // apontando pra ela e a exclusão do usuário falhava (violação da
+    // referência entre as tabelas) — por isso não dava pra excluir.
+    const { error: relErr } = await db.from('coupons')
+      .update({ status: 'available', distributed_at: null, users_id: null })
+      .eq('users_id', id);
+    if (relErr) { toast('Erro ao liberar cupons vinculados: ' + relErr.message, 'error', 6000); return; }
+    // Cobre também o caso (raro) de coupons_id apontar pra um cupom cujo
+    // users_id, por algum motivo, já não é mais este usuário.
     if (couponId) {
       await db.from('coupons')
         .update({ status: 'available', distributed_at: null, users_id: null })
@@ -2081,7 +2109,7 @@ async function deleteUser(id, name, couponId) {
     await db.from('events').delete().eq('users_id', id);
     const { error } = await db.from('users').delete().eq('id', id);
     if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
-    toast('Usuário excluído.', 'info');
+    toast('Usuário excluído. Cupons liberados de volta ao estoque.', 'info');
     loadUsers();
     loadDashboard();
   }, '🗑 Excluir');
@@ -2218,6 +2246,80 @@ async function adicionarCupomExtra(userId, userName) {
       loadDashboard();
     },
     '➕ Vincular extra'
+  );
+}
+
+// ─── VER CUPONS VINCULADOS + ENVIAR E-MAIL ─────────────────────────────────
+// Mostra todos os links de cupom que apontam pra esse usuário via
+// coupons.users_id (o principal E os extras — a coluna "Link do cupom" da
+// tabela só mostra 1). Também permite disparar um e-mail com esses links,
+// já que hoje nada envia e-mail automaticamente quando um cupom extra é
+// vinculado pelo admin (só o cadastro público em index.html dispara
+// e-mail, e só do primeiro cupom).
+let viewCouponsUserId = null, viewCouponsUserName = '', viewCouponsList = [];
+
+async function verCuponsUsuario(userId, userName) {
+  viewCouponsUserId = userId;
+  viewCouponsUserName = userName;
+  document.getElementById('viewCouponsTitle').textContent = `🔗 Cupons de ${userName}`;
+  document.getElementById('viewCouponsBody').innerHTML = '<div style="font-size:12px;color:var(--text3);padding:.5rem 0">Carregando...</div>';
+  document.getElementById('viewCouponsSendBtn').disabled = true;
+  document.getElementById('viewCouponsModal').classList.add('show');
+
+  const { data, error } = await db.from('coupons')
+    .select('id,link,status,distributed_at')
+    .eq('users_id', userId)
+    .order('distributed_at', { ascending: true });
+
+  if (error) {
+    document.getElementById('viewCouponsBody').innerHTML = `<div style="font-size:12px;color:#f87171">Erro: ${esc(error.message)}</div>`;
+    return;
+  }
+
+  viewCouponsList = data || [];
+  if (!viewCouponsList.length) {
+    document.getElementById('viewCouponsBody').innerHTML = '<div style="font-size:12px;color:var(--text3);padding:.5rem 0">Nenhum cupom vinculado a esse usuário no momento.</div>';
+    return;
+  }
+
+  document.getElementById('viewCouponsBody').innerHTML = viewCouponsList.map(c => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border)">
+      <div style="min-width:0">
+        <a href="${esc(c.link)}" target="_blank" rel="noopener" style="font-size:12px;word-break:break-all">${esc(c.link)}</a>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${statusLabel(c.status)}${c.distributed_at ? ' · ' + fmtDate(c.distributed_at) : ''}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="navigator.clipboard.writeText('${(c.link||'').replace(/'/g,"\\'")}');toast('Link copiado!','success')" title="Copiar link">📋</button>
+    </div>
+  `).join('');
+
+  const sendable = viewCouponsList.filter(c => c.status === 'delivered' || c.status === 'redeemed');
+  document.getElementById('viewCouponsSendBtn').disabled = !sendable.length;
+}
+
+function closeViewCouponsModal() {
+  document.getElementById('viewCouponsModal').classList.remove('show');
+}
+
+// Dispara UM ÚNICO e-mail contendo TODOS os links de cupom entregues a
+// essa pessoa (não um e-mail por cupom). Depende da Edge Function
+// "send-coupon-email" estar publicada no Supabase com suporte a
+// "coupon_ids" (array) — veja o comentário no topo do arquivo .ts.
+async function enviarEmailCupons() {
+  if (!viewCouponsUserId) return;
+  const ids = viewCouponsList.filter(c => c.status === 'delivered' || c.status === 'redeemed').map(c => c.id);
+  if (!ids.length) { toast('Nenhum cupom entregue para enviar por e-mail.', 'error'); return; }
+
+  openConfirm(
+    'Enviar e-mail com os cupons',
+    `Enviar um único e-mail para "${viewCouponsUserName}" com ${ids.length === 1 ? 'o link do cupom dela' : `os ${ids.length} links de cupom dela, todos juntos nesse mesmo e-mail`}?`,
+    async () => {
+      const { data, error } = await db.functions.invoke('send-coupon-email', {
+        body: { user_id: viewCouponsUserId, coupon_ids: ids }
+      });
+      if (error) { toast('Erro ao enviar e-mail: ' + (error.message || error), 'error', 7000); return; }
+      toast(ids.length === 1 ? 'E-mail enviado com o link!' : `E-mail enviado com os ${ids.length} links!`, 'success', 5000);
+    },
+    '✉ Enviar e-mail'
   );
 }
 
@@ -2363,10 +2465,23 @@ async function loadCorporateLeads() {
     allRefOpts = data || [];
   }
 
-  const { data, error } = await db
+  let { data, error } = await db
     .from('corporate_leads')
-    .select('id,name,email,phone,referral_id,quantidade_licencas,created_at,notified,contacted,contacted_at')
+    .select('id,name,email,phone,referral_id,quantidade_licencas,created_at,notified,contacted,contacted_at,linked_user_id')
     .order('created_at', { ascending: false });
+
+  // A coluna linked_user_id só existe depois de rodar o SQL
+  // "vincular_corporativo_setup.sql" no Supabase. Sem ela, o botão de
+  // vincular cupons ainda funciona (só não guarda o vínculo pra lembrar
+  // depois), então evita quebrar a tela inteira nesse meio-tempo.
+  if (error && /linked_user_id/i.test(error.message || '')) {
+    const retry = await db
+      .from('corporate_leads')
+      .select('id,name,email,phone,referral_id,quantidade_licencas,created_at,notified,contacted,contacted_at')
+      .order('created_at', { ascending: false });
+    data = retry.data; error = retry.error;
+    (data || []).forEach(l => { l.linked_user_id = null; });
+  }
 
   const body = document.getElementById('corporateBody');
   if (error) {
@@ -2400,8 +2515,17 @@ function renderCorporateLeads() {
       </span>
     </td>
     <td data-label="Status"><span class="badge ${l.contacted ? 'b-distributed' : 'b-available'}">${l.contacted ? 'Contatado' : 'Aguardando contato'}</span></td>
+    <td data-label="Cupons">
+      ${l.linked_user_id
+        ? `<span class="badge b-distributed" title="Já existe um usuário com cupons vinculados pra esse pedido">✓ Vinculado</span>`
+        : `<span class="badge b-blocked">Sem cupom ainda</span>`}
+    </td>
     <td class="sticky-actions">
       <div class="btns">
+        ${l.linked_user_id
+          ? `<button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${l.linked_user_id}','${(l.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom já vinculados">🔗 Ver cupons</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="vincularCorporativo('${l.id}')" title="Cria (ou reaproveita) o usuário e vincula ${l.quantidade_licencas} cupom(ns) do estoque a ele">🔗 Vincular cupons</button>`
+        }
         ${!l.contacted ? `<button class="btn btn-success btn-sm" onclick="markContacted('${l.id}')">✓ Contatado</button>` : ''}
         <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCorporateLead('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')">🗑</button>
       </div>
@@ -2410,8 +2534,100 @@ function renderCorporateLeads() {
 
   body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
     <th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Licenças</th>
-    <th>Cadastrado em</th><th>E-mail comercial</th><th>Status</th><th class="sticky-actions"></th>
+    <th>Cadastrado em</th><th>E-mail comercial</th><th>Status</th><th>Cupons</th><th class="sticky-actions"></th>
   </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// Vincula cupons a um pedido corporativo: cria (ou reaproveita, se já
+// existir pelo e-mail) o usuário, e emite do estoque quantos cupons
+// faltarem para bater a "quantidade_licencas" pedida. É o "converter
+// pedido corporativo em usuário com cupons" — hoje não existia nenhum
+// jeito de fazer isso pela tela, os pedidos corporativos só ficavam
+// registrados sem nunca virar cupom de fato.
+async function vincularCorporativo(leadId) {
+  const lead = allCorporateLeads.find(l => l.id === leadId);
+  if (!lead) { toast('Pedido não encontrado.', 'error'); return; }
+  if (lead.linked_user_id) { toast('Esse pedido já tem cupons vinculados.', 'error'); return; }
+
+  openConfirm(
+    'Vincular cupons ao pedido corporativo',
+    `Vincular cupons do estoque ao pedido de "${lead.name}" (${lead.quantidade_licencas} licença${lead.quantidade_licencas > 1 ? 's' : ''})?\n\nSe ainda não existir um usuário com o e-mail "${lead.email}", um novo será criado. Os cupons serão marcados como "Entregue".`,
+    async () => {
+      // 1. Reaproveita o usuário se já existir um com esse e-mail (ex: a
+      // pessoa já tinha se cadastrado antes pelo link público).
+      let userId = null;
+      const { data: existingUser, error: findErr } = await db
+        .from('users').select('id,coupons_id').eq('email', lead.email).maybeSingle();
+      if (findErr) { toast('Erro ao verificar usuário existente: ' + findErr.message, 'error', 6000); return; }
+
+      if (existingUser) {
+        userId = existingUser.id;
+      } else {
+        const { data: newUser, error: insErr } = await db.from('users').insert({
+          name: lead.name, email: lead.email, phone: lead.phone,
+          referral_id: lead.referral_id, quantidade_licencas: lead.quantidade_licencas
+        }).select().single();
+        if (insErr) { toast('Erro ao criar usuário: ' + insErr.message, 'error', 6000); return; }
+        userId = newUser.id;
+      }
+
+      // 2. Quantos cupons esse usuário já tem (evita duplicar se rodar de novo)
+      const { data: already } = await db.from('coupons')
+        .select('id').eq('users_id', userId).in('status', ['delivered', 'redeemed']);
+      const jaTem = already?.length || 0;
+      const faltam = Math.max(0, (lead.quantidade_licencas || 1) - jaTem);
+
+      if (faltam === 0) {
+        try { await db.from('corporate_leads').update({ linked_user_id: userId }).eq('id', leadId); } catch (e) {}
+        toast('Esse usuário já tinha os cupons necessários — só marquei o pedido como vinculado.', 'success', 6000);
+        loadCorporateLeads(); loadUsers(); loadDashboard();
+        return;
+      }
+
+      const { data: avail, error: availErr } = await db
+        .from('coupons').select('id,link').eq('status', 'available').limit(faltam);
+      if (availErr) { toast('Erro ao buscar cupons disponíveis: ' + availErr.message, 'error', 6000); return; }
+      if (!avail?.length) { toast('Não há cupons disponíveis em estoque no momento.', 'error', 6000); return; }
+
+      const now = new Date().toISOString();
+      let vinculados = 0;
+      let primeiroCouponId = null;
+      for (const coupon of avail) {
+        const { data: locked } = await db.from('coupons')
+          .update({ status: 'delivered', distributed_at: now, users_id: userId })
+          .eq('id', coupon.id).eq('status', 'available')
+          .select();
+        if (locked?.length) {
+          vinculados++;
+          if (!primeiroCouponId) primeiroCouponId = coupon.id;
+          await db.from('events').insert({
+            coupons_id: coupon.id, users_id: userId,
+            event_type: 'manual_assign',
+            metadata: JSON.stringify({ origin: 'admin_vincular_corporativo', lead_id: leadId })
+          });
+        }
+      }
+
+      // Espelha o primeiro cupom emitido em users.coupons_id, se o usuário
+      // ainda não tinha nenhum (mesmo padrão de gerarCupomUsuario).
+      if (primeiroCouponId && !existingUser?.coupons_id) {
+        await db.from('users').update({ coupons_id: primeiroCouponId }).eq('id', userId);
+      }
+
+      try { await db.from('corporate_leads').update({ linked_user_id: userId }).eq('id', leadId); } catch (e) {}
+
+      const totalAgora = jaTem + vinculados;
+      if (totalAgora < (lead.quantidade_licencas || 1)) {
+        toast(`Vinculei ${vinculados} cupom(ns), mas faltou estoque: ${totalAgora} de ${lead.quantidade_licencas} licenças pedidas. Volte aqui quando tiver mais cupons disponíveis.`, 'error', 9000);
+      } else {
+        toast(`${vinculados} cupom(ns) vinculado(s) a "${lead.name}"!`, 'success', 5000);
+      }
+      loadCorporateLeads();
+      loadUsers();
+      loadDashboard();
+    },
+    '🔗 Vincular cupons'
+  );
 }
 
 async function markContacted(id) {
