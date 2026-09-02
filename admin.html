@@ -623,7 +623,15 @@ body{overflow-x:hidden}
 <div class="modal-overlay" id="viewCouponsModal">
   <div class="modal" style="max-width:520px">
     <div class="modal-title" id="viewCouponsTitle">🔗 Cupons vinculados</div>
-    <div id="viewCouponsBody" style="max-height:360px;overflow-y:auto;margin-bottom:1rem"></div>
+    <div id="viewCouponsBody" style="max-height:280px;overflow-y:auto;margin-bottom:1rem"></div>
+    <div style="border-top:1px solid var(--border);padding-top:1rem">
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.5rem">Gerar mais cupons para esta pessoa</label>
+      <div style="display:flex;gap:.5rem;align-items:center">
+        <input type="number" min="1" step="1" value="1" id="genCuponsQtd" class="swap-modal-input" style="width:90px">
+        <button class="btn btn-secondary btn-sm" onclick="gerarCuponsQuantidade()">🎟 Gerar</button>
+        <span style="font-size:11px;color:var(--text3)">do estoque, sem mexer nos que ela já tem</span>
+      </div>
+    </div>
     <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
       <button class="btn btn-secondary" onclick="closeViewCouponsModal()">Fechar</button>
       <button class="btn btn-primary" id="viewCouponsSendBtn" onclick="enviarEmailCupons()">✉ Enviar e-mail com estes cupons</button>
@@ -2048,14 +2056,10 @@ function renderUsers() {
     <td class="sticky-actions">
       <div class="btns">
         ${u.effCouponId
-          ? `<button class="btn btn-ghost btn-sm" onclick="trocarCupomUsuario('${u.id}','${u.effCouponId}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular outro cupom disponível e bloquear o atual">🔄 Trocar</button>
-             <button class="btn btn-ghost btn-sm" onclick="adicionarCupomExtra('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular mais um cupom a esta pessoa, sem mexer no(s) que já tem (uso: pedidos de mais de 1 licença)">➕ Extra</button>`
-          : `<button class="btn btn-ghost btn-sm" onclick="gerarCupomUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Gerar/vincular um cupom disponível para este usuário">🎟 Gerar cupom</button>`
-        }
-        ${u.couponsIssued > 0
-          ? `<button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Ver todos os links de cupom vinculados a esta pessoa, e opcionalmente enviar um e-mail com eles">🔗 Ver (${u.couponsIssued})</button>`
+          ? `<button class="btn btn-ghost btn-sm" onclick="trocarCupomUsuario('${u.id}','${u.effCouponId}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular outro cupom disponível e bloquear o atual">🔄 Trocar</button>`
           : ''
         }
+        <button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom vinculados a esta pessoa, gerar mais escolhendo a quantidade, e opcionalmente enviar um e-mail com eles">🔗 Cupons${u.couponsIssued > 0 ? ` (${u.couponsIssued})` : ''}</button>
         <button class="btn btn-ghost btn-sm btn-icon"
           onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')"
           title="Excluir">🗑</button>
@@ -2266,6 +2270,7 @@ async function verCuponsUsuario(userId, userName) {
   document.getElementById('viewCouponsTitle').textContent = `🔗 Cupons de ${userName}`;
   document.getElementById('viewCouponsBody').innerHTML = '<div style="font-size:12px;color:var(--text3);padding:.5rem 0">Carregando...</div>';
   document.getElementById('viewCouponsSendBtn').disabled = true;
+  document.getElementById('genCuponsQtd').value = 1;
   document.getElementById('viewCouponsModal').classList.add('show');
 
   const { data, error } = await db.from('coupons')
@@ -2322,6 +2327,69 @@ async function enviarEmailCupons() {
       toast(ids.length === 1 ? 'E-mail enviado com o link!' : `E-mail enviado com os ${ids.length} links!`, 'success', 5000);
     },
     '✉ Enviar e-mail'
+  );
+}
+
+// Gera N cupons de uma vez só pro usuário aberto no modal, em vez de
+// precisar clicar um botão de cada vez — é o "escolher quantos links vou
+// precisar gerar". Não mexe nos cupons que a pessoa já tem; só soma.
+async function gerarCuponsQuantidade() {
+  if (!viewCouponsUserId) return;
+  const qtdInput = document.getElementById('genCuponsQtd');
+  const qtd = parseInt(qtdInput.value, 10);
+  if (!qtd || qtd < 1) { toast('Informe uma quantidade válida (1 ou mais).', 'error'); return; }
+
+  const userId = viewCouponsUserId;
+  const userName = viewCouponsUserName;
+  const eraSemCupom = !viewCouponsList.length;
+
+  openConfirm(
+    'Gerar cupons',
+    `Vincular ${qtd} cupom${qtd > 1 ? 's' : ''} disponível(is) do estoque a "${userName}", sem mexer no(s) que ela já tem?`,
+    async () => {
+      const { data: avail, error: availErr } = await db
+        .from('coupons').select('id,link').eq('status', 'available').limit(qtd);
+      if (availErr) { toast('Erro ao buscar cupons disponíveis: ' + availErr.message, 'error', 6000); return; }
+      if (!avail?.length) { toast('Não há cupons disponíveis em estoque.', 'error', 5000); return; }
+
+      const now = new Date().toISOString();
+      let vinculados = 0;
+      let primeiroCouponId = null;
+      for (const coupon of avail) {
+        const { data: locked } = await db.from('coupons')
+          .update({ status: 'delivered', distributed_at: now, users_id: userId })
+          .eq('id', coupon.id).eq('status', 'available')
+          .select();
+        if (locked?.length) {
+          vinculados++;
+          if (!primeiroCouponId) primeiroCouponId = coupon.id;
+          await db.from('events').insert({
+            coupons_id: coupon.id, users_id: userId,
+            event_type: 'manual_assign',
+            metadata: JSON.stringify({ origin: 'admin_ver_cupons_gerar_qtd' })
+          });
+        }
+      }
+
+      // Se a pessoa não tinha nenhum cupom ainda, espelha o primeiro em
+      // users.coupons_id (mesmo padrão do antigo "Gerar cupom") — assim o
+      // botão "Trocar" passa a funcionar certo pra ela também.
+      if (eraSemCupom && primeiroCouponId) {
+        await db.from('users').update({ coupons_id: primeiroCouponId }).eq('id', userId);
+      }
+
+      if (vinculados < qtd) {
+        toast(`Só havia ${vinculados} cupom(ns) disponível(is) em estoque (você pediu ${qtd}).`, 'error', 7000);
+      } else {
+        toast(`${vinculados} cupom${vinculados > 1 ? 's' : ''} gerado${vinculados > 1 ? 's' : ''}!`, 'success');
+      }
+
+      loadUsers();
+      loadDashboard();
+      // Atualiza a lista dentro do próprio modal, sem precisar fechar e reabrir
+      verCuponsUsuario(userId, userName);
+    },
+    '🎟 Gerar'
   );
 }
 
