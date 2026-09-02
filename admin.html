@@ -1566,17 +1566,22 @@ function renderCoupons() {
 
   let list;
   if(f === 'validate'){
+    // Fila de validação: aqui a ordem certa é o oposto de "mais recente" —
+    // mostra primeiro quem está esperando validação há MAIS tempo, pra não
+    // esquecer ninguém na fila.
     list = allCoupons.filter(c =>
       c.status === 'delivered' &&
       c.distributed_at &&
       (now - new Date(c.distributed_at).getTime()) > HOURS_72
     );
     list.sort((a,b) => new Date(a.distributed_at) - new Date(b.distributed_at));
-  } else if(f === 'all'){
-    list = allCoupons;
   } else {
-    list = allCoupons.filter(c => c.status === f);
-    if(f === 'delivered') list.sort((a,b) => new Date(a.distributed_at) - new Date(b.distributed_at));
+    // Ordenação padrão (antes de clicar em qualquer cabeçalho): mais
+    // recente primeiro, usando a data de entrega e, se o cupom nunca foi
+    // entregue (disponível/bloqueado/inválido), a data de importação.
+    list = f === 'all' ? [...allCoupons] : allCoupons.filter(c => c.status === f);
+    list.sort((a,b) =>
+      new Date(b.distributed_at || b.created_at) - new Date(a.distributed_at || a.created_at));
   }
 
   if(q) list = list.filter(c =>
@@ -1660,12 +1665,10 @@ function renderCoupons() {
           <button class="btn btn-ghost btn-sm btn-icon" onclick="undoRedeem('${c.id}')" title="Desfazer resgate / devolver ao estoque">↩</button>
         ` : c.status === 'available' ? `
           <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')">Bloquear</button>
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
         ` : c.status === 'blocked' ? `
           <button class="btn btn-success btn-sm" onclick="unblockCoupon('${c.id}')">Desbloquear</button>
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
         ` : c.status === 'invalid' ? `
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCoupon('${c.id}')" title="Excluir">🗑</button>
+          <button class="btn btn-danger btn-sm" onclick="blockCoupon('${c.id}')" title="Move para Bloqueado, tirando de circulação">Bloquear</button>
         ` : '—'}
       </div>
     </td>
@@ -1888,16 +1891,12 @@ async function undoRedeem(id) {
     '↩ Desfazer'
   );
 }
-async function deleteCoupon(id) {
-  openConfirm('Excluir cupom', 'Excluir este link permanentemente?\n\nEsta ação não pode ser desfeita.', async () => {
-    await db.from('users').update({ coupons_id: null }).eq('coupons_id', id);
-    await db.from('events').delete().eq('coupons_id', id);
-    const { error } = await db.from('coupons').delete().eq('id', id);
-    if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
-    toast('Cupom excluído.', 'info');
-    loadCoupons();
-  }, '🗑 Excluir');
-}
+// Por decisão de negócio, o sistema NÃO permite excluir um cupom de vez —
+// só trocar (openSwap/trocarCupomUsuario), bloquear (blockCoupon) ou
+// devolver ao estoque (returnCoupon/devolverCupomModal). Isso preserva o
+// histórico e evita que a contagem total de cupons do estoque mude sem
+// querer. Por isso não existe mais nenhuma função "excluir cupom" aqui —
+// se precisar tirar um cupom de circulação, use "Bloquear".
 function exportCouponsCSV() {
   if (!allCoupons.length) { toast('Nenhum cupom para exportar.', 'error'); return; }
   const h = 'Link,Status,Usuário,E-mail,Distribuído em,Importado em\n';
@@ -2055,11 +2054,7 @@ function renderUsers() {
     <td data-label="Cadastrado em">${fmtDate(u.created_at)}</td>
     <td class="sticky-actions">
       <div class="btns">
-        ${u.effCouponId
-          ? `<button class="btn btn-ghost btn-sm" onclick="trocarCupomUsuario('${u.id}','${u.effCouponId}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular outro cupom disponível e bloquear o atual">🔄 Trocar</button>`
-          : ''
-        }
-        <button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom vinculados a esta pessoa, gerar mais escolhendo a quantidade, e opcionalmente enviar um e-mail com eles">🔗 Cupons${u.couponsIssued > 0 ? ` (${u.couponsIssued})` : ''}</button>
+        <button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom vinculados a esta pessoa, trocar/devolver escolhendo qual link, gerar mais, e opcionalmente enviar um e-mail com eles">🔗 Cupons${u.couponsIssued > 0 ? ` (${u.couponsIssued})` : ''}</button>
         <button class="btn btn-ghost btn-sm btn-icon"
           onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')"
           title="Excluir">🗑</button>
@@ -2163,15 +2158,23 @@ async function gerarCupomUsuario(userId, userName) {
   );
 }
 
-// Troca o cupom de um usuário que já tem um vinculado: pega o próximo
-// disponível do estoque (igual gerarCupomUsuario) e BLOQUEIA permanentemente
-// o cupom antigo — não devolve ao estoque, pra não circular de novo pra
-// outra pessoa (mesma regra já usada na troca manual da aba Cupons).
+// Troca UM cupom específico de um usuário (pode ser chamado tanto pro
+// cupom "principal" quanto por qualquer um dos extras, escolhido na
+// janela "🔗 Cupons"): pega o próximo disponível do estoque e BLOQUEIA
+// permanentemente o cupom antigo — não devolve ao estoque, pra não
+// circular de novo pra outra pessoa (mesma regra já usada na troca manual
+// da aba Cupons).
 async function trocarCupomUsuario(userId, oldCouponId, userName) {
   openConfirm(
     'Trocar cupom do usuário',
-    `Vincular um novo cupom disponível do estoque a "${userName}"?\n\nO cupom atual será bloqueado permanentemente (não volta ao estoque) e o novo será marcado como "Entregue".`,
+    `Vincular um novo cupom disponível do estoque a "${userName}"?\n\nO cupom escolhido será bloqueado permanentemente (não volta ao estoque) e o novo será marcado como "Entregue".`,
     async () => {
+      // Confere se o cupom escolhido é o "principal" (users.coupons_id) ou
+      // um extra — só atualiza o principal se for de fato ele; senão, o
+      // novo cupom vira só mais um extra e o principal continua o mesmo.
+      const { data: userRow } = await db.from('users').select('coupons_id').eq('id', userId).single();
+      const eraPrincipal = !!oldCouponId && userRow?.coupons_id === oldCouponId;
+
       const { data: avail, error: availErr } = await db
         .from('coupons').select('id,link').eq('status', 'available').limit(1);
       if (availErr) { toast('Erro ao buscar cupom disponível: ' + availErr.message, 'error', 6000); return; }
@@ -2192,8 +2195,10 @@ async function trocarCupomUsuario(userId, oldCouponId, userName) {
           .eq('id', oldCouponId);
       }
 
-      const { error: uErr } = await db.from('users').update({ coupons_id: coupon.id }).eq('id', userId);
-      if (uErr) { toast('Erro ao vincular novo cupom: ' + uErr.message, 'error', 6000); return; }
+      if (eraPrincipal) {
+        const { error: uErr } = await db.from('users').update({ coupons_id: coupon.id }).eq('id', userId);
+        if (uErr) { toast('Erro ao vincular novo cupom: ' + uErr.message, 'error', 6000); return; }
+      }
 
       await db.from('events').insert({
         coupons_id: coupon.id, users_id: userId,
@@ -2203,7 +2208,9 @@ async function trocarCupomUsuario(userId, oldCouponId, userName) {
 
       toast('Cupom trocado! O antigo foi bloqueado permanentemente.', 'success', 4000);
       loadUsers();
+      loadCorporateLeads();
       loadDashboard();
+      if (viewCouponsUserId === userId) verCuponsUsuario(userId, userName);
     },
     '🔄 Trocar cupom'
   );
@@ -2295,7 +2302,11 @@ async function verCuponsUsuario(userId, userName) {
         <a href="${esc(c.link)}" target="_blank" rel="noopener" style="font-size:12px;word-break:break-all">${esc(c.link)}</a>
         <div style="font-size:11px;color:var(--text3);margin-top:2px">${statusLabel(c.status)}${c.distributed_at ? ' · ' + fmtDate(c.distributed_at) : ''}</div>
       </div>
-      <button class="btn btn-ghost btn-sm btn-icon" onclick="navigator.clipboard.writeText('${(c.link||'').replace(/'/g,"\\'")}');toast('Link copiado!','success')" title="Copiar link">📋</button>
+      <div style="display:flex;gap:.3rem;flex-shrink:0">
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="navigator.clipboard.writeText('${(c.link||'').replace(/'/g,"\\'")}');toast('Link copiado!','success')" title="Copiar link">📋</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="trocarCupomUsuario('${viewCouponsUserId}','${c.id}','${(viewCouponsUserName||'').replace(/'/g,"\\'")}')" title="Trocar por outro cupom disponível — este é bloqueado permanentemente">🔄</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="devolverCupomModal('${c.id}')" title="Devolver ao estoque — fica disponível pra vincular a outra pessoa depois">↩</button>
+      </div>
     </div>
   `).join('');
 
@@ -2391,6 +2402,23 @@ async function gerarCuponsQuantidade() {
     },
     '🎟 Gerar'
   );
+}
+
+// Devolve UM cupom específico ao estoque, direto da janela "Cupons de
+// <pessoa>" (Usuários e Corporativo usam a mesma janela). O link some da
+// lista dessa pessoa e volta a ficar "Disponível" pra qualquer outra —
+// mesmo efeito do "↩ Devolver" que já existia na aba Cupons.
+async function devolverCupomModal(couponId) {
+  openConfirm('Devolver cupom ao estoque', 'Esse link volta a ficar disponível para vincular a qualquer pessoa, e sai da lista desta pessoa. Continuar?', async () => {
+    await db.from('users').update({ coupons_id: null }).eq('coupons_id', couponId);
+    const { error } = await db.from('coupons')
+      .update({ status: 'available', distributed_at: null, users_id: null })
+      .eq('id', couponId);
+    if (error) { toast('Erro ao devolver: ' + error.message, 'error', 6000); return; }
+    toast('Cupom devolvido ao estoque.', 'success');
+    loadUsers(); loadCorporateLeads(); loadDashboard();
+    if (viewCouponsUserId) verCuponsUsuario(viewCouponsUserId, viewCouponsUserName);
+  }, '↩ Devolver');
 }
 
 function openExportUsersModal() {
