@@ -61,7 +61,7 @@ a{color:var(--accent-light);text-decoration:none}
 .sb-footer{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid var(--border)}
 .sb-user{font-size:12px;color:var(--text3);margin-bottom:.75rem}
 
-.main{flex:1;margin-left:220px;padding:2rem;min-height:100vh;background:var(--bg)}
+.main{flex:1;min-width:0;margin-left:220px;padding:2rem;min-height:100vh;background:var(--bg);overflow-x:hidden}
 .page-header{margin-bottom:1.75rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .page-header-left .page-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.4px}
 .page-header-left .page-sub{color:var(--text3);font-size:13px;margin-top:.15rem}
@@ -76,12 +76,23 @@ a{color:var(--accent-light);text-decoration:none}
 .tbl-head{display:flex;align-items:center;justify-content:space-between;padding:.875rem 1.25rem;border-bottom:1px solid var(--border);gap:.75rem;flex-wrap:wrap}
 .tbl-title{font-size:13px;font-weight:600}
 .tbl-sub{font-size:11px;color:var(--text3);margin-top:1px}
-table{width:100%;border-collapse:collapse}
+/* min-width (não width): a tabela preenche 100% quando cabe, mas cresce
+   além disso quando o conteúdo (muitas colunas, botões de ação) precisa
+   de mais espaço — é isso que faz o overflow-x:auto do wrapper realmente
+   disparar a rolagem, em vez de só espremer/cortar as colunas pra caber
+   numa largura fixa de 100%. */
+table{min-width:100%;border-collapse:collapse}
 thead th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);padding:.65rem 1rem;text-align:left;border-bottom:1px solid var(--border);background:var(--bg2)}
 tbody tr{border-bottom:1px solid var(--border);transition:background .12s}
 tbody tr:last-child{border-bottom:none}
 tbody tr:hover{background:var(--bg3)}
 td{padding:.65rem 1rem;font-size:12px;color:var(--text2);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Coluna de ações: sem truncar (a regra geral de "td" corta texto longo
+   com "...", o que não faz sentido pros botões). O "sticky" (grudar essa
+   coluna na borda direita) foi tentado e removido de novo — não estava
+   funcionando de forma confiável, então agora ela só faz parte da rolagem
+   horizontal normal da tabela como qualquer outra coluna. */
+td.sticky-actions,th.sticky-actions{white-space:nowrap;max-width:none}
 td.primary{color:var(--text);font-weight:500}
 .badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:100px;font-size:10px;font-weight:700}
 .b-available{background:rgba(34,197,94,.12);color:#4ade80}
@@ -182,7 +193,21 @@ body{overflow-x:hidden}
   .stats-grid{grid-template-columns:repeat(2,1fr)}
   .mobile-topbar{display:flex}
   .sidebar-overlay.show{display:block}
-  table{min-width:640px}
+  table:not(.data-table){min-width:640px}
+
+  /* Tabelas de listagem (Cupons/Usuários/Lista de espera/Corporativo/Logs)
+     viram "cards" empilhados no celular, em vez de dependerem de rolar a
+     tabela pro lado — resolve de vez o corte de colunas/botões sem
+     depender do dedo conseguir arrastar a tabela horizontalmente. */
+  table.data-table{display:block;width:100%;min-width:0}
+  table.data-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+  table.data-table tbody{display:block;width:100%}
+  table.data-table tr{display:block;border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:.75rem;padding:.35rem .85rem;background:var(--bg2)}
+  table.data-table td{display:flex;justify-content:space-between;align-items:center;gap:.75rem;width:100%;max-width:none;overflow:visible;text-overflow:clip;white-space:normal;text-align:right;border-bottom:1px dashed var(--border);padding:.55rem 0}
+  table.data-table td:last-child{border-bottom:none}
+  table.data-table td[data-label]::before{content:attr(data-label);font-weight:600;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;text-align:left;flex-shrink:0}
+  table.data-table td.sticky-actions{display:block;text-align:left}
+  table.data-table td.sticky-actions .btns{flex-wrap:wrap;justify-content:flex-start}
 }
 </style>
 </head>
@@ -388,7 +413,7 @@ body{overflow-x:hidden}
         </div>
         <div class="tbl-wrap">
           <div class="tbl-head">
-            <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail, telefone ou link..." oninput="renderUsers()" style="width:280px"/>
+            <input class="search-input" id="userSearch" placeholder="Buscar nome, e-mail, telefone ou link..." oninput="userPage=0;renderUsers()" style="width:280px"/>
           </div>
           <div id="userBody"><div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Carregando...</div></div></div>
         </div>
@@ -660,6 +685,7 @@ function sortCoupons(col) {
 function sortUsers(col) {
   if (userSort && userSort.col === col) userSort.dir = userSort.dir === 'asc' ? 'desc' : 'asc';
   else userSort = { col, dir: 'asc' };
+  userPage = 0;
   renderUsers();
 }
 let confirmCallback = null, dragSrcId = null;
@@ -1587,16 +1613,16 @@ function renderCoupons() {
       (now - new Date(c.distributed_at).getTime()) > HOURS_72;
 
     return `<tr ${aguardando ? 'style="background:rgba(245,158,11,.04)"' : ''}>
-    <td class="truncate mono" style="max-width:260px"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
-    <td>
+    <td class="truncate mono" style="max-width:260px" data-label="Link"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
+    <td data-label="Status">
       <span class="badge b-${c.status}">${statusLabel(c.status)}</span>
       ${aguardando ? `<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;margin-left:4px">⏳ Validar</span>` : ''}
     </td>
-    <td class="primary">${esc(c.user?.name || '—')}</td>
-    <td>${esc(c.user?.email || '—')}</td>
-    <td><span class="ref-badge">${esc(refLabelById(c.user?.referral_id))}</span></td>
-    <td>${fmtDate(c.distributed_at)}</td>
-    <td>
+    <td class="primary" data-label="Usuário">${esc(c.user?.name || '—')}</td>
+    <td data-label="E-mail">${esc(c.user?.email || '—')}</td>
+    <td data-label="Indicação"><span class="ref-badge">${esc(refLabelById(c.user?.referral_id))}</span></td>
+    <td data-label="Entregue em">${fmtDate(c.distributed_at)}</td>
+    <td class="sticky-actions">
       <div class="btns">
         ${aguardando ? `
           <button class="btn btn-success btn-sm btn-icon" onclick="confirmActivated('${c.id}')" title="Marcar como resgatado">✅</button>
@@ -1637,15 +1663,15 @@ function renderCoupons() {
   const sortableTh = (label, col) =>
     `<th style="cursor:pointer;user-select:none" onclick="sortCoupons('${col}')" title="Ordenar">${label}${sortArrow(couponSort,col)}</th>`;
 
-  body.innerHTML = `${alertPendentes}<table><thead><tr>
+  body.innerHTML = `${alertPendentes}<div style="overflow-x:auto"><table class="data-table"><thead><tr>
     ${sortableTh('Link','link')}
     ${sortableTh('Status','status')}
     ${sortableTh('Usuário','name')}
     ${sortableTh('E-mail','email')}
     ${sortableTh('Indicação','referral')}
     ${sortableTh('Entregue em','date')}
-    <th>Ações</th>
-  </tr></thead><tbody>${rows}</tbody></table>${pager}`;
+    <th class="sticky-actions">Ações</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>${pager}`;
 }
 
 function statusLabel(s) {
@@ -1980,24 +2006,32 @@ function renderUsers() {
     return;
   }
 
-  const rows = list.map(u => `<tr>
-    <td class="primary">${esc(u.name)}</td>
-    <td>${esc(u.email)}</td>
-    <td>${esc(u.phone || '—')}</td>
-    <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
-    <td>
+  // Pagina de 20 em 20, igual a aba Cupons — sem isso, uma base com muitos
+  // cadastros renderizava a tabela inteira de uma vez (lenta e com scroll
+  // vertical gigante).
+  const total = list.length;
+  const totalPages = Math.ceil(total / userPageSize);
+  if (userPage >= totalPages) userPage = Math.max(0, totalPages - 1);
+  const page = list.slice(userPage * userPageSize, (userPage + 1) * userPageSize);
+
+  const rows = page.map(u => `<tr>
+    <td class="primary" data-label="Nome">${esc(u.name)}</td>
+    <td data-label="E-mail">${esc(u.email)}</td>
+    <td data-label="Telefone">${esc(u.phone || '—')}</td>
+    <td data-label="Indicação"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
+    <td data-label="Licenças">
       ${(u.quantidade_licencas || 1) > 1
         ? `<span class="ref-badge" title="Licenças pedidas no cadastro vs. cupons já emitidos para essa pessoa">${u.quantidade_licencas} pedidas · ${u.couponsIssued} emitidas</span>`
         : '—'}
     </td>
-    <td class="truncate mono" style="max-width:200px">
+    <td class="truncate mono" style="max-width:200px" data-label="Link do cupom">
       ${u.couponLink
         ? `<a href="${esc(u.couponLink)}" target="_blank" rel="noopener">${esc(u.couponLink)}</a>`
         : '—'}
       ${u.couponsIssued > 1 ? ` <span style="color:var(--text3);font-size:11px">(+${u.couponsIssued - 1})</span>` : ''}
     </td>
-    <td>${fmtDate(u.created_at)}</td>
-    <td>
+    <td data-label="Cadastrado em">${fmtDate(u.created_at)}</td>
+    <td class="sticky-actions">
       <div class="btns">
         ${u.effCouponId
           ? `<button class="btn btn-ghost btn-sm" onclick="trocarCupomUsuario('${u.id}','${u.effCouponId}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular outro cupom disponível e bloquear o atual">🔄 Trocar</button>
@@ -2014,7 +2048,17 @@ function renderUsers() {
   const sortableTh = (label, col) =>
     `<th style="cursor:pointer;user-select:none" onclick="sortUsers('${col}')" title="Ordenar">${label}${sortArrow(userSort,col)}</th>`;
 
-  body.innerHTML = `<table><thead><tr>
+  const pager = totalPages > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+      <span>Exibindo ${userPage*userPageSize+1}–${Math.min((userPage+1)*userPageSize,total)} de ${total}</span>
+      <div style="display:flex;gap:.5rem">
+        <button class="btn btn-ghost btn-sm" onclick="userPage--;renderUsers()" ${userPage===0?'disabled':''}>← Anterior</button>
+        <span style="padding:.35rem .75rem">${userPage+1} / ${totalPages}</span>
+        <button class="btn btn-ghost btn-sm" onclick="userPage++;renderUsers()" ${userPage>=totalPages-1?'disabled':''}>Próximo →</button>
+      </div>
+    </div>` : '';
+
+  body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
     ${sortableTh('Nome','name')}
     ${sortableTh('E-mail','email')}
     ${sortableTh('Telefone','phone')}
@@ -2022,8 +2066,8 @@ function renderUsers() {
     ${sortableTh('Licenças','licenses')}
     <th>Link do cupom</th>
     ${sortableTh('Cadastrado em','date')}
-    <th></th>
-  </tr></thead><tbody>${rows}</tbody></table>`;
+    <th class="sticky-actions"></th>
+  </tr></thead><tbody>${rows}</tbody></table></div>${pager}`;
 }
 
 async function deleteUser(id, name, couponId) {
@@ -2258,13 +2302,13 @@ async function loadWaitlist() {
   }
 
   const rows = allWaitlist.map(w => `<tr>
-    <td class="primary">${esc(w.name)}</td>
-    <td>${esc(w.email)}</td>
-    <td>${esc(w.phone || '—')}</td>
-    <td><span class="ref-badge">${esc(refLabelById(w.referral_id))}</span></td>
-    <td>${fmtDate(w.created_at)}</td>
-    <td><span class="badge ${w.notified ? 'b-distributed' : 'b-available'}">${w.notified ? 'Notificado' : 'Aguardando'}</span></td>
-    <td>
+    <td class="primary" data-label="Nome">${esc(w.name)}</td>
+    <td data-label="E-mail">${esc(w.email)}</td>
+    <td data-label="Telefone">${esc(w.phone || '—')}</td>
+    <td data-label="Indicação"><span class="ref-badge">${esc(refLabelById(w.referral_id))}</span></td>
+    <td data-label="Cadastrado em">${fmtDate(w.created_at)}</td>
+    <td data-label="Status"><span class="badge ${w.notified ? 'b-distributed' : 'b-available'}">${w.notified ? 'Notificado' : 'Aguardando'}</span></td>
+    <td class="sticky-actions">
       <div class="btns">
         ${!w.notified ? `<button class="btn btn-success btn-sm" onclick="markNotified('${w.id}')">✓ Notificado</button>` : ''}
         <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteWaitlist('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">🗑</button>
@@ -2272,7 +2316,7 @@ async function loadWaitlist() {
     </td>
   </tr>`).join('');
 
-  body.innerHTML = `<table><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Cadastrado em</th><th>Status</th><th>Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+  body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Cadastrado em</th><th>Status</th><th class="sticky-actions">Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 async function markNotified(id) {
@@ -2344,19 +2388,19 @@ function renderCorporateLeads() {
   }
 
   const rows = allCorporateLeads.map(l => `<tr>
-    <td class="primary">${esc(l.name)}</td>
-    <td>${esc(l.email)}</td>
-    <td>${esc(l.phone || '—')}</td>
-    <td><span class="ref-badge">${esc(refLabelById(l.referral_id))}</span></td>
-    <td><strong>${l.quantidade_licencas}</strong> licenças</td>
-    <td>${fmtDate(l.created_at)}</td>
-    <td>
+    <td class="primary" data-label="Nome">${esc(l.name)}</td>
+    <td data-label="E-mail">${esc(l.email)}</td>
+    <td data-label="Telefone">${esc(l.phone || '—')}</td>
+    <td data-label="Indicação"><span class="ref-badge">${esc(refLabelById(l.referral_id))}</span></td>
+    <td data-label="Licenças"><strong>${l.quantidade_licencas}</strong> licenças</td>
+    <td data-label="Cadastrado em">${fmtDate(l.created_at)}</td>
+    <td data-label="E-mail comercial">
       <span class="badge ${l.notified ? 'b-distributed' : 'b-blocked'}" title="Se o e-mail automático avisando o comercial saiu ou não">
         ${l.notified ? '✉ Time avisado' : '⚠ E-mail não enviado'}
       </span>
     </td>
-    <td><span class="badge ${l.contacted ? 'b-distributed' : 'b-available'}">${l.contacted ? 'Contatado' : 'Aguardando contato'}</span></td>
-    <td>
+    <td data-label="Status"><span class="badge ${l.contacted ? 'b-distributed' : 'b-available'}">${l.contacted ? 'Contatado' : 'Aguardando contato'}</span></td>
+    <td class="sticky-actions">
       <div class="btns">
         ${!l.contacted ? `<button class="btn btn-success btn-sm" onclick="markContacted('${l.id}')">✓ Contatado</button>` : ''}
         <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCorporateLead('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')">🗑</button>
@@ -2364,10 +2408,10 @@ function renderCorporateLeads() {
     </td>
   </tr>`).join('');
 
-  body.innerHTML = `<table><thead><tr>
+  body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
     <th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Licenças</th>
-    <th>Cadastrado em</th><th>E-mail comercial</th><th>Status</th><th></th>
-  </tr></thead><tbody>${rows}</tbody></table>`;
+    <th>Cadastrado em</th><th>E-mail comercial</th><th>Status</th><th class="sticky-actions"></th>
+  </tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 async function markContacted(id) {
@@ -2709,17 +2753,17 @@ async function loadLogs() {
     const coupon = cMap[e.coupons_id];
     const user = uMap[e.users_id];
     return `<tr>
-      <td>${fmtDate(e.created_at)}</td>
-      <td><span class="badge ${e.event_type === 'distributed' ? 'b-distributed' : 'b-available'}">${esc(e.event_type)}</span></td>
-      <td class="truncate mono" style="max-width:200px">
+      <td data-label="Data/Hora">${fmtDate(e.created_at)}</td>
+      <td data-label="Evento"><span class="badge ${e.event_type === 'distributed' ? 'b-distributed' : 'b-available'}">${esc(e.event_type)}</span></td>
+      <td class="truncate mono" style="max-width:200px" data-label="Link">
         ${coupon ? `<a href="${esc(coupon.link)}" target="_blank" rel="noopener">${esc(coupon.link)}</a>` : '—'}
       </td>
-      <td class="primary">${esc(user?.name || '—')}</td>
-      <td>${esc(user?.email || '—')}</td>
+      <td class="primary" data-label="Usuário">${esc(user?.name || '—')}</td>
+      <td data-label="E-mail">${esc(user?.email || '—')}</td>
     </tr>`;
   }).join('');
 
-  body.innerHTML = `<table><thead><tr><th>Data/Hora</th><th>Evento</th><th>Link</th><th>Usuário</th><th>E-mail</th></tr></thead><tbody>${rows}</tbody></table>`;
+  body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Data/Hora</th><th>Evento</th><th>Link</th><th>Usuário</th><th>E-mail</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 // ─── ATIVADOS MANUAL ──────────────────────────────────────────────────────────
