@@ -139,14 +139,17 @@ td.primary{color:var(--text);font-weight:500}
 .ref-add-input{flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem 1rem;color:var(--text);font-size:14px;outline:none}
 .ref-add-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,.12)}
 .ref-list{display:flex;flex-direction:column;gap:.5rem}
-.ref-item{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);gap:.75rem;transition:border-color .15s}
+.ref-item{display:flex;flex-direction:column;align-items:stretch;padding:.75rem 1rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg);gap:.5rem;transition:border-color .15s}
 .ref-item.drag-over{border-color:var(--accent);background:rgba(124,106,247,.06)}
 .ref-item.inactive{opacity:.45}
+.ref-item-top{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
 .ref-item-left{display:flex;align-items:center;gap:.75rem;flex:1;min-width:0}
 .ref-handle{color:var(--text3);font-size:15px;cursor:grab;user-select:none;flex-shrink:0;line-height:1}
 .ref-handle:active{cursor:grabbing}
 .ref-label{font-size:13px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ref-item-right{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.ref-link-row{display:flex;align-items:center;gap:.5rem;padding-top:.5rem;border-top:1px solid var(--border)}
+.ref-link-url{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text3)}
 .toggle-btn{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 9px;border-radius:100px;border:none;cursor:pointer;font-family:inherit;transition:all .15s}
 .toggle-btn.on{background:rgba(34,197,94,.12);color:#4ade80}
 .toggle-btn.off{background:var(--bg4);color:var(--text3)}
@@ -242,6 +245,11 @@ body{overflow-x:hidden}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Lista de Espera
         <span class="sb-badge" id="waitlistCount">0</span>
+      </div>
+      <div class="sb-link" id="nav-corporate" onclick="goTab('corporate')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        Corporativo
+        <span class="sb-badge" id="corpCount">0</span>
       </div>
       <div class="sb-section">Dados</div>
       <div class="sb-link" id="nav-import" onclick="goTab('import')">
@@ -417,6 +425,17 @@ body{overflow-x:hidden}
         </div>
       </div>
 
+      <!-- CORPORATIVO -->
+      <div id="tab-corporate" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Corporativo</div><div class="page-sub">Pedidos de mais de 10 licenças — aguardando contato comercial</div></div>
+          <button class="btn btn-ghost btn-sm" onclick="exportCorporateCSV()">⬇ CSV</button>
+        </div>
+        <div class="tbl-wrap">
+          <div id="corporateBody"><div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">Carregando...</div></div></div>
+        </div>
+      </div>
+
       <!-- IMPORTAR -->
       <div id="tab-import" class="hidden">
         <div class="page-header">
@@ -487,6 +506,12 @@ body{overflow-x:hidden}
             <div style="font-size:12px;color:var(--text3);margin-bottom:1.25rem;line-height:1.5">Usuários aguardando cupom, status de notificação.</div>
             <button class="btn btn-primary btn-sm" onclick="exportWaitlistCSVDirect()">⬇ Exportar lista</button>
           </div>
+          <div class="tbl-wrap" style="padding:1.5rem">
+            <div style="font-size:24px;margin-bottom:.75rem">🏢</div>
+            <div style="font-weight:600;margin-bottom:.5rem">Pedidos corporativos</div>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:1.25rem;line-height:1.5">Pedidos de mais de 10 licenças, status de contato.</div>
+            <button class="btn btn-primary btn-sm" onclick="exportCorporateCSVFull()">⬇ Exportar pedidos</button>
+          </div>
         </div>
       </div>
 
@@ -548,6 +573,7 @@ body{overflow-x:hidden}
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-phone" checked> Telefone</label>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-referral" checked> Indicação</label>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-link" checked> Link do cupom</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-licenses"> Licenças (pedidas/emitidas)</label>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px"><input type="checkbox" id="expF-date" checked> Cadastrado em</label>
     </div>
     <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.4rem">Ordenar por</label>
@@ -585,6 +611,12 @@ body{overflow-x:hidden}
 const SUPA_URL = 'https://eunnrjqeuczhtghbbzos.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bm5yanFldWN6aHRnaGJiem9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjQ3NzMsImV4cCI6MjA5NjU0MDc3M30.rdRVhWZOxYGKZBmY9IBGcbAiPwYt4CGcYKiv9T-Umys';
 const MAX_ATTEMPTS = 5;
+// URL do formulário público (index.html). Usada pra gerar o link
+// "travado por indicação" (.../NomeDaIndicação, ex: 12ia.ia.br/OAB-MG)
+// mostrado na aba Indicações. Se o admin não estiver hospedado na mesma
+// origem/raiz do formulário público, troque por uma URL fixa
+// (ex: 'https://12ia.ia.br/').
+const PUBLIC_FORM_URL = window.location.origin + '/';
 
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
@@ -746,6 +778,7 @@ function goTab(id) {
   if (id === 'users')     loadUsers();
   if (id === 'logs')      loadLogs();
   if (id === 'waitlist')  loadWaitlist();
+  if (id === 'corporate') loadCorporateLeads();
   if (id === 'referrals') loadRefOptions();
   closeSidebar();
 }
@@ -1839,10 +1872,24 @@ async function loadUsers() {
     allRefOpts = data || [];
   }
 
-  const { data: us, error } = await db
+  let { data: us, error } = await db
     .from('users')
-    .select('id,name,email,phone,referral_id,coupons_id,created_at')
+    .select('id,name,email,phone,referral_id,coupons_id,quantidade_licencas,created_at')
     .order('created_at', { ascending: false });
+
+  // A coluna quantidade_licencas só existe depois de rodar o SQL
+  // "licencas_corporativas_setup.sql" no Supabase. Se ainda não rodou,
+  // em vez de quebrar a tela inteira de Usuários, tenta de nova sem essa
+  // coluna (assumindo 1 licença pra todo mundo) e só avisa.
+  if (error && /quantidade_licencas/i.test(error.message || '')) {
+    toast('Rode o SQL "licencas_corporativas_setup.sql" no Supabase para habilitar o campo de licenças.', 'error', 8000);
+    const retry = await db
+      .from('users')
+      .select('id,name,email,phone,referral_id,coupons_id,created_at')
+      .order('created_at', { ascending: false });
+    us = retry.data; error = retry.error;
+    (us || []).forEach(u => { u.quantidade_licencas = 1; });
+  }
 
   if (error) {
     document.getElementById('userBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro: ${esc(error.message)}</div></div>`;
@@ -1873,6 +1920,21 @@ async function loadUsers() {
     (cs2 || []).forEach(c => { if (c.users_id) { cMapByUser[c.users_id] = c.link; cIdMapByUser[c.users_id] = c.id; } });
   }
 
+  // 3. Conta quantos cupons "ativos" (entregues/resgatados) estão vinculados
+  // a cada usuário via coupons.users_id. Isso cobre o caso de pedidos
+  // corporativos (2-10 licenças): a pessoa recebe 1 cupom pelo formulário
+  // público, e a equipe usa "➕ Extra" no admin pra ir vinculando os demais
+  // — mas o campo users.coupons_id só guarda 1 id, então sem essa contagem
+  // à parte os cupons extras ficariam invisíveis nesta tela.
+  let couponsCountByUser = {};
+  if (uIdsForCoupon.length) {
+    const { data: cs3 } = await db
+      .from('coupons').select('users_id,status')
+      .in('users_id', uIdsForCoupon)
+      .in('status', ['delivered', 'redeemed']);
+    (cs3 || []).forEach(c => { if (c.users_id) couponsCountByUser[c.users_id] = (couponsCountByUser[c.users_id] || 0) + 1; });
+  }
+
   allUsers = (us || []).map(u => ({
     ...u,
     couponLink: (u.coupons_id ? cMapById[u.coupons_id] : null) || cMapByUser[u.id] || null,
@@ -1880,7 +1942,10 @@ async function loadUsers() {
     // users.coupons_id — quanto o registro antigo em que só coupons.users_id
     // aponta pra cá). É esse id que "Trocar cupom" precisa pra bloquear o
     // cupom certo.
-    effCouponId: u.coupons_id || cIdMapByUser[u.id] || null
+    effCouponId: u.coupons_id || cIdMapByUser[u.id] || null,
+    // Quantos cupons esse usuário já tem de fato (pode ser mais de 1 em
+    // pedidos corporativos) vs. quantas licenças ele pediu no cadastro.
+    couponsIssued: couponsCountByUser[u.id] || 0
   }));
   renderUsers();
 }
@@ -1901,6 +1966,7 @@ function renderUsers() {
       email:    u => u.email || '',
       phone:    u => u.phone || '',
       referral: u => refLabelById(u.referral_id) || '',
+      licenses: u => u.quantidade_licencas || 1,
       date:     u => u.created_at ? new Date(u.created_at).getTime() : null,
     };
     const get = getters[userSort.col];
@@ -1919,16 +1985,23 @@ function renderUsers() {
     <td>${esc(u.email)}</td>
     <td>${esc(u.phone || '—')}</td>
     <td><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
+    <td>
+      ${(u.quantidade_licencas || 1) > 1
+        ? `<span class="ref-badge" title="Licenças pedidas no cadastro vs. cupons já emitidos para essa pessoa">${u.quantidade_licencas} pedidas · ${u.couponsIssued} emitidas</span>`
+        : '—'}
+    </td>
     <td class="truncate mono" style="max-width:200px">
       ${u.couponLink
         ? `<a href="${esc(u.couponLink)}" target="_blank" rel="noopener">${esc(u.couponLink)}</a>`
         : '—'}
+      ${u.couponsIssued > 1 ? ` <span style="color:var(--text3);font-size:11px">(+${u.couponsIssued - 1})</span>` : ''}
     </td>
     <td>${fmtDate(u.created_at)}</td>
     <td>
       <div class="btns">
         ${u.effCouponId
-          ? `<button class="btn btn-ghost btn-sm" onclick="trocarCupomUsuario('${u.id}','${u.effCouponId}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular outro cupom disponível e bloquear o atual">🔄 Trocar</button>`
+          ? `<button class="btn btn-ghost btn-sm" onclick="trocarCupomUsuario('${u.id}','${u.effCouponId}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular outro cupom disponível e bloquear o atual">🔄 Trocar</button>
+             <button class="btn btn-ghost btn-sm" onclick="adicionarCupomExtra('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Vincular mais um cupom a esta pessoa, sem mexer no(s) que já tem (uso: pedidos de mais de 1 licença)">➕ Extra</button>`
           : `<button class="btn btn-ghost btn-sm" onclick="gerarCupomUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Gerar/vincular um cupom disponível para este usuário">🎟 Gerar cupom</button>`
         }
         <button class="btn btn-ghost btn-sm btn-icon"
@@ -1946,6 +2019,7 @@ function renderUsers() {
     ${sortableTh('E-mail','email')}
     ${sortableTh('Telefone','phone')}
     ${sortableTh('Indicação','referral')}
+    ${sortableTh('Licenças','licenses')}
     <th>Link do cupom</th>
     ${sortableTh('Cadastrado em','date')}
     <th></th>
@@ -2059,6 +2133,50 @@ async function trocarCupomUsuario(userId, oldCouponId, userName) {
 
 // Modal de exportação: escolhe quais colunas vão pro CSV, a ordenação, e
 // se é pra exportar todo mundo ou só quem está sem link vinculado.
+// Vincula MAIS UM cupom a um usuário que já tem pelo menos um — sem
+// bloquear nem mexer no(s) cupom(ns) que ele já possui. É o caso dos
+// pedidos corporativos: o formulário público só gera 1 cupom por
+// cadastro, então quando alguém pede várias licenças (campo
+// "quantidade_licencas"), o time usa este botão o número de vezes
+// necessário para emitir as demais.
+//
+// Importante: users.coupons_id só guarda 1 id, então ele continua
+// apontando pro primeiro cupom — os extras só aparecem contados na
+// coluna "Licenças" (couponsIssued) e vinculados de fato via
+// coupons.users_id, não pelo campo "Link do cupom" da tabela.
+async function adicionarCupomExtra(userId, userName) {
+  openConfirm(
+    'Vincular cupom extra',
+    `Vincular mais um cupom disponível a "${userName}", sem mexer no(s) que ela já tem?\n\nUse para completar pedidos de mais de 1 licença.`,
+    async () => {
+      const { data: avail, error: availErr } = await db
+        .from('coupons').select('id,link').eq('status', 'available').limit(1);
+      if (availErr) { toast('Erro ao buscar cupom disponível: ' + availErr.message, 'error', 6000); return; }
+      if (!avail?.length) { toast('Não há cupons disponíveis em estoque.', 'error', 5000); return; }
+      const coupon = avail[0];
+      const now = new Date().toISOString();
+
+      const { data: locked, error: lockErr } = await db.from('coupons')
+        .update({ status: 'delivered', distributed_at: now, users_id: userId })
+        .eq('id', coupon.id).eq('status', 'available')
+        .select();
+      if (lockErr) { toast('Erro ao reservar cupom: ' + lockErr.message, 'error', 6000); return; }
+      if (!locked?.length) { toast('Conflito ao reservar cupom — tente novamente.', 'error'); return; }
+
+      await db.from('events').insert({
+        coupons_id: coupon.id, users_id: userId,
+        event_type: 'manual_assign',
+        metadata: JSON.stringify({ origin: 'admin_cupom_extra' })
+      });
+
+      toast('Cupom extra vinculado!', 'success');
+      loadUsers();
+      loadDashboard();
+    },
+    '➕ Vincular extra'
+  );
+}
+
 function openExportUsersModal() {
   if (!allUsers.length) { toast('Nenhum usuário para exportar.', 'error'); return; }
   document.getElementById('expOnlySemLink').checked = false;
@@ -2076,6 +2194,7 @@ function runExportUsersCSV() {
     phone:    document.getElementById('expF-phone').checked,
     referral: document.getElementById('expF-referral').checked,
     link:     document.getElementById('expF-link').checked,
+    licenses: document.getElementById('expF-licenses').checked,
     date:     document.getElementById('expF-date').checked,
   };
   if (!Object.values(fields).some(Boolean)) {
@@ -2101,6 +2220,7 @@ function runExportUsersCSV() {
     { key: 'phone',    label: 'Telefone',       get: u => u.phone || '' },
     { key: 'referral', label: 'Indicação',      get: u => refLabelById(u.referral_id) },
     { key: 'link',     label: 'Link do cupom',  get: u => u.couponLink || '' },
+    { key: 'licenses', label: 'Licenças',       get: u => `${u.quantidade_licencas || 1} pedidas / ${u.couponsIssued || 0} emitidas` },
     { key: 'date',     label: 'Cadastrado em',  get: u => fmtDate(u.created_at) },
   ].filter(c => fields[c.key]);
 
@@ -2183,6 +2303,106 @@ function exportWaitlistCSVDirect() {
   dl('lista-espera.csv', h + r);
 }
 
+// ─── CORPORATIVO (pedidos de mais de 10 licenças) ──────────────────────────────
+// Schema corporate_leads: id, name, email, phone, referral_id,
+// quantidade_licencas, created_at, notified, notified_at, notify_error,
+// contacted, contacted_at
+// `notified` = o sistema já disparou o e-mail avisando o time comercial
+// (automático, via Edge Function). `contacted` = o comercial já falou com
+// o cliente de fato (marcado manualmente, igual à Lista de Espera).
+let allCorporateLeads = [];
+async function loadCorporateLeads() {
+  document.getElementById('corporateBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+
+  if (!allRefOpts.length) {
+    const { data } = await db.from('referrals').select('id,name');
+    allRefOpts = data || [];
+  }
+
+  const { data, error } = await db
+    .from('corporate_leads')
+    .select('id,name,email,phone,referral_id,quantidade_licencas,created_at,notified,contacted,contacted_at')
+    .order('created_at', { ascending: false });
+
+  const body = document.getElementById('corporateBody');
+  if (error) {
+    body.innerHTML = `<div class="empty-state"><div class="empty-title">Erro: ${esc(error.message)}</div></div>`;
+    return;
+  }
+
+  allCorporateLeads = data || [];
+  const pending = allCorporateLeads.filter(l => !l.contacted).length;
+  document.getElementById('corpCount').textContent = pending || '0';
+  renderCorporateLeads();
+}
+
+function renderCorporateLeads() {
+  const body = document.getElementById('corporateBody');
+  if (!allCorporateLeads.length) {
+    body.innerHTML = '<div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">Nenhum pedido corporativo ainda</div></div>';
+    return;
+  }
+
+  const rows = allCorporateLeads.map(l => `<tr>
+    <td class="primary">${esc(l.name)}</td>
+    <td>${esc(l.email)}</td>
+    <td>${esc(l.phone || '—')}</td>
+    <td><span class="ref-badge">${esc(refLabelById(l.referral_id))}</span></td>
+    <td><strong>${l.quantidade_licencas}</strong> licenças</td>
+    <td>${fmtDate(l.created_at)}</td>
+    <td>
+      <span class="badge ${l.notified ? 'b-distributed' : 'b-blocked'}" title="Se o e-mail automático avisando o comercial saiu ou não">
+        ${l.notified ? '✉ Time avisado' : '⚠ E-mail não enviado'}
+      </span>
+    </td>
+    <td><span class="badge ${l.contacted ? 'b-distributed' : 'b-available'}">${l.contacted ? 'Contatado' : 'Aguardando contato'}</span></td>
+    <td>
+      <div class="btns">
+        ${!l.contacted ? `<button class="btn btn-success btn-sm" onclick="markContacted('${l.id}')">✓ Contatado</button>` : ''}
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCorporateLead('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')">🗑</button>
+      </div>
+    </td>
+  </tr>`).join('');
+
+  body.innerHTML = `<table><thead><tr>
+    <th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Licenças</th>
+    <th>Cadastrado em</th><th>E-mail comercial</th><th>Status</th><th></th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function markContacted(id) {
+  const { error } = await db.from('corporate_leads')
+    .update({ contacted: true, contacted_at: new Date().toISOString() }).eq('id', id);
+  if (error) { toast('Erro: ' + error.message, 'error', 6000); return; }
+  toast('Marcado como contatado.', 'success');
+  loadCorporateLeads();
+}
+async function deleteCorporateLead(id, name) {
+  openConfirm('Remover pedido corporativo', `Remover o pedido de "${name}"?`, async () => {
+    const { error } = await db.from('corporate_leads').delete().eq('id', id);
+    if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
+    toast('Removido.', 'info');
+    loadCorporateLeads();
+  }, '🗑 Remover');
+}
+function exportCorporateCSV() {
+  if (!allCorporateLeads.length) { toast('Nenhum pedido corporativo para exportar.', 'error'); return; }
+  const h = 'Nome,E-mail,Telefone,Indicação,Licenças,Cadastrado em,Time avisado,Contatado\n';
+  const r = allCorporateLeads.map(l => [
+    l.name, l.email, l.phone || '',
+    refLabelById(l.referral_id),
+    l.quantidade_licencas,
+    fmtDate(l.created_at),
+    l.notified ? 'Sim' : 'Não',
+    l.contacted ? 'Sim' : 'Não'
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  dl('corporativo.csv', h + r);
+}
+async function exportCorporateCSVFull() {
+  await loadCorporateLeads();
+  exportCorporateCSV();
+}
+
 // ─── INDICAÇÕES ───────────────────────────────────────────────────────────────
 // Schema referrals: id, name, active, created_at
 async function loadRefOptions() {
@@ -2210,21 +2430,45 @@ function renderRefList() {
   }
   const active = allRefOpts.filter(o => o.active !== false).length;
   count.textContent = `${allRefOpts.length} opção(ões) · ${active} ativa(s)`;
-  list.innerHTML = allRefOpts.map(o => `
+  list.innerHTML = allRefOpts.map(o => { const link = refLink(o.name); return `
     <div class="ref-item${o.active === false ? ' inactive' : ''}" data-id="${o.id}" draggable="true"
       ondragstart="dStart(event)" ondragover="dOver(event)" ondrop="dDrop(event)" ondragleave="dLeave(event)">
-      <div class="ref-item-left">
-        <span class="ref-handle">⠿</span>
-        <span class="ref-label" title="${esc(o.name)}">${esc(o.name)}</span>
+      <div class="ref-item-top">
+        <div class="ref-item-left">
+          <span class="ref-handle">⠿</span>
+          <span class="ref-label" title="${esc(o.name)}">${esc(o.name)}</span>
+        </div>
+        <div class="ref-item-right">
+          <button class="toggle-btn ${o.active !== false ? 'on' : 'off'}" onclick="toggleRef('${o.id}',${o.active !== false})">
+            ${o.active !== false ? '● Ativa' : '○ Inativa'}
+          </button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="renameRef('${o.id}','${(o.name||'').replace(/'/g,"\\'")}')" title="Renomear">✏️</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteRef('${o.id}','${(o.name||'').replace(/'/g,"\\'")}')">🗑</button>
+        </div>
       </div>
-      <div class="ref-item-right">
-        <button class="toggle-btn ${o.active !== false ? 'on' : 'off'}" onclick="toggleRef('${o.id}',${o.active !== false})">
-          ${o.active !== false ? '● Ativa' : '○ Inativa'}
-        </button>
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="renameRef('${o.id}','${(o.name||'').replace(/'/g,"\\'")}')" title="Renomear">✏️</button>
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteRef('${o.id}','${(o.name||'').replace(/'/g,"\\'")}')">🗑</button>
+      <div class="ref-link-row">
+        <span class="ref-link-url mono" title="${esc(link)}">${esc(link)}</span>
+        <button class="btn btn-ghost btn-sm" onclick="copyRefLink('${(o.name||'').replace(/'/g,"\\'")}')">📋 Copiar link</button>
       </div>
-    </div>`).join('');
+    </div>`; }).join('');
+}
+
+// Monta o link "travado por indicação" do formulário público — mesmo
+// esquema que o index.html lê pelo CAMINHO da URL (ex: 12ia.ia.br/OAB-MG)
+// pra identificar e travar a indicação. Gerado automaticamente pra toda
+// indicação (nova ou já existente), sem precisar de nenhum passo manual.
+// "12IA" é tratada como a marca própria: o link dela é a própria URL raiz,
+// sem nenhum caminho extra.
+function refLink(name) {
+  const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (norm(name) === '12ia') return PUBLIC_FORM_URL;
+  return `${PUBLIC_FORM_URL}${encodeURIComponent(name)}`;
+}
+function copyRefLink(name) {
+  const link = refLink(name);
+  navigator.clipboard.writeText(link)
+    .then(() => toast('Link copiado!', 'success'))
+    .catch(() => toast('Não foi possível copiar. Link: ' + link, 'error', 6000));
 }
 async function addRefOption() {
   const inp = document.getElementById('refNewLabel');
