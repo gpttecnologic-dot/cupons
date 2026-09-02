@@ -30,17 +30,21 @@ a{color:var(--accent-light);text-decoration:none}
 .card{width:100%;max-width:480px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2.5rem;box-shadow:var(--shadow)}
 
 /* Logo */
-.brand-logos{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:.85rem}
-.logo-img{width:110px;height:auto;max-height:72px;object-fit:contain;display:block;flex-shrink:0;}
+.brand-logos{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:1rem}
+.logo-img{width:76px;height:76px;object-fit:contain;border-radius:14px;display:block;flex-shrink:0;}
 .logo-name{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;letter-spacing:-.3px}
-.logo-sub{font-size:11px;color:var(--text3);margin-top:1px;margin-bottom:1.5rem}
+.logo-sub{font-size:11px;color:var(--text3);margin-top:1px;margin-bottom:1rem}
 
-/* Logo do parceiro (por indicação, opcional) — mesmo tamanho/prestígio da
-logo da 12IA, lado a lado, pra passar a mesma confiança de uma parceria de
-igual pra igual (em vez de aparecer pequena, como um selinho secundário). */
-.partner-logo{display:inline-flex;align-items:center;gap:14px}
-.brand-x{font-size:20px;font-weight:300;color:var(--text3);line-height:1}
-.partner-logo-img{background:#fff;border-radius:10px;padding:6px 10px}
+/* Logo do parceiro (por indicação, opcional) — mesmo tamanho/moldura da
+logo da 12IA, lado a lado com uma divisória fina, pra passar a sensação de
+parceria de igual pra igual (em vez de aparecer pequena, como um selinho
+secundário). O fundo branco + borda no .partner-logo-img existe porque a
+logo enviada pode ter fundo transparente — sem isso ela pode "sumir" no
+cartão escuro; a moldura do mesmo tamanho da logo da 12IA é o que faz as
+duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
+.brand-divider{width:1px;height:52px;background:var(--border2);flex-shrink:0}
+.partner-logo{display:inline-flex;align-items:center;gap:16px}
+.partner-logo-img{background:#fff;border:1px solid var(--border2);padding:8px;box-sizing:border-box}
 
 .title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.5px;margin-bottom:.4rem}
 .subtitle{color:var(--text2);font-size:13px;margin-bottom:2rem;line-height:1.5}
@@ -130,7 +134,7 @@ igual pra igual (em vez de aparecer pequena, como um selinho secundário). */
     <div class="brand-logos">
       <img src="assets/img/logo-12ia.png" alt="Cupom GPT-Business" class="logo-img">
       <div id="partnerLogoWrap" class="partner-logo hidden">
-        <span class="brand-x">×</span>
+        <span class="brand-divider"></span>
         <img id="partnerLogoImg" src="" alt="Logo do parceiro" class="logo-img partner-logo-img">
       </div>
     </div>
