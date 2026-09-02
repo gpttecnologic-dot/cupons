@@ -132,12 +132,15 @@ a{color:var(--accent-light);text-decoration:none}
       <div class="fg"><label>Nome completo <span>*</span></label><input type="text" id="f-name" placeholder="Seu nome completo" autocomplete="name" /></div>
       <div class="fg"><label>Telefone / WhatsApp <span>*</span></label><input type="tel" id="f-phone" placeholder="(11) 99999-9999" autocomplete="tel" /></div>
       <div class="fg"><label>E-mail <span>*</span></label><input type="email" id="f-email" placeholder="seu@email.com" autocomplete="email" /></div>
+      <!-- A indicação não é mais escolhida pela pessoa: ela vem sempre do
+      link usado pra acessar o formulário (?ref=NomeDaIndicação), gerado na
+      aba Indicações do admin. Esse input escondido só guarda o id resolvido
+      a partir da URL — ver initReferral(). -->
+      <input type="hidden" id="f-referral" value="">
       <div class="fg">
-        <label>Como nos encontrou? <span>*</span></label>
-        
-        <select id="f-referral">
-          <option value="">Carregando opções...</option>
-        </select>
+        <label>Quantas licenças você precisa? <span>*</span></label>
+        <input type="number" id="f-qtd" min="1" step="1" value="1" />
+        <div style="font-size:11px;color:var(--text3);margin-top:.4rem">Pedidos de mais de 10 licenças não geram cupom automático — nossa equipe entra em contato para o atendimento corporativo.</div>
       </div>
       <div class="check-row">
         <input type="checkbox" id="f-terms" />
@@ -197,6 +200,25 @@ a{color:var(--accent-light);text-decoration:none}
         <div class="empty-icon">😔</div>
         <div class="empty-title">Cupons esgotados</div>
         <div class="empty-sub">Todos os cupons já foram distribuídos no momento. Entre em contato com o organizador ou aguarde novas disponibilidades.</div>
+      </div>
+    </div>
+
+    <!-- PEDIDO CORPORATIVO (mais de 10 licenças) -->
+    <div id="stateCorporate" class="hidden">
+      <div class="success-box">
+        <div class="success-icon">🏢</div>
+        <div class="success-title">Recebemos seu pedido!</div>
+        <div class="success-msg" id="corp-msg"></div>
+      </div>
+      <p style="font-size:12px;color:var(--text3);text-align:center;line-height:1.5">Como são mais de 10 licenças, o atendimento é feito diretamente pelo nosso time comercial para configurar tudo certinho para a sua empresa.</p>
+    </div>
+
+    <!-- LINK SEM INDICAÇÃO VÁLIDA -->
+    <div id="stateInvalidRef" class="hidden">
+      <div class="empty-box">
+        <div class="empty-icon">🔗</div>
+        <div class="empty-title">Link inválido ou incompleto</div>
+        <div class="empty-sub">Este cadastro só funciona através de um link específico de indicação. Peça um novo link para quem te indicou.</div>
       </div>
     </div>
 
@@ -294,8 +316,17 @@ let lastSubmit = 0;
 let currentLink = '';
 let alreadyLink = '';
 
-async function loadReferrals() {
-  const sel = document.getElementById('f-referral');
+// A indicação não é mais escolhida no formulário — ela é sempre resolvida
+// a partir do link usado pra chegar aqui (?ref=NomeDaIndicação, gerado na
+// aba Indicações do admin). Sem um ?ref= que bata com uma indicação ativa,
+// o formulário nem aparece: mostra a tela "Link inválido" em vez disso.
+// Compara nomes de indicação ignorando maiúsculas/minúsculas e qualquer
+// caractere que não seja letra/número — assim "OAB-MG" no link bate com
+// uma indicação cadastrada como "OABMG" ou "OAB-MG", e "DN.IA" bate com
+// "DN.IA" ou "DNIA", sem depender de digitar exatamente igual.
+const normalizeRef = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+async function initReferral() {
   try {
     const { data, error } = await db
       .from('referrals')
@@ -303,32 +334,34 @@ async function loadReferrals() {
       .eq('active', true)
       .order('created_at', { ascending: true });
 
-    sel.innerHTML = '<option value="">Selecione uma opção</option>';
+    if (error || !data) { showState('stateInvalidRef'); return; }
 
-    if (error || !data?.length) {
-      sel.innerHTML = '<option value="">Nenhuma opção disponível</option>';
-      return;
-    }
+    // A indicação agora vem do CAMINHO da URL (ex: 12ia.ia.br/OAB-MG),
+    // não de query string. A raiz do site (nada depois da barra) é a
+    // indicação "12IA" — a marca própria, não um caso "sem indicação".
+    // Mantém suporte a ?ref=... só como fallback, pra não quebrar links
+    // antigos gerados no formato anterior.
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    const qsRef = new URLSearchParams(window.location.search).get('ref');
+    const slug = path ? decodeURIComponent(path.split('/')[0]) : (qsRef || '12IA');
 
-    data.forEach(o => {
-      const opt = document.createElement('option');
-      opt.value = o.id;
-      opt.textContent = o.name;
-      sel.appendChild(opt);
-    });
+    const match = data.find(o => normalizeRef(o.name) === normalizeRef(slug));
+
+    if (!match) { showState('stateInvalidRef'); return; }
+
+    document.getElementById('f-referral').value = match.id;
   } catch (e) {
-    sel.innerHTML = '<option value="">Erro ao carregar opções</option>';
+    showState('stateInvalidRef');
   }
 }
 
-
-loadReferrals();
-
 function showState(id) {
-  ['stateForm','stateSuccess','stateAlready','stateEmpty'].forEach(s =>
+  ['stateForm','stateSuccess','stateAlready','stateEmpty','stateCorporate','stateInvalidRef'].forEach(s =>
     document.getElementById(s).classList.toggle('hidden', s !== id)
   );
 }
+
+initReferral();
 function showErr(msg) {
   const b = document.getElementById('alertBox');
   b.textContent = '⚠ ' + msg;
@@ -344,13 +377,15 @@ async function submitForm() {
   const phone    = norm.phone(document.getElementById('f-phone').value);
   const email    = norm.email(document.getElementById('f-email').value);
   const referral = document.getElementById('f-referral').value;
+  const qtd      = parseInt(document.getElementById('f-qtd').value, 10);
   const terms    = document.getElementById('f-terms').checked;
 
   hideErr();
   if (!name)             return showErr('Nome é obrigatório.');
   if (phone.length < 10) return showErr('Telefone/WhatsApp inválido.');
   if (!email.includes('@')) return showErr('E-mail inválido.');
-  if (!referral)         return showErr('Selecione como nos encontrou.');
+  if (!referral)         return showErr('Link inválido. Recarregue a página ou peça um novo link.');
+  if (!Number.isInteger(qtd) || qtd < 1) return showErr('Informe a quantidade de licenças (mínimo 1).');
   if (!terms)            return showErr('Aceite os termos para continuar.');
 
   const btn = document.getElementById('submitBtn');
@@ -359,6 +394,33 @@ async function submitForm() {
   lastSubmit = now;
 
   try {
+    // 0. Mais de 10 licenças: não gera cupom automático — vira um pedido
+    // corporativo pro time comercial atender manualmente (não passa nem
+    // pela checagem de duplicidade, porque a intenção aqui é "fale comigo",
+    // não "resgatar 1 cupom pra mim").
+    if (qtd > 10) {
+      const { data: lead, error: leadErr } = await db
+        .from('corporate_leads')
+        .insert({ name, email, phone, referral_id: referral, quantidade_licencas: qtd })
+        .select();
+
+      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
+
+      if (leadErr) { showErr('Erro ao registrar seu pedido. Tente novamente.'); return; }
+
+      // Avisa o time comercial por e-mail (Edge Function notify-corporate-lead,
+      // via Resend). Não bloqueia a tela de sucesso se falhar — o pedido já
+      // está salvo no banco e visível no admin de qualquer forma.
+      db.functions.invoke('notify-corporate-lead', {
+        body: { lead_id: lead[0].id }
+      }).catch(() => {});
+
+      document.getElementById('corp-msg').textContent =
+        `${name}, recebemos seu pedido de ${qtd} licenças! Em breve alguém do nosso time vai entrar em contato pelo e-mail ou telefone informado.`;
+      showState('stateCorporate');
+      return;
+    }
+
     // 1. Verifica duplicidade: e-mail OU telefone (via função segura no banco, sem expor a tabela)
     const { data: existing } = await db.rpc('check_existing_user', { p_email: email, p_phone: phone });
 
@@ -399,9 +461,12 @@ async function submitForm() {
     }
 
     // 4. Cria usuário
+    // Observação: mesmo pedidos de 2-10 licenças recebem só 1 cupom aqui —
+    // guardamos "quantidade_licencas" pra equipe saber, pelo admin, que
+    // ainda faltam licenças a emitir manualmente pra essa pessoa.
     const { data: newUser, error: uErr } = await db
       .from('users')
-      .insert({ name, email, phone, referral_id: referral, coupons_id: coupon.id })
+      .insert({ name, email, phone, referral_id: referral, coupons_id: coupon.id, quantidade_licencas: qtd })
       .select();
 
     if (uErr) {
@@ -423,9 +488,20 @@ async function submitForm() {
       metadata: JSON.stringify({ email, phone, referral_id: referral })
     });
 
+    // 6. Dispara o e-mail com o link (Edge Function send-coupon-email, via
+    // Resend). Não bloqueia nem quebra o cadastro se falhar — o usuário já
+    // vê o link na tela de qualquer forma; o e-mail é um reforço, não o
+    // único jeito de receber o link. Erros ficam registrados dentro da
+    // própria função (tabela events, event_type='email_error').
+    db.functions.invoke('send-coupon-email', {
+      body: { user_id: newUser[0].id, coupon_id: coupon.id }
+    }).catch(() => {});
+
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
     currentLink = coupon.link;
-    document.getElementById('s-msg').textContent = `Parabéns, ${name}! Seu link exclusivo foi gerado.`;
+    document.getElementById('s-msg').textContent = qtd > 1
+      ? `Parabéns, ${name}! Seu primeiro link exclusivo foi gerado. Como você pediu ${qtd} licenças, nosso time vai entrar em contato para providenciar as demais.`
+      : `Parabéns, ${name}! Seu link exclusivo foi gerado.`;
     document.getElementById('s-link').textContent = coupon.link;
     showState('stateSuccess');
 
