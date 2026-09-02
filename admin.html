@@ -2622,7 +2622,7 @@ function renderCorporateLeads() {
       <div class="btns">
         ${l.linked_user_id
           ? `<button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${l.linked_user_id}','${(l.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom já vinculados">🔗 Ver cupons</button>`
-          : `<button class="btn btn-primary btn-sm" onclick="vincularCorporativo('${l.id}')" title="Cria (ou reaproveita) o usuário e vincula ${l.quantidade_licencas} cupom(ns) do estoque a ele">🔗 Vincular cupons</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="vincularCorporativo('${l.id}')" title="Pede a quantidade real de cupons combinada com o cliente (pediu ${l.quantidade_licencas} no formulário) antes de criar/vincular">🔗 Vincular cupons</button>`
         }
         ${!l.contacted ? `<button class="btn btn-success btn-sm" onclick="markContacted('${l.id}')">✓ Contatado</button>` : ''}
         <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCorporateLead('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')">🗑</button>
@@ -2647,9 +2647,24 @@ async function vincularCorporativo(leadId) {
   if (!lead) { toast('Pedido não encontrado.', 'error'); return; }
   if (lead.linked_user_id) { toast('Esse pedido já tem cupons vinculados.', 'error'); return; }
 
+  // Pede a quantidade REAL de cupons a vincular, em vez de já sair
+  // vinculando automaticamente o número que a pessoa digitou no
+  // formulário. Em pedidos de mais de 10 licenças, esse número é só uma
+  // estimativa inicial — o time comercial conversa com o cliente antes de
+  // fechar quantos cupons de fato saem, então o admin confirma (ou ajusta)
+  // aqui o número real combinado antes de vincular qualquer coisa.
+  const sugestao = lead.quantidade_licencas || 1;
+  const resposta = prompt(
+    `Quantos cupons devem ser vinculados ao pedido de "${lead.name}"?\n\nNo formulário, a pessoa pediu ${sugestao} licença${sugestao > 1 ? 's' : ''} — isso foi só uma estimativa. Confirme ou ajuste pelo número real já combinado com o time comercial.`,
+    String(sugestao)
+  );
+  if (resposta === null) return; // cancelou
+  const qtd = parseInt(resposta, 10);
+  if (!qtd || qtd < 1) { toast('Informe uma quantidade válida (1 ou mais).', 'error'); return; }
+
   openConfirm(
     'Vincular cupons ao pedido corporativo',
-    `Vincular cupons do estoque ao pedido de "${lead.name}" (${lead.quantidade_licencas} licença${lead.quantidade_licencas > 1 ? 's' : ''})?\n\nSe ainda não existir um usuário com o e-mail "${lead.email}", um novo será criado. Os cupons serão marcados como "Entregue".`,
+    `Vincular ${qtd} cupom${qtd > 1 ? 's' : ''} do estoque ao pedido de "${lead.name}"?\n\nSe ainda não existir um usuário com o e-mail "${lead.email}", um novo será criado. Os cupons serão marcados como "Entregue".`,
     async () => {
       // 1. Reaproveita o usuário se já existir um com esse e-mail (ex: a
       // pessoa já tinha se cadastrado antes pelo link público).
@@ -2663,7 +2678,7 @@ async function vincularCorporativo(leadId) {
       } else {
         const { data: newUser, error: insErr } = await db.from('users').insert({
           name: lead.name, email: lead.email, phone: lead.phone,
-          referral_id: lead.referral_id, quantidade_licencas: lead.quantidade_licencas
+          referral_id: lead.referral_id, quantidade_licencas: qtd
         }).select().single();
         if (insErr) { toast('Erro ao criar usuário: ' + insErr.message, 'error', 6000); return; }
         userId = newUser.id;
@@ -2673,7 +2688,7 @@ async function vincularCorporativo(leadId) {
       const { data: already } = await db.from('coupons')
         .select('id').eq('users_id', userId).in('status', ['delivered', 'redeemed']);
       const jaTem = already?.length || 0;
-      const faltam = Math.max(0, (lead.quantidade_licencas || 1) - jaTem);
+      const faltam = Math.max(0, qtd - jaTem);
 
       if (faltam === 0) {
         try { await db.from('corporate_leads').update({ linked_user_id: userId }).eq('id', leadId); } catch (e) {}
@@ -2701,7 +2716,7 @@ async function vincularCorporativo(leadId) {
           await db.from('events').insert({
             coupons_id: coupon.id, users_id: userId,
             event_type: 'manual_assign',
-            metadata: JSON.stringify({ origin: 'admin_vincular_corporativo', lead_id: leadId })
+            metadata: JSON.stringify({ origin: 'admin_vincular_corporativo', lead_id: leadId, quantidade_combinada: qtd })
           });
         }
       }
@@ -2715,8 +2730,8 @@ async function vincularCorporativo(leadId) {
       try { await db.from('corporate_leads').update({ linked_user_id: userId }).eq('id', leadId); } catch (e) {}
 
       const totalAgora = jaTem + vinculados;
-      if (totalAgora < (lead.quantidade_licencas || 1)) {
-        toast(`Vinculei ${vinculados} cupom(ns), mas faltou estoque: ${totalAgora} de ${lead.quantidade_licencas} licenças pedidas. Volte aqui quando tiver mais cupons disponíveis.`, 'error', 9000);
+      if (totalAgora < qtd) {
+        toast(`Vinculei ${vinculados} cupom(ns), mas faltou estoque: ${totalAgora} de ${qtd} combinados. Volte aqui quando tiver mais cupons disponíveis.`, 'error', 9000);
       } else {
         toast(`${vinculados} cupom(ns) vinculado(s) a "${lead.name}"!`, 'success', 5000);
       }
