@@ -2808,6 +2808,15 @@ function renderRefList() {
         <span class="ref-link-url mono" title="${esc(link)}">${esc(link)}</span>
         <button class="btn btn-ghost btn-sm" onclick="copyRefLink('${(o.name||'').replace(/'/g,"\\'")}')">📋 Copiar link</button>
       </div>
+      <div class="ref-link-row">
+        ${o.logo_url
+          ? `<img src="${esc(o.logo_url)}" alt="Logo do parceiro" style="height:28px;max-width:100px;object-fit:contain;border-radius:4px;background:#fff;padding:2px">`
+          : `<span style="font-size:11px;color:var(--text3)">Sem logo do parceiro</span>`
+        }
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('logoInput-${o.id}').click()">🖼 ${o.logo_url ? 'Trocar logo' : 'Enviar logo'}</button>
+        <input type="file" id="logoInput-${o.id}" accept="image/*" class="hidden" onchange="uploadRefLogo('${o.id}', this)">
+        ${o.logo_url ? `<button class="btn btn-ghost btn-sm btn-icon" onclick="removerRefLogo('${o.id}')" title="Remover logo">🗑</button>` : ''}
+      </div>
     </div>`; }).join('');
 }
 
@@ -2860,6 +2869,65 @@ async function renameRef(id, oldName) {
   renderRefList(); updateRefBadge();
   toast(`Renomeado para "${novo}".`, 'success');
 }
+// Envia a logo do parceiro pro Supabase Storage (bucket "partner-logos",
+// público) e salva a URL pública em referrals.logo_url. O caminho do
+// arquivo é fixo por indicação (sempre "<id>.<extensão>", com upsert), pra
+// substituir a logo antiga em vez de acumular arquivo órfão a cada troca.
+// Depende do SQL "logo_parceiro_setup.sql" ter sido rodado (cria o bucket
+// e as permissões) — se não rodou ainda, o erro do Supabase aparece no
+// toast explicando o motivo.
+async function uploadRefLogo(id, inputEl) {
+  const file = inputEl.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { toast('Escolha um arquivo de imagem.', 'error'); inputEl.value = ''; return; }
+  if (file.size > 2 * 1024 * 1024) { toast('Imagem muito grande (máximo 2 MB).', 'error'); inputEl.value = ''; return; }
+
+  toast('Enviando logo...', 'info', 3000);
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+  const path = `${id}.${ext}`;
+
+  const { error: upErr } = await db.storage.from('partner-logos').upload(path, file, {
+    upsert: true,
+    contentType: file.type
+  });
+  if (upErr) {
+    toast('Erro ao enviar logo: ' + upErr.message + ' (rodou o SQL "logo_parceiro_setup.sql" no Supabase?)', 'error', 9000);
+    inputEl.value = '';
+    return;
+  }
+
+  const { data: pub } = db.storage.from('partner-logos').getPublicUrl(path);
+  // "?v=" no final derruba o cache do navegador/CDN quando a logo é trocada
+  // depois — sem isso, quem já viu a página antiga podia continuar vendo a
+  // logo velha por causa do cache da imagem.
+  const url = pub.publicUrl + '?v=' + Date.now();
+
+  const { error: refErr } = await db.from('referrals').update({ logo_url: url }).eq('id', id);
+  if (refErr) {
+    if (/logo_url/i.test(refErr.message || '')) {
+      toast('Rode o SQL "logo_parceiro_setup.sql" no Supabase para habilitar a logo do parceiro.', 'error', 9000);
+    } else {
+      toast('Erro ao salvar logo: ' + refErr.message, 'error', 6000);
+    }
+    inputEl.value = '';
+    return;
+  }
+
+  allRefOpts = allRefOpts.map(o => String(o.id) === String(id) ? { ...o, logo_url: url } : o);
+  renderRefList();
+  toast('Logo do parceiro atualizada!', 'success');
+}
+
+async function removerRefLogo(id) {
+  openConfirm('Remover logo do parceiro', 'A página do formulário dessa indicação deixa de mostrar a logo do parceiro. Continuar?', async () => {
+    const { error } = await db.from('referrals').update({ logo_url: null }).eq('id', id);
+    if (error) { toast('Erro ao remover logo: ' + error.message, 'error', 6000); return; }
+    allRefOpts = allRefOpts.map(o => String(o.id) === String(id) ? { ...o, logo_url: null } : o);
+    renderRefList();
+    toast('Logo removida.', 'info');
+  }, '🗑 Remover logo');
+}
+
 async function toggleRef(id, curr) {
   const ns = !curr;
   await db.from('referrals').update({ active: ns }).eq('id', id);
