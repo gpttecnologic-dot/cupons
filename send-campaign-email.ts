@@ -22,6 +22,9 @@
 // já divide listas maiores em lotes e chama de novo). Manda um pequeno
 // intervalo entre envios pra não estourar rate limit do servidor SMTP.
 
+// IMPORTANTE: depende de supabase/functions/_shared/mailer.ts (mesma pasta,
+// um nível acima) já com o tratamento de erro SMTP assíncrono — veja o
+// comentário sobre 'unhandledrejection' nesse arquivo antes de reimplantar.
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { sendMail, settingsToConfig } from '../_shared/mailer.ts'
@@ -29,6 +32,7 @@ import { sendMail, settingsToConfig } from '../_shared/mailer.ts'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 const MAX_RECIPIENTS_PER_CALL = 300
