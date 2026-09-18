@@ -278,6 +278,15 @@ body{overflow-x:hidden}
         Corporativo
         <span class="sb-badge" id="corpCount">0</span>
       </div>
+      <div class="sb-section">Comunicação</div>
+      <div class="sb-link" id="nav-campaigns" onclick="goTab('campaigns')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z" opacity="0"/><path d="M22 6l-10 7L2 6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
+        Campanhas de E-mail
+      </div>
+      <div class="sb-link" id="nav-smtp" onclick="goTab('smtp')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg>
+        Servidor SMTP
+      </div>
       <div class="sb-section">Dados</div>
       <div class="sb-link" id="nav-import" onclick="goTab('import')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
@@ -463,6 +472,145 @@ body{overflow-x:hidden}
         </div>
       </div>
 
+      <!-- CAMPANHAS DE E-MAIL -->
+      <div id="tab-campaigns" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Campanhas de E-mail</div><div class="page-sub">Modelos personalizados e disparos segmentados por indicação, status e período</div></div>
+        </div>
+
+        <!-- MODELOS -->
+        <div class="tbl-wrap" style="margin-bottom:1.5rem">
+          <div class="tbl-head" style="justify-content:space-between">
+            <div><div class="tbl-title">Modelos de e-mail</div><div class="tbl-sub">Cadastro (automático), lembrete manual e campanhas — cada um com seu próprio texto e PDF</div></div>
+            <button class="btn btn-primary btn-sm" onclick="openTemplateForm()">+ Novo modelo</button>
+          </div>
+          <div id="templatesBody"><div class="empty-state"><div class="empty-icon">✉</div><div class="empty-title">Carregando...</div></div></div>
+        </div>
+
+        <!-- NOVA CAMPANHA -->
+        <div class="tbl-wrap" style="margin-bottom:1.5rem;padding:1.25rem">
+          <div class="tbl-title" style="margin-bottom:.25rem">Nova campanha</div>
+          <div class="tbl-sub" style="margin-bottom:1rem">Escolha o modelo e o público. {nome} e {nome_completo} vêm do cadastro; {link}/{links} vêm dos cupons vinculados a cada pessoa.</div>
+
+          <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Modelo</label>
+          <select class="filter-sel" id="campTemplate" style="width:100%;max-width:420px;margin-bottom:1rem"></select>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.85rem;margin-bottom:1rem">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Indicação</label>
+              <select class="filter-sel" id="campReferral" style="width:100%"><option value="">Todas as indicações</option></select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Status do cupom vinculado</label>
+              <select class="filter-sel" id="campStatus" style="width:100%">
+                <option value="">Qualquer status</option>
+                <option value="delivered">Entregue (não resgatado)</option>
+                <option value="redeemed">Resgatado</option>
+                <option value="blocked">Bloqueado</option>
+                <option value="none">Sem cupom vinculado</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Período baseado em</label>
+              <select class="filter-sel" id="campDateField" style="width:100%">
+                <option value="created_at">Data de cadastro</option>
+                <option value="distributed_at">Data de entrega do cupom</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">De</label>
+              <input type="date" class="search-input" id="campDateFrom" style="width:100%">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Até</label>
+              <input type="date" class="search-input" id="campDateTo" style="width:100%">
+            </div>
+          </div>
+
+          <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-secondary" id="campPreviewBtn" onclick="previewCampaignAudience()">👁 Ver quem vai receber</button>
+            <button class="btn btn-primary" id="campSendBtn" onclick="sendCampaignNow()" disabled>📨 Enviar campanha</button>
+          </div>
+          <div id="campAudiencePreview" style="margin-top:.85rem"></div>
+        </div>
+
+        <!-- HISTÓRICO -->
+        <div class="tbl-wrap">
+          <div class="tbl-head" style="justify-content:space-between">
+            <div><div class="tbl-title">Histórico de campanhas</div><div class="tbl-sub">Últimos 30 disparos</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="loadCampaignLog()">↺ Atualizar</button>
+          </div>
+          <div id="campLogBody"><div class="empty-state"><div class="empty-icon">📨</div><div class="empty-title">Carregando...</div></div></div>
+        </div>
+      </div>
+
+      <!-- SERVIDOR SMTP -->
+      <div id="tab-smtp" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Servidor SMTP</div><div class="page-sub">Configuração usada por todos os disparos de e-mail (cadastro, lembretes e campanhas)</div></div>
+        </div>
+
+        <div class="tbl-wrap" style="padding:1.25rem;margin-bottom:1.5rem">
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:.85rem;margin-bottom:.85rem">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Host</label>
+              <input class="swap-modal-input" id="smtpHost" placeholder="smtp.seudominio.com.br" style="margin:0">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Porta</label>
+              <input class="swap-modal-input" id="smtpPort" type="number" placeholder="587" style="margin:0">
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem;margin-bottom:.85rem">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Usuário</label>
+              <input class="swap-modal-input" id="smtpUser" placeholder="usuario@seudominio.com.br" style="margin:0">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Senha</label>
+              <div style="display:flex;gap:.4rem">
+                <input class="swap-modal-input" id="smtpPassword" type="password" placeholder="••••••••" style="margin:0;flex:1">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="toggleSmtpPasswordVisibility()" id="smtpPassToggle" title="Mostrar/ocultar senha">👁</button>
+              </div>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Criptografia</label>
+              <select class="filter-sel" id="smtpSecure" style="width:100%">
+                <option value="starttls">STARTTLS (porta 587, recomendado)</option>
+                <option value="ssl">SSL/TLS implícito (porta 465)</option>
+                <option value="none">Nenhuma (porta 25, não recomendado)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.5rem">
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">E-mail remetente</label>
+              <input class="swap-modal-input" id="smtpFrom" type="email" placeholder="contato@seudominio.com.br" style="margin:0">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Nome do remetente</label>
+              <input class="swap-modal-input" id="smtpFromName" placeholder="Cupom GPT-Business" style="margin:0">
+            </div>
+          </div>
+
+          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 1rem">A senha fica salva no banco (tabela settings) e só é lida pelo admin logado e pelas Edge Functions — não aparece em nenhuma tela pública.</p>
+
+          <button class="btn btn-primary" onclick="saveSmtpSettings()">💾 Salvar configuração</button>
+        </div>
+
+        <div class="tbl-wrap" style="padding:1.25rem">
+          <div class="tbl-title" style="margin-bottom:.25rem">Testar envio</div>
+          <div class="tbl-sub" style="margin-bottom:.85rem">Manda um e-mail simples pra conferir se a configuração acima está funcionando, sem precisar simular um cadastro.</div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <input class="search-input" id="smtpTestEmail" type="email" placeholder="seu-email@exemplo.com" style="width:260px">
+            <button class="btn btn-secondary" id="smtpTestBtn" onclick="sendSmtpTestEmail()">✉ Enviar e-mail de teste</button>
+          </div>
+          <div id="smtpTestResult" style="margin-top:.75rem;font-size:13px"></div>
+        </div>
+      </div>
+
       <!-- IMPORTAR -->
       <div id="tab-import" class="hidden">
         <div class="page-header">
@@ -635,6 +783,68 @@ body{overflow-x:hidden}
     <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
       <button class="btn btn-secondary" onclick="closeViewCouponsModal()">Fechar</button>
       <button class="btn btn-primary" id="viewCouponsSendBtn" onclick="enviarEmailCupons()">✉ Enviar e-mail com estes cupons</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MODELO DE E-MAIL -->
+<div class="modal-overlay" id="templateModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title" id="tplModalTitle">+ Novo modelo</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Chave (única, sem espaços)</label>
+        <input class="swap-modal-input" id="tplKey" placeholder="ex: campanha_black_friday" style="margin:0">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Uso</label>
+        <select class="filter-sel" id="tplPurpose" style="width:100%">
+          <option value="campaign">Campanha (disparo segmentado)</option>
+          <option value="signup">Cadastro (automático ao preencher o formulário)</option>
+          <option value="reminder">Lembrete (disparo manual pelo admin)</option>
+        </select>
+      </div>
+    </div>
+
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Nome (só pra identificar no admin)</label>
+    <input class="swap-modal-input" id="tplName" placeholder="ex: Agradecimento de inscrição" style="margin-bottom:.75rem">
+
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Assunto</label>
+    <input class="swap-modal-input" id="tplSubject" placeholder="ex: Seu link exclusivo chegou!" style="margin-bottom:.75rem">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem">
+      <label style="font-size:12px;font-weight:600;color:var(--text2)">Corpo da mensagem</label>
+      <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="insertTagIntoBody('{nome}')">+ {nome}</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="insertTagIntoBody('{nome_completo}')">+ {nome_completo}</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="insertTagIntoBody('{link}')">+ {link}</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="insertTagIntoBody('{links}')">+ {links}</button>
+      </div>
+    </div>
+    <textarea id="tplBody" style="width:100%;height:150px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;outline:none" placeholder="Olá {nome}!&#10;&#10;Seu link: {link}"></textarea>
+    <p style="font-size:11px;color:var(--text3);margin-top:.4rem">Use *texto* pra deixar em negrito. {link} = primeiro cupom vinculado; {links} = todos, um por linha.</p>
+
+    <div style="margin-top:.85rem">
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">PDF anexo (opcional)</label>
+      <div id="tplPdfStatus" style="font-size:12px;margin-bottom:.5rem"></div>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <input type="file" id="tplPdfFile" accept="application/pdf" style="display:none" onchange="if(this.files[0]) uploadTemplatePdf(this.files[0]); this.value='';">
+        <button type="button" class="btn btn-secondary btn-sm" id="tplPdfUploadBtn" onclick="document.getElementById('tplPdfFile').click()">📎 Enviar PDF</button>
+        <span style="font-size:11px;color:var(--text3)">Máx. 8MB · mesmo PDF pra todo mundo que receber este modelo</span>
+      </div>
+      <!-- guardam a URL pública (Supabase Storage) e o nome mostrado no anexo -->
+      <input type="hidden" id="tplPdfUrl">
+      <input type="hidden" id="tplPdfFilename">
+    </div>
+
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;margin-top:.85rem">
+      <input type="checkbox" id="tplActive" checked> Modelo ativo (modelos inativos não são usados em disparos)
+    </label>
+
+    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="closeTemplateForm()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTemplateForm()">Salvar modelo</button>
     </div>
   </div>
 </div>
@@ -828,6 +1038,8 @@ function goTab(id) {
   if (id === 'waitlist')  loadWaitlist();
   if (id === 'corporate') loadCorporateLeads();
   if (id === 'referrals') loadRefOptions();
+  if (id === 'campaigns') loadCampaigns();
+  if (id === 'smtp')      loadSmtpSettings();
   closeSidebar();
 }
 
@@ -863,6 +1075,426 @@ async function fetchAllRows(table, cols){
     from+=1000;
   }
   return all;
+}
+
+// ─── CAMPANHAS DE E-MAIL ────────────────────────────────────────────────────
+// "Modelo" (email_templates) = texto/PDF reutilizável, com 3 usos possíveis:
+//  - signup:   disparado sozinho pelo index.html quando alguém se cadastra
+//  - reminder: disparado manualmente (botão "Enviar e-mail" na ficha do usuário)
+//  - campaign: disparo em massa segmentado por indicação/status/período, feito
+//              aqui embaixo. A segmentação é calculada no client (mesmo padrão
+//              já usado no resto do admin: baixa as tabelas e filtra em JS) —
+//              a Edge Function send-campaign-email só recebe a lista final de
+//              user_ids e cuida de personalizar/enviar/logar cada e-mail.
+let allEmailTemplates = [];
+let editingTemplateId = null;
+
+function purposeLabel(p) {
+  return p === 'signup' ? 'Cadastro (automático)' : p === 'reminder' ? 'Lembrete (manual)' : 'Campanha';
+}
+
+async function loadCampaigns() {
+  await loadEmailTemplates();
+
+  const { data: refs, error: refErr } = await db.from('referrals').select('id,name').order('name');
+  const rsel = document.getElementById('campReferral');
+  if (!refErr) {
+    const current = rsel.value;
+    rsel.innerHTML = '<option value="">Todas as indicações</option>' +
+      (refs || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+    rsel.value = current;
+  }
+
+  document.getElementById('campAudiencePreview').innerHTML = '';
+  document.getElementById('campSendBtn').disabled = true;
+  window._campAudience = null;
+
+  loadCampaignLog();
+}
+
+async function loadEmailTemplates() {
+  const { data, error } = await db.from('email_templates').select('*').order('purpose').order('name');
+  if (error) { toast('Erro ao carregar modelos: ' + error.message, 'error', 6000); return; }
+  allEmailTemplates = data || [];
+  renderEmailTemplates();
+  populateCampaignTemplateSelect();
+}
+
+function renderEmailTemplates() {
+  const el = document.getElementById('templatesBody');
+  if (!allEmailTemplates.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">✉</div><div class="empty-title">Nenhum modelo cadastrado</div><div style="font-size:12px;color:var(--text3);margin-top:.35rem">Rode a migração supabase_migration_email_campaigns.sql ou crie um modelo pelo botão acima.</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
+    <th>Nome</th><th>Chave</th><th>Uso</th><th>Assunto</th><th>PDF</th><th>Ativo</th><th class="sticky-actions">Ações</th>
+  </tr></thead><tbody>${allEmailTemplates.map(t => `
+    <tr>
+      <td data-label="Nome">${esc(t.name)}</td>
+      <td data-label="Chave"><span class="mono" style="font-size:11px">${esc(t.key)}</span></td>
+      <td data-label="Uso">${purposeLabel(t.purpose)}</td>
+      <td data-label="Assunto">${esc(t.subject)}</td>
+      <td data-label="PDF">${t.pdf_url ? '📎 sim' : '—'}</td>
+      <td data-label="Ativo">${t.active ? '✓' : '—'}</td>
+      <td data-label="Ações" class="sticky-actions"><div class="btns">
+        <button class="btn btn-secondary btn-sm" onclick="openTemplateForm('${t.id}')">✎ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteTemplate('${t.id}', '${esc(t.name).replace(/'/g,"\\'")}')">🗑</button>
+      </div></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+function populateCampaignTemplateSelect() {
+  const sel = document.getElementById('campTemplate');
+  const current = sel.value;
+  const active = allEmailTemplates.filter(t => t.active);
+  sel.innerHTML = active.length
+    ? '<option value="">Selecione um modelo...</option>' + active.map(t => `<option value="${t.id}">${esc(t.name)} · ${purposeLabel(t.purpose)}</option>`).join('')
+    : '<option value="">Nenhum modelo ativo — crie um acima</option>';
+  if (current) sel.value = current;
+}
+
+function openTemplateForm(id) {
+  editingTemplateId = id || null;
+  const t = id ? allEmailTemplates.find(x => x.id === id) : null;
+  document.getElementById('tplModalTitle').textContent = t ? '✎ Editar modelo' : '+ Novo modelo';
+  document.getElementById('tplKey').value = t ? t.key : '';
+  document.getElementById('tplKey').disabled = !!t;
+  document.getElementById('tplName').value = t ? t.name : '';
+  document.getElementById('tplPurpose').value = t ? t.purpose : 'campaign';
+  document.getElementById('tplSubject').value = t ? t.subject : '';
+  document.getElementById('tplBody').value = t ? t.body : '';
+  document.getElementById('tplPdfUrl').value = t?.pdf_url || '';
+  document.getElementById('tplPdfFilename').value = t?.pdf_filename || '';
+  document.getElementById('tplActive').checked = t ? !!t.active : true;
+  renderTplPdfStatus();
+  document.getElementById('templateModal').classList.add('show');
+}
+function closeTemplateForm() {
+  document.getElementById('templateModal').classList.remove('show');
+  editingTemplateId = null;
+}
+
+// ─── UPLOAD DE PDF DO MODELO (Supabase Storage) ─────────────────────────────
+// Guarda o arquivo no bucket público "email-attachments" (criado pela
+// migração supabase_migration_pdf_storage.sql) e salva a URL pública gerada
+// em tplPdfUrl — é essa URL que a Edge Function baixa e anexa ao e-mail.
+const PDF_BUCKET = 'email-attachments';
+
+function renderTplPdfStatus() {
+  const url = document.getElementById('tplPdfUrl').value;
+  const name = document.getElementById('tplPdfFilename').value;
+  const el = document.getElementById('tplPdfStatus');
+  el.innerHTML = url
+    ? `📎 <a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(name || 'arquivo.pdf')}</a> · <button type="button" class="btn btn-ghost btn-sm" onclick="removeTemplatePdf()">🗑 Remover</button>`
+    : `<span style="color:var(--text3)">Nenhum PDF anexado a este modelo.</span>`;
+}
+
+function pdfStoragePathFromUrl(url) {
+  const marker = `/storage/v1/object/public/${PDF_BUCKET}/`;
+  const idx = (url || '').indexOf(marker);
+  return idx >= 0 ? url.slice(idx + marker.length) : null;
+}
+
+async function uploadTemplatePdf(file) {
+  const key = document.getElementById('tplKey').value.trim();
+  if (!key) { toast('Preencha a "Chave" do modelo antes de anexar o PDF.', 'error', 5000); return; }
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  if (!isPdf) { toast('Só é possível anexar arquivos PDF.', 'error'); return; }
+  const MAX_MB = 8;
+  if (file.size > MAX_MB * 1024 * 1024) { toast(`PDF muito grande (máx. ${MAX_MB}MB).`, 'error'); return; }
+
+  const btn = document.getElementById('tplPdfUploadBtn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Enviando...';
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${key}/${Date.now()}-${safeName}`;
+
+  const { error: upErr } = await db.storage.from(PDF_BUCKET).upload(path, file, {
+    upsert: true, contentType: 'application/pdf',
+  });
+  btn.disabled = false; btn.textContent = originalLabel;
+
+  if (upErr) {
+    toast('Erro ao enviar PDF: ' + upErr.message + ' — confira se rodou supabase_migration_pdf_storage.sql', 'error', 8000);
+    return;
+  }
+
+  const { data: pub } = db.storage.from(PDF_BUCKET).getPublicUrl(path);
+  document.getElementById('tplPdfUrl').value = pub.publicUrl;
+  document.getElementById('tplPdfFilename').value = file.name;
+  renderTplPdfStatus();
+  toast('PDF anexado! Não esqueça de clicar em "Salvar modelo".', 'success', 5000);
+}
+
+function removeTemplatePdf() {
+  const url = document.getElementById('tplPdfUrl').value;
+  const path = pdfStoragePathFromUrl(url);
+  document.getElementById('tplPdfUrl').value = '';
+  document.getElementById('tplPdfFilename').value = '';
+  renderTplPdfStatus();
+  toast('PDF removido do modelo. Clique em "Salvar modelo" pra confirmar.', 'info', 5000);
+  // Best-effort: apaga o arquivo do storage também (não bloqueia a UI se falhar).
+  if (path) db.storage.from(PDF_BUCKET).remove([path]).catch(() => {});
+}
+function insertTagIntoBody(tag) {
+  const ta = document.getElementById('tplBody');
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? ta.value.length;
+  ta.value = ta.value.slice(0, start) + tag + ta.value.slice(end);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = start + tag.length;
+}
+
+async function saveTemplateForm() {
+  const key     = document.getElementById('tplKey').value.trim();
+  const name    = document.getElementById('tplName').value.trim();
+  const purpose = document.getElementById('tplPurpose').value;
+  const subject = document.getElementById('tplSubject').value.trim();
+  const body    = document.getElementById('tplBody').value;
+  const pdf_url      = document.getElementById('tplPdfUrl').value.trim() || null;
+  const pdf_filename = document.getElementById('tplPdfFilename').value.trim() || null;
+  const active  = document.getElementById('tplActive').checked;
+
+  if (!key || !name || !subject || !body) { toast('Preencha chave, nome, assunto e corpo.', 'error'); return; }
+  if (!/^[a-z0-9_]+$/.test(key)) { toast('Chave só pode ter letras minúsculas, números e _ (ex: campanha_black_friday).', 'error'); return; }
+
+  const payload = { name, purpose, subject, body, pdf_url, pdf_filename, active };
+  let error;
+  if (editingTemplateId) {
+    ({ error } = await db.from('email_templates').update(payload).eq('id', editingTemplateId));
+  } else {
+    ({ error } = await db.from('email_templates').insert({ ...payload, key }));
+  }
+  if (error) {
+    toast('Erro ao salvar modelo: ' + (error.code === '23505' ? 'já existe um modelo com essa chave.' : error.message), 'error', 6000);
+    return;
+  }
+  toast('Modelo salvo!', 'success');
+  closeTemplateForm();
+  loadEmailTemplates();
+}
+
+function deleteTemplate(id, name) {
+  openConfirm('Excluir modelo', `Excluir o modelo "${name}"? Campanhas já enviadas com ele continuam no histórico.`, async () => {
+    const { error } = await db.from('email_templates').delete().eq('id', id);
+    if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
+    toast('Modelo excluído.', 'success');
+    loadEmailTemplates();
+  }, '🗑 Excluir');
+}
+
+// Calcula o público de uma campanha filtrando client-side (mesmo padrão do
+// resto do admin): indicação (users.referral_id), status do cupom vinculado
+// (coupons.status via coupons.users_id) e período (created_at do usuário OU
+// distributed_at de algum dos cupons dele, conforme o campo escolhido).
+async function getCampaignAudience() {
+  const referralId = document.getElementById('campReferral').value;
+  const statusFilter = document.getElementById('campStatus').value;
+  const dateField = document.getElementById('campDateField').value;
+  const dateFrom = document.getElementById('campDateFrom').value;
+  const dateTo = document.getElementById('campDateTo').value;
+
+  const [users, coupons] = await Promise.all([
+    fetchAllRows('users', 'id,name,email,referral_id,created_at'),
+    fetchAllRows('coupons', 'id,link,status,distributed_at,users_id'),
+  ]);
+
+  const couponsByUser = {};
+  coupons.forEach(c => { if (c.users_id) (couponsByUser[c.users_id] ||= []).push(c); });
+
+  const fromTs = dateFrom ? new Date(dateFrom + 'T00:00:00').getTime() : null;
+  const toTs   = dateTo   ? new Date(dateTo + 'T23:59:59').getTime()   : null;
+
+  return users.filter(u => {
+    if (referralId && String(u.referral_id) !== String(referralId)) return false;
+
+    const userCoupons = couponsByUser[u.id] || [];
+
+    if (statusFilter) {
+      if (statusFilter === 'none') {
+        if (userCoupons.length) return false;
+      } else if (!userCoupons.some(c => c.status === statusFilter)) {
+        return false;
+      }
+    }
+
+    if (fromTs || toTs) {
+      if (dateField === 'created_at') {
+        const t = u.created_at ? new Date(u.created_at).getTime() : null;
+        if (!t) return false;
+        if (fromTs && t < fromTs) return false;
+        if (toTs && t > toTs) return false;
+      } else {
+        const ok = userCoupons.some(c => {
+          const t = c.distributed_at ? new Date(c.distributed_at).getTime() : null;
+          if (!t) return false;
+          if (fromTs && t < fromTs) return false;
+          if (toTs && t > toTs) return false;
+          return true;
+        });
+        if (!ok) return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+async function previewCampaignAudience() {
+  const btn = document.getElementById('campPreviewBtn');
+  btn.disabled = true; btn.textContent = 'Calculando...';
+  let audience = [];
+  try {
+    audience = await getCampaignAudience();
+  } finally {
+    btn.disabled = false; btn.textContent = '👁 Ver quem vai receber';
+  }
+  window._campAudience = audience;
+  const sampleNames = audience.slice(0, 8).map(u => esc(u.name)).join(', ');
+  document.getElementById('campAudiencePreview').innerHTML = audience.length
+    ? `<div style="font-size:13px;color:var(--text2)"><strong style="color:var(--text)">${audience.length}</strong> pessoa${audience.length > 1 ? 's' : ''} vai${audience.length > 1 ? 'ão' : ''} receber essa campanha.<br><span style="font-size:12px;color:var(--text3)">Ex: ${sampleNames}${audience.length > 8 ? '…' : ''}</span></div>`
+    : `<div style="font-size:13px;color:var(--danger)">Nenhum destinatário encontrado com esses filtros.</div>`;
+  document.getElementById('campSendBtn').disabled = !audience.length;
+}
+
+async function sendCampaignNow() {
+  const templateId = document.getElementById('campTemplate').value;
+  if (!templateId) { toast('Selecione um modelo de e-mail.', 'error'); return; }
+  const audience = window._campAudience;
+  if (!audience?.length) { toast('Clique em "Ver quem vai receber" antes de enviar.', 'error'); return; }
+
+  const templateName = allEmailTemplates.find(t => t.id === templateId)?.name || '';
+  openConfirm(
+    'Enviar campanha',
+    `Enviar "${templateName}" para ${audience.length} pessoa${audience.length > 1 ? 's' : ''}? Essa ação não pode ser desfeita.`,
+    async () => {
+      const btn = document.getElementById('campSendBtn');
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      const filters = {
+        referral_id: document.getElementById('campReferral').value || null,
+        status: document.getElementById('campStatus').value || null,
+        date_field: document.getElementById('campDateField').value,
+        date_from: document.getElementById('campDateFrom').value || null,
+        date_to: document.getElementById('campDateTo').value || null,
+      };
+      const ids = audience.map(u => u.id);
+      const BATCH = 150;
+      let totalSent = 0, totalFailed = 0, hadError = false;
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const chunk = ids.slice(i, i + BATCH);
+        btn.textContent = `Enviando ${Math.min(i + BATCH, ids.length)}/${ids.length}...`;
+        const { data, error } = await db.functions.invoke('send-campaign-email', {
+          body: { template_id: templateId, user_ids: chunk, filters }
+        });
+        if (error) { hadError = true; toast('Erro num lote do envio: ' + (error.message || error), 'error', 7000); continue; }
+        totalSent += data?.sent || 0;
+        totalFailed += data?.failed || 0;
+      }
+      btn.disabled = false; btn.textContent = originalLabel;
+      toast(`Campanha enviada! ${totalSent} entregue(s), ${totalFailed} falha(s).`, (totalFailed || hadError) ? 'error' : 'success', 7000);
+      document.getElementById('campAudiencePreview').innerHTML = '';
+      document.getElementById('campSendBtn').disabled = true;
+      window._campAudience = null;
+      loadCampaignLog();
+    },
+    '📨 Enviar agora'
+  );
+}
+
+async function loadCampaignLog() {
+  const { data, error } = await db
+    .from('email_campaign_log')
+    .select('*, email_templates(name)')
+    .order('created_at', { ascending: false })
+    .limit(30);
+  const el = document.getElementById('campLogBody');
+  if (error) { el.innerHTML = `<div class="empty-state"><div class="empty-title">Erro ao carregar histórico</div></div>`; return; }
+  if (!data?.length) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">📨</div><div class="empty-title">Nenhuma campanha enviada ainda</div></div>`; return; }
+  el.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
+    <th>Data</th><th>Modelo</th><th>Destinatários</th><th>Entregues</th><th>Falhas</th>
+  </tr></thead><tbody>${data.map(c => `
+    <tr>
+      <td data-label="Data">${fmtDate(c.created_at)}</td>
+      <td data-label="Modelo">${esc(c.email_templates?.name || c.template_key || '—')}</td>
+      <td data-label="Destinatários">${c.total_recipients}</td>
+      <td data-label="Entregues">${c.total_sent}</td>
+      <td data-label="Falhas">${c.total_failed}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ─── SERVIDOR SMTP ───────────────────────────────────────────────────────────
+// Lê/grava a tabela `settings` (chave/valor) que as Edge Functions
+// (_shared/mailer.ts) usam pra decidir como enviar e-mail. Guardamos tudo
+// como texto simples, igual o resto do settings já funcionava.
+const SMTP_SETTING_KEYS = ['smtp_host','smtp_port','smtp_user','smtp_password','smtp_secure','email_from','email_from_name'];
+
+async function loadSmtpSettings() {
+  const { data, error } = await db.from('settings').select('key,value').in('key', SMTP_SETTING_KEYS);
+  if (error) {
+    toast('Erro ao carregar configuração: ' + error.message + ' — rode supabase_migration_smtp_settings.sql', 'error', 8000);
+    return;
+  }
+  const cfg = {};
+  (data || []).forEach(r => { cfg[r.key] = r.value; });
+  document.getElementById('smtpHost').value     = cfg.smtp_host || '';
+  document.getElementById('smtpPort').value     = cfg.smtp_port || '587';
+  document.getElementById('smtpUser').value     = cfg.smtp_user || '';
+  document.getElementById('smtpPassword').value = cfg.smtp_password || '';
+  document.getElementById('smtpSecure').value   = cfg.smtp_secure || 'starttls';
+  document.getElementById('smtpFrom').value     = cfg.email_from || '';
+  document.getElementById('smtpFromName').value = cfg.email_from_name || '';
+  document.getElementById('smtpTestResult').innerHTML = '';
+}
+
+function toggleSmtpPasswordVisibility() {
+  const input = document.getElementById('smtpPassword');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function saveSmtpSettings() {
+  const host = document.getElementById('smtpHost').value.trim();
+  const from = document.getElementById('smtpFrom').value.trim();
+  if (host && !from) { toast('Preencha o e-mail remetente.', 'error'); return; }
+
+  const values = {
+    smtp_host:       host,
+    smtp_port:       document.getElementById('smtpPort').value.trim() || '587',
+    smtp_user:       document.getElementById('smtpUser').value.trim(),
+    smtp_password:   document.getElementById('smtpPassword').value,
+    smtp_secure:     document.getElementById('smtpSecure').value,
+    email_from:      from,
+    email_from_name: document.getElementById('smtpFromName').value.trim(),
+  };
+
+  const rows = Object.entries(values).map(([key, value]) => ({ key, value }));
+  const { error } = await db.from('settings').upsert(rows, { onConflict: 'key' });
+  if (error) {
+    toast('Erro ao salvar: ' + error.message, 'error', 6000);
+    return;
+  }
+  toast('Configuração salva!', 'success');
+}
+
+async function sendSmtpTestEmail() {
+  const email = document.getElementById('smtpTestEmail').value.trim();
+  if (!email) { toast('Informe um e-mail pra receber o teste.', 'error'); return; }
+
+  const btn = document.getElementById('smtpTestBtn');
+  const resEl = document.getElementById('smtpTestResult');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  resEl.innerHTML = '';
+
+  const { data, error } = await db.functions.invoke('send-coupon-email', { body: { test_email: email } });
+
+  btn.disabled = false; btn.textContent = '✉ Enviar e-mail de teste';
+
+  if (error) {
+    resEl.innerHTML = `<span style="color:var(--danger)">✗ Falha ao enviar: ${esc(error.message || String(error))}</span>`;
+    return;
+  }
+  resEl.innerHTML = `<span style="color:var(--success)">✓ E-mail de teste enviado para ${esc(email)}. Confira a caixa de entrada (e o spam).</span>`;
 }
 
 async function getDashUsers(force=false){
@@ -2332,7 +2964,7 @@ async function enviarEmailCupons() {
     `Enviar um único e-mail para "${viewCouponsUserName}" com ${ids.length === 1 ? 'o link do cupom dela' : `os ${ids.length} links de cupom dela, todos juntos nesse mesmo e-mail`}?`,
     async () => {
       const { data, error } = await db.functions.invoke('send-coupon-email', {
-        body: { user_id: viewCouponsUserId, coupon_ids: ids }
+        body: { user_id: viewCouponsUserId, coupon_ids: ids, template_key: 'coupon_reminder' }
       });
       if (error) { toast('Erro ao enviar e-mail: ' + (error.message || error), 'error', 7000); return; }
       toast(ids.length === 1 ? 'E-mail enviado com o link!' : `E-mail enviado com os ${ids.length} links!`, 'success', 5000);
