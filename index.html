@@ -530,13 +530,17 @@ async function submitForm() {
       metadata: JSON.stringify({ email, phone, referral_id: referral })
     });
 
-    // 6. Dispara o e-mail com o link (Edge Function send-coupon-email, via
-    // Resend). Não bloqueia nem quebra o cadastro se falhar — o usuário já
-    // vê o link na tela de qualquer forma; o e-mail é um reforço, não o
-    // único jeito de receber o link. Erros ficam registrados dentro da
-    // própria função (tabela events, event_type='email_error').
+    // 6. Dispara o e-mail de agradecimento + link (Edge Function
+    // send-coupon-email, via Resend). template_key='signup_thank_you' usa o
+    // modelo cadastrado em email_templates (editável na aba "Campanhas de
+    // E-mail" do admin) — se a migração ainda não rodou ou o modelo não
+    // existir, a function cai automaticamente no texto padrão antigo. Não
+    // bloqueia nem quebra o cadastro se falhar — o usuário já vê o link na
+    // tela de qualquer forma; o e-mail é um reforço, não o único jeito de
+    // receber o link. Erros ficam registrados dentro da própria função
+    // (tabela events, event_type='email_error').
     db.functions.invoke('send-coupon-email', {
-      body: { user_id: newUser[0].id, coupon_id: coupon.id }
+      body: { user_id: newUser[0].id, coupon_id: coupon.id, template_key: 'signup_thank_you' }
     }).catch(() => {});
 
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
