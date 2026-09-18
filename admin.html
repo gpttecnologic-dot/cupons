@@ -177,6 +177,39 @@ td.primary{color:var(--text);font-weight:500}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ref-badge{display:inline-block;background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.18);color:var(--accent-light);font-size:10px;font-weight:600;padding:2px 8px;border-radius:100px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
+/* CRM — quadro kanban */
+.crm-board{display:flex;gap:.9rem;overflow-x:auto;padding-bottom:.75rem;align-items:flex-start}
+.crm-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);width:270px;min-width:270px;display:flex;flex-direction:column;max-height:calc(100vh - 210px)}
+.crm-col.drag-over{border-color:var(--accent);background:rgba(124,106,247,.05)}
+.crm-col-head{display:flex;align-items:center;justify-content:space-between;padding:.75rem .875rem;border-bottom:1px solid var(--border);gap:.4rem}
+.crm-col-title{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crm-col-count{font-size:10px;color:var(--text3);background:var(--bg3);border-radius:100px;padding:1px 7px;flex-shrink:0}
+.crm-col-actions{display:flex;gap:2px;flex-shrink:0}
+.crm-col-actions button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px}
+.crm-col-actions button:hover{background:var(--bg4);color:var(--text)}
+.crm-col-body{padding:.6rem;display:flex;flex-direction:column;gap:.5rem;overflow-y:auto;flex:1;min-height:60px}
+.crm-col-foot{padding:.6rem .75rem;border-top:1px solid var(--border)}
+.crm-card{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);padding:.65rem .75rem;cursor:grab;transition:border-color .15s,opacity .15s}
+.crm-card:hover{border-color:var(--accent)}
+.crm-card.dragging{opacity:.35}
+.crm-card-title{font-size:12.5px;font-weight:600;margin-bottom:.3rem;overflow-wrap:break-word}
+.crm-card-meta{font-size:11px;color:var(--text3);display:flex;flex-direction:column;gap:2px}
+.crm-card-value{font-size:12px;font-weight:700;color:#4ade80;margin-top:.35rem}
+.crm-card-multi{display:inline-block;margin-top:.35rem;font-size:9.5px;font-weight:700;color:var(--accent-light);background:rgba(124,106,247,.12);border-radius:100px;padding:1px 7px}
+.crm-add-card-btn{width:100%;background:none;border:1px dashed var(--border2);border-radius:var(--radius);color:var(--text3);font-size:12px;padding:.45rem;cursor:pointer;font-family:inherit}
+.crm-add-card-btn:hover{border-color:var(--accent);color:var(--accent-light)}
+.crm-company-tabs{display:flex;gap:.4rem;flex-wrap:wrap}
+.crm-company-tab{background:var(--bg3);border:1px solid var(--border);border-radius:100px;padding:.4rem 1rem;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer}
+.crm-company-tab.active{background:rgba(124,106,247,.15);color:var(--accent-light);border-color:rgba(124,106,247,.35)}
+.crm-link-row{display:flex;align-items:center;gap:.5rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .7rem;margin-bottom:.5rem}
+.crm-link-row .crm-link-name{flex:1;font-size:12.5px;font-weight:600}
+.crm-member-row{display:flex;align-items:center;gap:.6rem;padding:.6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.crm-member-row:last-child{border-bottom:none}
+.crm-member-email{font-size:12.5px;font-weight:600;flex:1;min-width:140px}
+.crm-chip{display:inline-flex;align-items:center;gap:5px;background:var(--bg4);border-radius:100px;padding:2px 8px;font-size:10.5px;color:var(--text2)}
+.crm-chip button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;line-height:1}
+.crm-chip button:hover{color:var(--danger)}
+
 .swap-modal-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;color:var(--text);font-size:13px;outline:none;margin-top:.5rem}
 .swap-modal-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,.15)}
 .swap-modal-info{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;font-size:12px;color:var(--text2);margin-bottom:1rem}
@@ -299,6 +332,11 @@ body{overflow-x:hidden}
       <div class="sb-link" id="nav-reports" onclick="goTab('reports')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Relatórios
+      </div>
+      <div class="sb-section">CRM</div>
+      <div class="sb-link" id="nav-crm" onclick="goTab('crm')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+        Negócios
       </div>
       <div class="sb-footer">
         <div class="sb-user" id="sbUser"></div>
@@ -691,6 +729,24 @@ body{overflow-x:hidden}
         </div>
       </div>
 
+      <!-- CRM -->
+      <div id="tab-crm" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Negócios</div><div class="page-sub">Quadro por empresa — cada cliente pode estar em mais de uma ao mesmo tempo</div></div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm hidden" id="crmCompaniesBtn" onclick="openCrmCompaniesModal()">🏢 Empresas</button>
+            <button class="btn btn-secondary btn-sm hidden" id="crmMembersBtn" onclick="openCrmMembersModal()">🔑 Acesso</button>
+            <button class="btn btn-secondary btn-sm" onclick="loadCrm()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div class="tbl-wrap" style="padding:1rem 1.25rem;margin-bottom:1rem">
+          <div class="crm-company-tabs" id="crmCompanyTabs"><span style="font-size:12px;color:var(--text3)">Carregando empresas...</span></div>
+        </div>
+        <div id="crmBoardWrap">
+          <div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Carregando...</div></div>
+        </div>
+      </div>
+
     </div><!-- /main -->
   </div><!-- /layout -->
 </div><!-- /adminScreen -->
@@ -850,6 +906,81 @@ body{overflow-x:hidden}
     <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
       <button class="btn btn-secondary" onclick="closeTemplateForm()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveTemplateForm()">Salvar modelo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NEGÓCIO (CRM) -->
+<div class="modal-overlay" id="crmDealModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title" id="crmDealModalTitle">+ Novo negócio</div>
+
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Cliente / lead</label>
+    <input class="swap-modal-input" id="crmTitle" placeholder="Nome do cliente ou da empresa" style="margin:0 0 .75rem">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Contato</label>
+        <input class="swap-modal-input" id="crmContactName" placeholder="Nome do contato" style="margin:0">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Telefone</label>
+        <input class="swap-modal-input" id="crmContactPhone" placeholder="(00) 00000-0000" style="margin:0">
+      </div>
+    </div>
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">E-mail do contato</label>
+    <input class="swap-modal-input" id="crmContactEmail" placeholder="contato@cliente.com" style="margin-bottom:.75rem">
+
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Observações</label>
+    <textarea id="crmNotes" style="width:100%;height:80px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;outline:none;margin-bottom:1rem" placeholder="Anotações sobre o negócio..."></textarea>
+
+    <div style="border-top:1px solid var(--border);padding-top:.85rem;margin-bottom:.5rem">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem">Empresas vinculadas</div>
+      <div id="crmDealCompaniesList"></div>
+      <div id="crmAddCompanyRow" style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap"></div>
+    </div>
+
+    <div class="modal-footer" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);justify-content:space-between">
+      <button class="btn btn-danger btn-sm hidden" id="crmDeleteBtn" onclick="deleteCrmDeal()">🗑 Excluir negócio</button>
+      <div style="display:flex;gap:.75rem;margin-left:auto">
+        <button class="btn btn-secondary" onclick="closeCrmDealModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="saveCrmDeal()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EMPRESAS (CRM) -->
+<div class="modal-overlay" id="crmCompaniesModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">🏢 Empresas</div>
+    <div class="ref-add-row">
+      <input class="ref-add-input" id="crmNewCompanyName" placeholder="Nome da nova empresa">
+      <button class="btn btn-primary btn-sm" onclick="addCrmCompany()">+ Adicionar</button>
+    </div>
+    <div id="crmCompaniesList" class="ref-list"></div>
+    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="document.getElementById('crmCompaniesModal').classList.remove('show')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ACESSO / MEMBROS (CRM) -->
+<div class="modal-overlay" id="crmMembersModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">🔑 Acesso ao CRM</div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;line-height:1.5">Cada login só enxerga as empresas liberadas aqui pra ele. Se o e-mail ainda não tiver login, um novo é criado na hora.</p>
+
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+      <input class="swap-modal-input" id="crmGrantEmail" placeholder="e-mail@exemplo.com" style="margin:0;flex:1;min-width:160px">
+      <select class="filter-sel" id="crmGrantCompany" style="min-width:140px"></select>
+      <button class="btn btn-primary btn-sm" onclick="grantCrmAccess()">Liberar acesso</button>
+    </div>
+
+    <div id="crmMembersList" style="margin-top:1rem"></div>
+
+    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="document.getElementById('crmMembersModal').classList.remove('show')">Fechar</button>
     </div>
   </div>
 </div>
@@ -1045,6 +1176,7 @@ function goTab(id) {
   if (id === 'referrals') loadRefOptions();
   if (id === 'campaigns') loadCampaigns();
   if (id === 'smtp')      loadSmtpSettings();
+  if (id === 'crm')       loadCrm();
   closeSidebar();
 }
 
@@ -3913,6 +4045,451 @@ function saveAtivados() {
   document.getElementById('s-today').textContent = val;
   closeAtivados();
   toast('Contagem de ativados ajustada para ' + val + '.', 'success');
+}
+
+// ─── CRM (Negócios) ─────────────────────────────────────────────────────────
+// Modelo: um "negócio" (crm_deals) é o cliente/lead em si — nome, contato,
+// observações — compartilhado. O vínculo com cada empresa (em qual etapa do
+// quadro DAQUELA empresa ele está, e o valor) fica em crm_deal_companies —
+// uma linha por (negócio, empresa). É assim que um mesmo cliente consegue
+// estar, ao mesmo tempo, em andamento na 12ia E na Locline, cada uma com seu
+// próprio progresso. Acesso é por empresa: cada login só enxerga as
+// empresas liberadas pra ele em user_company_access (RLS cuida disso —
+// ver supabase_migration_crm.sql), exceto quem está em crm_admins, que
+// enxerga tudo.
+let crmUserId = null, crmIsAdmin = false;
+let crmCompanies = [];
+let crmSelectedCompanyId = null;
+let crmStages = [];
+let crmLinks = [];
+let crmDragId = null;
+let crmEditingDealId = null, crmEditingLinkId = null, crmNewDealInitialStage = null;
+let crmDealOtherLinks = [];
+let crmMembersCache = [];
+
+async function loadCrm() {
+  if (!crmUserId) {
+    const { data: { user } } = await db.auth.getUser();
+    crmUserId = user?.id || null;
+  }
+  const { data: adminRow } = await db.from('crm_admins').select('user_id').eq('user_id', crmUserId).maybeSingle();
+  crmIsAdmin = !!adminRow;
+  document.getElementById('crmCompaniesBtn').classList.toggle('hidden', !crmIsAdmin);
+  document.getElementById('crmMembersBtn').classList.toggle('hidden', !crmIsAdmin);
+
+  const { data: companies, error } = await db.from('companies').select('id,name').order('name');
+  if (error) { toast('Erro ao carregar empresas: ' + error.message, 'error'); return; }
+  crmCompanies = companies || [];
+
+  if (!crmCompanies.length) {
+    document.getElementById('crmCompanyTabs').innerHTML = '<span style="font-size:12px;color:var(--text3)">Nenhuma empresa cadastrada ainda' + (crmIsAdmin ? ' — clique em "Empresas" pra criar a primeira.' : ' — peça pra um admin te liberar o acesso.') + '</span>';
+    document.getElementById('crmBoardWrap').innerHTML = '';
+    return;
+  }
+  if (!crmSelectedCompanyId || !crmCompanies.some(c => c.id === crmSelectedCompanyId)) {
+    crmSelectedCompanyId = crmCompanies[0].id;
+  }
+  renderCrmCompanyTabs();
+  await loadCrmBoard();
+}
+
+function renderCrmCompanyTabs() {
+  document.getElementById('crmCompanyTabs').innerHTML = crmCompanies.map(c =>
+    `<div class="crm-company-tab${c.id === crmSelectedCompanyId ? ' active' : ''}" onclick="selectCrmCompany('${c.id}')">${esc(c.name)}</div>`
+  ).join('');
+}
+function selectCrmCompany(id) {
+  crmSelectedCompanyId = id;
+  renderCrmCompanyTabs();
+  loadCrmBoard();
+}
+
+async function loadCrmBoard() {
+  if (!crmSelectedCompanyId) return;
+  document.getElementById('crmBoardWrap').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  const [{ data: stages, error: sErr }, { data: links, error: lErr }] = await Promise.all([
+    db.from('crm_stages').select('id,name,position').eq('company_id', crmSelectedCompanyId).order('position'),
+    db.from('crm_deal_companies').select('id,company_id,stage_id,value,position,crm_deals(id,title,contact_name,contact_email,contact_phone,notes)').eq('company_id', crmSelectedCompanyId).order('position'),
+  ]);
+  if (sErr || lErr) { toast('Erro ao carregar quadro: ' + (sErr || lErr).message, 'error'); return; }
+  crmStages = stages || [];
+  crmLinks = links || [];
+
+  // Conta em quantas empresas cada negócio aparece (pra badge "+N empresas" no cartão)
+  const dealCompanyCount = {};
+  const dealIds = [...new Set(crmLinks.map(l => l.crm_deals?.id).filter(Boolean))];
+  if (dealIds.length) {
+    const { data: allLinks } = await db.from('crm_deal_companies').select('deal_id').in('deal_id', dealIds);
+    (allLinks || []).forEach(r => { dealCompanyCount[r.deal_id] = (dealCompanyCount[r.deal_id] || 0) + 1; });
+  }
+  renderCrmBoard(dealCompanyCount);
+}
+
+function fmtMoney(v) {
+  if (v === null || v === undefined || v === '') return '';
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function renderCrmBoard(dealCompanyCount) {
+  if (!crmStages.length) {
+    document.getElementById('crmBoardWrap').innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Essa empresa ainda não tem etapas</div><div style="margin-top:1rem"><button class="btn btn-primary btn-sm" onclick="addCrmStage()">+ Criar primeira etapa</button></div></div>`;
+    return;
+  }
+  const byStage = {};
+  crmStages.forEach(s => byStage[s.id] = []);
+  crmLinks.forEach(l => { if (byStage[l.stage_id]) byStage[l.stage_id].push(l); });
+
+  const cols = crmStages.map(s => {
+    const items = byStage[s.id] || [];
+    const cards = items.map(l => {
+      const d = l.crm_deals || {};
+      const n = (dealCompanyCount[d.id] || 1) - 1;
+      const multi = n > 0 ? `<span class="crm-card-multi">+${n} empresa${n > 1 ? 's' : ''}</span>` : '';
+      return `<div class="crm-card" draggable="true" data-link-id="${l.id}" ondragstart="crmCardDragStart(event)" ondragend="crmCardDragEnd(event)" onclick="openCrmDealModal('${d.id}')">
+        <div class="crm-card-title">${esc(d.title || '(sem nome)')}</div>
+        <div class="crm-card-meta">
+          ${d.contact_name ? `<span>👤 ${esc(d.contact_name)}</span>` : ''}
+          ${d.contact_phone ? `<span>📞 ${esc(d.contact_phone)}</span>` : ''}
+        </div>
+        ${l.value ? `<div class="crm-card-value">${fmtMoney(l.value)}</div>` : ''}
+        ${multi}
+      </div>`;
+    }).join('');
+    return `<div class="crm-col" data-stage-id="${s.id}" ondragover="crmColDragOver(event)" ondragleave="crmColDragLeave(event)" ondrop="crmColDrop(event)">
+      <div class="crm-col-head">
+        <div class="crm-col-title">${esc(s.name)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="crm-col-count">${items.length}</div>
+          <div class="crm-col-actions">
+            <button title="Renomear" onclick="renameCrmStage('${s.id}','${esc(s.name).replace(/'/g, "\\'")}')">✎</button>
+            <button title="Excluir" onclick="deleteCrmStage('${s.id}')">🗑</button>
+          </div>
+        </div>
+      </div>
+      <div class="crm-col-body">${cards || '<div style="font-size:11px;color:var(--text3);text-align:center;padding:1rem 0">Vazio</div>'}</div>
+      <div class="crm-col-foot"><button class="crm-add-card-btn" onclick="openCrmDealModal(null,'${s.id}')">+ Negócio</button></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('crmBoardWrap').innerHTML = `<div class="crm-board">${cols}<div style="min-width:180px"><button class="btn btn-secondary btn-sm" onclick="addCrmStage()" style="width:100%">+ Etapa</button></div></div>`;
+}
+
+// ── Drag & drop de cartões entre colunas ────────────────────────────────────
+function crmCardDragStart(e) {
+  crmDragId = e.currentTarget.dataset.linkId;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function crmCardDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+}
+function crmColDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function crmColDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+async function crmColDrop(e) {
+  e.preventDefault();
+  const stageId = e.currentTarget.dataset.stageId;
+  e.currentTarget.classList.remove('drag-over');
+  if (!crmDragId) return;
+  const link = crmLinks.find(l => String(l.id) === String(crmDragId));
+  crmDragId = null;
+  if (!link || link.stage_id === stageId) return;
+  const { error } = await db.from('crm_deal_companies').update({ stage_id: stageId }).eq('id', link.id);
+  if (error) { toast('Erro ao mover: ' + error.message, 'error'); return; }
+  loadCrmBoard();
+}
+
+// ── Etapas (colunas) ────────────────────────────────────────────────────────
+async function addCrmStage() {
+  const name = prompt('Nome da nova etapa:');
+  if (!name || !name.trim()) return;
+  const position = crmStages.length ? Math.max(...crmStages.map(s => s.position)) + 1 : 0;
+  const { error } = await db.from('crm_stages').insert({ company_id: crmSelectedCompanyId, name: name.trim(), position });
+  if (error) { toast('Erro: ' + error.message, 'error'); return; }
+  toast('Etapa criada.', 'success');
+  loadCrmBoard();
+}
+function renameCrmStage(id, currentName) {
+  const name = prompt('Novo nome da etapa:', currentName);
+  if (!name || !name.trim() || name.trim() === currentName) return;
+  db.from('crm_stages').update({ name: name.trim() }).eq('id', id).then(({ error }) => {
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    loadCrmBoard();
+  });
+}
+function deleteCrmStage(id) {
+  const count = crmLinks.filter(l => l.stage_id === id).length;
+  if (count > 0) { toast(`Essa etapa tem ${count} negócio(s) — mova ou exclua eles antes de apagar a etapa.`, 'error'); return; }
+  openConfirm('Excluir etapa', 'Tem certeza? Essa ação não pode ser desfeita.', async () => {
+    const { error } = await db.from('crm_stages').delete().eq('id', id);
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    toast('Etapa excluída.', 'info');
+    loadCrmBoard();
+  }, '🗑 Excluir');
+}
+
+// ── Modal de negócio ─────────────────────────────────────────────────────────
+async function openCrmDealModal(dealId, initialStageId) {
+  crmEditingDealId = dealId || null;
+  document.getElementById('crmDeleteBtn').classList.toggle('hidden', !dealId);
+  document.getElementById('crmDealModalTitle').textContent = dealId ? 'Editar negócio' : '+ Novo negócio';
+  document.getElementById('crmTitle').value = '';
+  document.getElementById('crmContactName').value = '';
+  document.getElementById('crmContactPhone').value = '';
+  document.getElementById('crmContactEmail').value = '';
+  document.getElementById('crmNotes').value = '';
+  crmDealOtherLinks = [];
+  crmEditingLinkId = null;
+  crmNewDealInitialStage = initialStageId || (crmStages[0] && crmStages[0].id) || null;
+
+  if (dealId) {
+    const { data: deal, error } = await db.from('crm_deals').select('*').eq('id', dealId).single();
+    if (error || !deal) { toast('Não foi possível abrir esse negócio.', 'error'); return; }
+    document.getElementById('crmTitle').value = deal.title || '';
+    document.getElementById('crmContactName').value = deal.contact_name || '';
+    document.getElementById('crmContactPhone').value = deal.contact_phone || '';
+    document.getElementById('crmContactEmail').value = deal.contact_email || '';
+    document.getElementById('crmNotes').value = deal.notes || '';
+
+    const { data: links } = await db.from('crm_deal_companies').select('id,company_id,stage_id,value,companies(id,name)').eq('deal_id', dealId);
+    crmDealOtherLinks = links || [];
+    const mine = crmDealOtherLinks.find(l => l.company_id === crmSelectedCompanyId);
+    crmEditingLinkId = mine ? mine.id : null;
+  }
+  await renderCrmDealCompaniesSection();
+  document.getElementById('crmDealModal').classList.add('show');
+}
+function closeCrmDealModal() {
+  document.getElementById('crmDealModal').classList.remove('show');
+}
+
+async function renderCrmDealCompaniesSection() {
+  const rows = [];
+  const companiesShown = new Set();
+  const stagesByCompany = { [crmSelectedCompanyId]: crmStages };
+  const otherCompanyIds = [...new Set(crmDealOtherLinks.map(l => l.company_id))].filter(id => id !== crmSelectedCompanyId);
+  for (const cid of otherCompanyIds) {
+    const { data } = await db.from('crm_stages').select('id,name,position').eq('company_id', cid).order('position');
+    stagesByCompany[cid] = data || [];
+  }
+  function stageSelect(companyId, selectedStageId, extraAttr) {
+    const opts = (stagesByCompany[companyId] || []).map(s => `<option value="${s.id}"${s.id === selectedStageId ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
+    return `<select class="filter-sel" ${extraAttr}>${opts}</select>`;
+  }
+
+  const mine = crmDealOtherLinks.find(l => l.company_id === crmSelectedCompanyId);
+  companiesShown.add(crmSelectedCompanyId);
+  const mineCompanyName = crmCompanies.find(c => c.id === crmSelectedCompanyId)?.name || '?';
+  rows.push(`<div class="crm-link-row">
+    <div class="crm-link-name">${esc(mineCompanyName)}</div>
+    ${stageSelect(crmSelectedCompanyId, mine ? mine.stage_id : crmNewDealInitialStage, `id="crmStage_${crmSelectedCompanyId}" style="min-width:150px"`)}
+    <input class="swap-modal-input" style="margin:0;width:110px" placeholder="R$" id="crmValue_${crmSelectedCompanyId}" value="${mine && mine.value ? mine.value : ''}">
+  </div>`);
+
+  crmDealOtherLinks.filter(l => l.company_id !== crmSelectedCompanyId).forEach(l => {
+    companiesShown.add(l.company_id);
+    rows.push(`<div class="crm-link-row">
+      <div class="crm-link-name">${esc(l.companies?.name || '?')}</div>
+      ${stageSelect(l.company_id, l.stage_id, `id="crmStage_${l.company_id}" style="min-width:150px"`)}
+      <input class="swap-modal-input" style="margin:0;width:110px" placeholder="R$" id="crmValue_${l.company_id}" value="${l.value || ''}">
+      <button class="btn btn-ghost btn-sm" onclick="removeCrmDealCompanyLink('${l.company_id}')" title="Desvincular">✕</button>
+    </div>`);
+  });
+
+  document.getElementById('crmDealCompaniesList').innerHTML = rows.join('');
+
+  const available = crmCompanies.filter(c => !companiesShown.has(c.id));
+  const addRow = document.getElementById('crmAddCompanyRow');
+  if (!crmEditingDealId) {
+    addRow.innerHTML = '<p style="font-size:11px;color:var(--text3)">Salve o negócio primeiro pra depois vincular a outras empresas.</p>';
+  } else if (available.length) {
+    addRow.innerHTML = `<select class="filter-sel" id="crmAddCompanySel">${available.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+      <button class="btn btn-secondary btn-sm" onclick="addCrmDealCompanyLink()">+ Vincular a outra empresa</button>`;
+  } else {
+    addRow.innerHTML = '';
+  }
+}
+
+async function addCrmDealCompanyLink() {
+  const companyId = document.getElementById('crmAddCompanySel').value;
+  const { data: stages } = await db.from('crm_stages').select('id').eq('company_id', companyId).order('position').limit(1);
+  if (!stages || !stages.length) { toast('Essa empresa ainda não tem etapas configuradas.', 'error'); return; }
+  const { error } = await db.from('crm_deal_companies').insert({ deal_id: crmEditingDealId, company_id: companyId, stage_id: stages[0].id, position: 0 });
+  if (error) { toast('Erro: ' + error.message, 'error'); return; }
+  const { data: links } = await db.from('crm_deal_companies').select('id,company_id,stage_id,value,companies(id,name)').eq('deal_id', crmEditingDealId);
+  crmDealOtherLinks = links || [];
+  toast('Vinculado.', 'success');
+  renderCrmDealCompaniesSection();
+}
+
+function removeCrmDealCompanyLink(companyId) {
+  const link = crmDealOtherLinks.find(l => l.company_id === companyId);
+  if (!link) return;
+  openConfirm('Desvincular empresa', 'Isso remove o progresso desse negócio nessa empresa (não apaga o cadastro do cliente nem as outras empresas vinculadas). Confirma?', async () => {
+    const { error } = await db.from('crm_deal_companies').delete().eq('id', link.id);
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    crmDealOtherLinks = crmDealOtherLinks.filter(l => l.id !== link.id);
+    toast('Desvinculado.', 'info');
+    renderCrmDealCompaniesSection();
+    loadCrmBoard();
+  }, '✕ Desvincular');
+}
+
+async function saveCrmDeal() {
+  const title = document.getElementById('crmTitle').value.trim();
+  if (!title) { toast('Dá um nome pro cliente/negócio.', 'error'); return; }
+  const payload = {
+    title,
+    contact_name: document.getElementById('crmContactName').value.trim() || null,
+    contact_phone: document.getElementById('crmContactPhone').value.trim() || null,
+    contact_email: document.getElementById('crmContactEmail').value.trim() || null,
+    notes: document.getElementById('crmNotes').value.trim() || null,
+  };
+
+  let dealId = crmEditingDealId;
+  if (!dealId) {
+    const { data: { user } } = await db.auth.getUser();
+    const { data, error } = await db.from('crm_deals').insert({ ...payload, created_by: user?.id || null }).select().single();
+    if (error) { toast('Erro ao criar: ' + error.message, 'error'); return; }
+    dealId = data.id;
+    const stageSel = document.getElementById('crmStage_' + crmSelectedCompanyId);
+    const valInp = document.getElementById('crmValue_' + crmSelectedCompanyId);
+    const stageId = stageSel ? stageSel.value : crmNewDealInitialStage;
+    const value = valInp && valInp.value ? parseFloat(valInp.value.replace(',', '.')) : null;
+    const { error: linkErr } = await db.from('crm_deal_companies').insert({ deal_id: dealId, company_id: crmSelectedCompanyId, stage_id: stageId, value, position: 0 });
+    if (linkErr) toast('Negócio criado, mas erro ao vincular à empresa: ' + linkErr.message, 'error');
+  } else {
+    const { error } = await db.from('crm_deals').update(payload).eq('id', dealId);
+    if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return; }
+    const stageSel = document.getElementById('crmStage_' + crmSelectedCompanyId);
+    const valInp = document.getElementById('crmValue_' + crmSelectedCompanyId);
+    if (stageSel) {
+      const stageId = stageSel.value;
+      const value = valInp && valInp.value ? parseFloat(valInp.value.replace(',', '.')) : null;
+      if (crmEditingLinkId) await db.from('crm_deal_companies').update({ stage_id: stageId, value }).eq('id', crmEditingLinkId);
+      else await db.from('crm_deal_companies').insert({ deal_id: dealId, company_id: crmSelectedCompanyId, stage_id: stageId, value, position: 0 });
+    }
+    for (const l of crmDealOtherLinks.filter(x => x.company_id !== crmSelectedCompanyId)) {
+      const sSel = document.getElementById('crmStage_' + l.company_id);
+      const vInp = document.getElementById('crmValue_' + l.company_id);
+      if (!sSel) continue;
+      const stageId = sSel.value;
+      const value = vInp && vInp.value ? parseFloat(vInp.value.replace(',', '.')) : null;
+      await db.from('crm_deal_companies').update({ stage_id: stageId, value }).eq('id', l.id);
+    }
+  }
+
+  toast('Negócio salvo.', 'success');
+  closeCrmDealModal();
+  loadCrmBoard();
+}
+
+function deleteCrmDeal() {
+  if (!crmEditingDealId) return;
+  openConfirm('Excluir negócio', 'Isso apaga o cliente/negócio e o vínculo com TODAS as empresas (não só essa). Não pode ser desfeito.', async () => {
+    const { error } = await db.from('crm_deals').delete().eq('id', crmEditingDealId);
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    toast('Negócio excluído.', 'info');
+    closeCrmDealModal();
+    loadCrmBoard();
+  }, '🗑 Excluir');
+}
+
+// ── Empresas (admin) ─────────────────────────────────────────────────────────
+async function openCrmCompaniesModal() {
+  await renderCrmCompaniesModalList();
+  document.getElementById('crmCompaniesModal').classList.add('show');
+}
+async function renderCrmCompaniesModalList() {
+  const { data, error } = await db.from('companies').select('id,name').order('name');
+  if (error) { toast('Erro: ' + error.message, 'error'); return; }
+  document.getElementById('crmCompaniesList').innerHTML = (data || []).map(c => `
+    <div class="ref-item">
+      <div class="ref-item-top">
+        <div class="ref-item-left"><span class="ref-label">${esc(c.name)}</span></div>
+        <div class="ref-item-right">
+          <button class="btn btn-ghost btn-sm" onclick="renameCrmCompany('${c.id}','${esc(c.name).replace(/'/g, "\\'")}')">✎ Renomear</button>
+        </div>
+      </div>
+    </div>`).join('') || '<div class="ref-empty">Nenhuma empresa ainda.</div>';
+}
+async function addCrmCompany() {
+  const name = document.getElementById('crmNewCompanyName').value.trim();
+  if (!name) return;
+  const { data, error } = await db.from('companies').insert({ name }).select().single();
+  if (error) { toast('Erro: ' + error.message, 'error'); return; }
+  const defaultStages = ['Novo lead', 'Em contato', 'Proposta enviada', 'Negociação', 'Fechado - Ganho', 'Fechado - Perdido'];
+  await db.from('crm_stages').insert(defaultStages.map((n, i) => ({ company_id: data.id, name: n, position: i })));
+  document.getElementById('crmNewCompanyName').value = '';
+  toast('Empresa criada, já com o quadro padrão.', 'success');
+  renderCrmCompaniesModalList();
+  loadCrm();
+}
+function renameCrmCompany(id, currentName) {
+  const name = prompt('Novo nome da empresa:', currentName);
+  if (!name || !name.trim() || name.trim() === currentName) return;
+  db.from('companies').update({ name: name.trim() }).eq('id', id).then(({ error }) => {
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    toast('Empresa renomeada.', 'success');
+    renderCrmCompaniesModalList();
+    loadCrm();
+  });
+}
+
+// ── Acesso / membros (admin, via Edge Function com service role) ────────────
+async function openCrmMembersModal() {
+  document.getElementById('crmGrantCompany').innerHTML = crmCompanies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  await loadCrmMembers();
+  document.getElementById('crmMembersModal').classList.add('show');
+}
+async function loadCrmMembers() {
+  document.getElementById('crmMembersList').innerHTML = '<div style="font-size:12px;color:var(--text3)">Carregando...</div>';
+  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'list_members' } });
+  if (error) { document.getElementById('crmMembersList').innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro: ${esc(error.message || String(error))}</div>`; return; }
+  crmMembersCache = data.members || [];
+  renderCrmMembersList();
+}
+function renderCrmMembersList() {
+  if (!crmMembersCache.length) { document.getElementById('crmMembersList').innerHTML = '<div style="font-size:12px;color:var(--text3)">Ninguém tem acesso liberado ainda (além de administradores).</div>'; return; }
+  document.getElementById('crmMembersList').innerHTML = crmMembersCache.map(m => `
+    <div class="crm-member-row">
+      <div class="crm-member-email">${esc(m.email)}${m.is_admin ? ' <span class="ref-badge">admin</span>' : ''}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        ${m.companies.map(c => `<span class="crm-chip">${esc(c.name)}<button onclick="revokeCrmAccess('${m.user_id}','${c.id}')" title="Remover acesso">✕</button></span>`).join('') || '<span style="font-size:11px;color:var(--text3)">sem empresas</span>'}
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="toggleCrmAdmin('${m.user_id}', ${!m.is_admin})">${m.is_admin ? 'Tirar admin' : 'Tornar admin'}</button>
+    </div>`).join('');
+}
+async function grantCrmAccess() {
+  const email = document.getElementById('crmGrantEmail').value.trim();
+  const company_id = document.getElementById('crmGrantCompany').value;
+  if (!email || !company_id) { toast('Preenche o e-mail e a empresa.', 'error'); return; }
+  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'grant', email, company_id } });
+  if (error) { toast('Erro: ' + (error.message || String(error)), 'error'); return; }
+  if (data?.error) { toast('Erro: ' + data.error, 'error'); return; }
+  if (data?.created_new && data?.temp_password) {
+    openConfirm('Novo login criado', `Login criado pra ${email}.\n\nSenha temporária: ${data.temp_password}\n\nAvise essa pessoa por fora daqui (WhatsApp etc) — essa senha não aparece de novo.`, () => {}, 'Ok, copiei');
+  } else {
+    toast('Acesso liberado.', 'success');
+  }
+  document.getElementById('crmGrantEmail').value = '';
+  loadCrmMembers();
+}
+async function revokeCrmAccess(user_id, company_id) {
+  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'revoke', user_id, company_id } });
+  if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
+  toast('Acesso removido.', 'info');
+  loadCrmMembers();
+}
+async function toggleCrmAdmin(user_id, isAdmin) {
+  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'set_admin', user_id, is_admin: isAdmin } });
+  if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
+  toast(isAdmin ? 'Agora é admin.' : 'Não é mais admin.', 'success');
+  loadCrmMembers();
 }
 </script>
 </body>
