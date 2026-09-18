@@ -1077,6 +1077,28 @@ async function fetchAllRows(table, cols){
   return all;
 }
 
+// Faz um .in(column, ids) em lotes. Com a base de usuários/cupons já na
+// casa dos milhares, um .in() com tudo de uma vez gera uma URL gigante e o
+// Supabase/PostgREST devolve "Bad Request" — e como grande parte do código
+// não checava o `error` dessas chamadas, a falha era silenciosa: a query
+// simplesmente voltava vazia e colunas como "Link do cupom" pareciam
+// vazias mesmo quando o vínculo existia de verdade no banco. 300 ids por
+// lote testado e confirmado funcionando (na prática quebra em algum ponto
+// entre 600 e 700 ids de uma vez só).
+async function fetchInBatches(table, cols, column, ids, applyExtra) {
+  const CHUNK = 300;
+  let all = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    let q = db.from(table).select(cols).in(column, slice);
+    if (applyExtra) q = applyExtra(q);
+    const { data, error } = await q;
+    if (error) { console.error(`fetchInBatches(${table}.${column}) lote ${i}-${i+CHUNK}:`, error); continue; }
+    if (data?.length) all = all.concat(data);
+  }
+  return all;
+}
+
 // ─── CAMPANHAS DE E-MAIL ────────────────────────────────────────────────────
 // "Modelo" (email_templates) = texto/PDF reutilizável, com 3 usos possíveis:
 //  - signup:   disparado sozinho pelo index.html quando alguém se cadastra
@@ -2583,25 +2605,33 @@ async function loadUsers() {
   let cMapByUser   = {}; // userId    → link  (via coupons.users_id)
   let cIdMapByUser = {}; // userId    → couponId (via coupons.users_id, registros antigos)
 
-  // 1. Busca cupons pelo coupons_id do usuário
+  // 1. Busca cupons pelo coupons_id do usuário. Em lotes de 300 — ver
+  // fetchInBatches() pra entender por quê (.in() com centenas de ids de
+  // uma vez só falhava com "Bad Request", silenciosamente).
   if (cIdsFromUser.length) {
-    const { data: cs1 } = await db.from('coupons').select('id,link').in('id', cIdsFromUser);
-    (cs1 || []).forEach(c => cMapById[c.id] = c.link);
+    const cs1 = await fetchInBatches('coupons', 'id,link', 'id', cIdsFromUser);
+    cs1.forEach(c => cMapById[c.id] = c.link);
   }
 
-  // 2. Busca cupons pelo users_id (para registros antigos onde users.coupons_id
-  // é null, ou pra quem tem cupom extra vinculado). Não filtra por status —
-  // um cupom já resgatado (status 'redeemed') continua sendo "o link dessa
-  // pessoa" e não deve virar "—" na coluna só porque não está mais
-  // 'delivered'. Ordena por distributed_at crescente e fica só com a
-  // primeira ocorrência por usuário, ou seja: o PRIMEIRO cupom vinculado.
-  const usersWithoutCouponId = (us || []).filter(u => !u.coupons_id).map(u => u.id);
-  if (usersWithoutCouponId.length) {
-    const { data: cs2 } = await db
-      .from('coupons').select('id,link,users_id,distributed_at')
-      .in('users_id', usersWithoutCouponId)
-      .order('distributed_at', { ascending: true, nullsFirst: false });
-    (cs2 || []).forEach(c => {
+  // 2. Busca cupons pelo users_id — pra TODO mundo, não só quem está sem
+  // users.coupons_id. coupons.users_id é o vínculo que manda de verdade (é
+  // ele que "➕ Extra", troca de cupom etc. mantêm atualizado); users.coupons_id
+  // é só o "principal" guardado no cadastro e pode ficar desatualizado ou
+  // não bater com nenhum cupom visível (ex: apagado, RLS, registro antigo).
+  // Sem filtrar por status — um cupom já resgatado (status 'redeemed')
+  // continua sendo "o link dessa pessoa" e não deve virar "—" só porque não
+  // está mais 'delivered'. Ordenamos por distributed_at crescente DEPOIS de
+  // juntar todos os lotes e ficamos só com a primeira ocorrência por
+  // usuário: o PRIMEIRO cupom vinculado a ele.
+  let cs2 = [];
+  if (uIdsForCoupon.length) {
+    cs2 = await fetchInBatches('coupons', 'id,link,users_id,status,distributed_at', 'users_id', uIdsForCoupon);
+    cs2.sort((a, b) => {
+      if (!a.distributed_at) return 1;
+      if (!b.distributed_at) return -1;
+      return new Date(a.distributed_at) - new Date(b.distributed_at);
+    });
+    cs2.forEach(c => {
       if (c.users_id && !cMapByUser[c.users_id]) { cMapByUser[c.users_id] = c.link; cIdMapByUser[c.users_id] = c.id; }
     });
   }
@@ -2612,14 +2642,14 @@ async function loadUsers() {
   // público, e a equipe usa "➕ Extra" no admin pra ir vinculando os demais
   // — mas o campo users.coupons_id só guarda 1 id, então sem essa contagem
   // à parte os cupons extras ficariam invisíveis nesta tela.
+  // Reaproveita o cs2 já buscado em lotes no passo 2 (mesma tabela/coluna,
+  // só falta status) em vez de disparar mais uma consulta gigante sem lote.
   let couponsCountByUser = {};
-  if (uIdsForCoupon.length) {
-    const { data: cs3 } = await db
-      .from('coupons').select('users_id,status')
-      .in('users_id', uIdsForCoupon)
-      .in('status', ['delivered', 'redeemed']);
-    (cs3 || []).forEach(c => { if (c.users_id) couponsCountByUser[c.users_id] = (couponsCountByUser[c.users_id] || 0) + 1; });
-  }
+  cs2.forEach(c => {
+    if (c.users_id && (c.status === 'delivered' || c.status === 'redeemed')) {
+      couponsCountByUser[c.users_id] = (couponsCountByUser[c.users_id] || 0) + 1;
+    }
+  });
 
   allUsers = (us || []).map(u => ({
     ...u,
@@ -3777,13 +3807,15 @@ async function loadLogs() {
   const cIds = [...new Set(events.map(e => e.coupons_id).filter(Boolean))];
   const uIds = [...new Set(events.map(e => e.users_id).filter(Boolean))];
 
+  // Em lotes (ver fetchInBatches) — com até 200 eventos, cIds/uIds já
+  // encostam na faixa onde um .in() de uma vez só pode falhar.
   let cMap = {}, uMap = {};
-  const [cRes, uRes] = await Promise.all([
-    cIds.length ? db.from('coupons').select('id,link').in('id', cIds) : { data: [] },
-    uIds.length ? db.from('users').select('id,name,email').in('id', uIds) : { data: [] }
+  const [cList, uList] = await Promise.all([
+    cIds.length ? fetchInBatches('coupons', 'id,link', 'id', cIds) : [],
+    uIds.length ? fetchInBatches('users', 'id,name,email', 'id', uIds) : []
   ]);
-  (cRes.data || []).forEach(c => cMap[c.id] = c);
-  (uRes.data || []).forEach(u => uMap[u.id] = u);
+  cList.forEach(c => cMap[c.id] = c);
+  uList.forEach(u => uMap[u.id] = u);
 
   const rows = events.map(e => {
     const coupon = cMap[e.coupons_id];
