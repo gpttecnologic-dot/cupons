@@ -22,6 +22,21 @@
   --radius:8px;--radius-lg:12px;--radius-xl:16px;
   --shadow:0 4px 24px rgba(0,0,0,.4);
 }
+/* Acompanha a preferência clara/escura do navegador de quem está usando —
+   cada pessoa vê o painel no modo que já escolheu no sistema/navegador dela,
+   independente do que outra pessoa prefere. */
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#f5f5f8;--bg2:#ffffff;--bg3:#f1f1f6;--bg4:#e6e6ee;
+    --border:#e2e2ea;--border2:#d2d2de;
+    --text:#16161c;--text2:#4a4a58;--text3:#84849a;
+    --accent:#7c6af7;--accent2:#6356d4;--accent-light:#6356d4;
+    --success:#16a34a;--success-bg:#e8f8ee;
+    --danger:#dc2626;--danger-bg:#fceaea;
+    --warning:#d97706;--warning-bg:#fdf1de;
+    --shadow:0 4px 24px rgba(20,20,40,.08);
+  }
+}
 *{font-family:'Inter',sans-serif}
 body{background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.6}
 button{cursor:pointer;border:none;outline:none;font-family:inherit;transition:all .18s}
@@ -209,6 +224,31 @@ td.primary{color:var(--text);font-weight:500}
 .crm-chip{display:inline-flex;align-items:center;gap:5px;background:var(--bg4);border-radius:100px;padding:2px 8px;font-size:10.5px;color:var(--text2)}
 .crm-chip button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;line-height:1}
 .crm-chip button:hover{color:var(--danger)}
+.crm-card-labels{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:.35rem}
+.crm-label-chip{display:inline-block;height:7px;width:26px;border-radius:4px}
+.crm-card-due{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--text3);background:var(--bg4);border-radius:100px;padding:1px 7px;margin-top:.4rem;margin-right:4px}
+.crm-card-due.overdue{color:#f87171;background:rgba(248,113,113,.12)}
+.crm-card-due.delivered{color:#4ade80;background:rgba(74,222,128,.12)}
+.crm-modal-section{border-top:1px solid var(--border);padding-top:.85rem;margin-top:.85rem}
+.crm-modal-section-title{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.crm-label-picker{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:.6rem}
+.crm-label-pill{display:inline-flex;align-items:center;gap:5px;border-radius:100px;padding:3px 10px 3px 8px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid transparent;opacity:.5}
+.crm-label-pill.active{opacity:1}
+.crm-label-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.crm-attachment-row{display:flex;align-items:center;gap:.5rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.45rem .65rem;margin-bottom:.4rem;font-size:12px}
+.crm-attachment-row a{color:var(--accent-light);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crm-checklist{margin-bottom:.7rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .7rem}
+.crm-checklist-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;gap:.5rem}
+.crm-checklist-name{font-size:12px;font-weight:700}
+.crm-progress-bar{height:6px;background:var(--bg4);border-radius:100px;overflow:hidden;margin-bottom:.5rem}
+.crm-progress-fill{height:100%;background:var(--accent);border-radius:100px;transition:width .2s}
+.crm-checklist-item{display:flex;align-items:center;gap:.45rem;font-size:12px;padding:.2rem 0}
+.crm-checklist-item.checked .crm-checklist-item-text{text-decoration:line-through;color:var(--text3)}
+.crm-checklist-item-text{flex:1}
+.crm-comment{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .65rem;margin-bottom:.5rem;font-size:12px}
+.crm-comment-head{display:flex;justify-content:space-between;gap:.5rem;font-size:10.5px;color:var(--text3);margin-bottom:.25rem}
+.crm-comment-author{font-weight:700;color:var(--text2)}
+.crm-comment-body{white-space:pre-wrap;word-break:break-word;line-height:1.4}
 
 .swap-modal-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;color:var(--text);font-size:13px;outline:none;margin-top:.5rem}
 .swap-modal-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(124,106,247,.15)}
@@ -282,12 +322,12 @@ body{overflow-x:hidden}
           <div class="sb-logo-sub">Painel Admin</div>
         </div>
       </div>
-      <div class="sb-section">Principal</div>
+      <div class="sb-section" id="sbSecPrincipal">Principal</div>
       <div class="sb-link active" id="nav-dashboard" onclick="goTab('dashboard')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         Dashboard
       </div>
-      <div class="sb-section">Gerenciar</div>
+      <div class="sb-section" id="sbSecGerenciar">Gerenciar</div>
       <div class="sb-link" id="nav-coupons" onclick="goTab('coupons')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0-6h20a3 3 0 0 1 0 6v2a3 3 0 0 1 0 6H2a3 3 0 0 1 0-6z"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
         Cupons
@@ -311,7 +351,7 @@ body{overflow-x:hidden}
         Corporativo
         <span class="sb-badge" id="corpCount">0</span>
       </div>
-      <div class="sb-section">Comunicação</div>
+      <div class="sb-section" id="sbSecComunicacao">Comunicação</div>
       <div class="sb-link" id="nav-campaigns" onclick="goTab('campaigns')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z" opacity="0"/><path d="M22 6l-10 7L2 6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
         Campanhas de E-mail
@@ -320,7 +360,7 @@ body{overflow-x:hidden}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg>
         Servidor SMTP
       </div>
-      <div class="sb-section">Dados</div>
+      <div class="sb-section" id="sbSecDados">Dados</div>
       <div class="sb-link" id="nav-import" onclick="goTab('import')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
         Importar
@@ -742,6 +782,13 @@ body{overflow-x:hidden}
         <div class="tbl-wrap" style="padding:1rem 1.25rem;margin-bottom:1rem">
           <div class="crm-company-tabs" id="crmCompanyTabs"><span style="font-size:12px;color:var(--text3)">Carregando empresas...</span></div>
         </div>
+        <!-- Dashboard específico do CRM — separado do Dashboard de cupons -->
+        <div class="stats-grid" id="crmStatsGrid" style="margin-bottom:1rem">
+          <div class="stat-card"><div class="stat-label">Negócios</div><div class="stat-val white" id="crmStatTotal">—</div></div>
+          <div class="stat-card"><div class="stat-label">Em aberto (R$)</div><div class="stat-val purple" id="crmStatPipeline">—</div></div>
+          <div class="stat-card"><div class="stat-label">Atrasados</div><div class="stat-val red" id="crmStatOverdue">—</div></div>
+          <div class="stat-card"><div class="stat-label">✅ Entregues</div><div class="stat-val green" id="crmStatDelivered">—</div></div>
+        </div>
         <div id="crmBoardWrap">
           <div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Carregando...</div></div>
         </div>
@@ -931,13 +978,80 @@ body{overflow-x:hidden}
     <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">E-mail do contato</label>
     <input class="swap-modal-input" id="crmContactEmail" placeholder="contato@cliente.com" style="margin-bottom:.75rem">
 
+    <div class="crm-modal-section" style="border-top:1px solid var(--border);padding-top:.85rem">
+      <div class="crm-modal-section-title"><span>🏢 Dados da empresa do cliente</span></div>
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Nome da empresa</label>
+      <input class="swap-modal-input" id="crmClientCompanyName" placeholder="Razão social ou nome fantasia" style="margin:0 0 .75rem">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">CNPJ</label>
+          <input class="swap-modal-input" id="crmClientCnpj" placeholder="00.000.000/0000-00" style="margin:0">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Segmento</label>
+          <input class="swap-modal-input" id="crmClientSegment" placeholder="Ex: Varejo, Saúde..." style="margin:0">
+        </div>
+      </div>
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Endereço</label>
+      <input class="swap-modal-input" id="crmClientAddress" placeholder="Endereço completo" style="margin:0">
+    </div>
+
     <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Observações</label>
     <textarea id="crmNotes" style="width:100%;height:80px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;outline:none;margin-bottom:1rem" placeholder="Anotações sobre o negócio..."></textarea>
+
+    <div class="crm-modal-section" style="border-top:none;padding-top:0;margin-top:0">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;align-items:end">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Data de entrega</label>
+          <input type="date" class="swap-modal-input" id="crmDueDate" style="margin:0">
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;padding-bottom:.55rem">
+          <input type="checkbox" id="crmDelivered"> Entregue
+        </label>
+      </div>
+    </div>
+
+    <div class="crm-modal-section">
+      <div class="crm-modal-section-title"><span>🏷️ Etiquetas</span></div>
+      <div class="crm-label-picker" id="crmLabelPicker"></div>
+      <div id="crmNewLabelRow" style="display:flex;gap:.5rem">
+        <input class="swap-modal-input" id="crmNewLabelName" placeholder="Nova etiqueta" style="margin:0;flex:1">
+        <input type="color" id="crmNewLabelColor" value="#7c6af7" style="width:40px;height:36px;padding:2px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);cursor:pointer">
+        <button class="btn btn-secondary btn-sm" onclick="createCrmLabel()">+ Criar</button>
+      </div>
+    </div>
 
     <div style="border-top:1px solid var(--border);padding-top:.85rem;margin-bottom:.5rem">
       <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem">Empresas vinculadas</div>
       <div id="crmDealCompaniesList"></div>
       <div id="crmAddCompanyRow" style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap"></div>
+    </div>
+
+    <div class="crm-modal-section">
+      <div class="crm-modal-section-title"><span>📎 Anexos</span></div>
+      <div id="crmAttachmentsList"></div>
+      <div id="crmNewAttachmentRow" style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <input class="swap-modal-input" id="crmNewAttachmentName" placeholder="Nome do anexo" style="margin:0;flex:1;min-width:120px">
+        <input class="swap-modal-input" id="crmNewAttachmentUrl" placeholder="URL (https://...)" style="margin:0;flex:2;min-width:160px">
+        <button class="btn btn-secondary btn-sm" onclick="addCrmAttachment()">+ Adicionar</button>
+      </div>
+    </div>
+
+    <div class="crm-modal-section">
+      <div class="crm-modal-section-title">
+        <span>☑️ Checklists</span>
+        <button class="btn btn-ghost btn-sm" id="crmAddChecklistBtn" onclick="addCrmChecklist()">+ Novo checklist</button>
+      </div>
+      <div id="crmChecklistsList"></div>
+    </div>
+
+    <div class="crm-modal-section">
+      <div class="crm-modal-section-title"><span>💬 Comentários</span></div>
+      <div id="crmCommentsList"></div>
+      <div id="crmNewCommentRow">
+        <textarea id="crmNewCommentBody" style="width:100%;height:60px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .7rem;color:var(--text);font-size:12.5px;font-family:inherit;resize:vertical;outline:none;margin-bottom:.5rem" placeholder="Escreva um comentário..."></textarea>
+        <button class="btn btn-secondary btn-sm" onclick="postCrmComment()">Comentar</button>
+      </div>
     </div>
 
     <div class="modal-footer" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);justify-content:space-between">
@@ -1125,7 +1239,7 @@ async function doLogin() {
     document.getElementById('adminScreen').style.display = 'block';
     document.getElementById('sbUser').textContent = u;
     loginAttempts = 0;
-    loadDashboard();
+    applyPermissionGating();
   } else {
     loginAttempts++;
     const rem = MAX_ATTEMPTS - loginAttempts;
@@ -1150,7 +1264,7 @@ async function doLogout() {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminScreen').style.display = 'block';
     document.getElementById('sbUser').textContent = session.user.email;
-    loadDashboard();
+    applyPermissionGating();
   }
 })();
 db.auth.onAuthStateChange((event) => {
@@ -4066,6 +4180,47 @@ let crmDragId = null;
 let crmEditingDealId = null, crmEditingLinkId = null, crmNewDealInitialStage = null;
 let crmDealOtherLinks = [];
 let crmMembersCache = [];
+let crmLabelsCatalog = [];
+let crmDealCompanyLabelIds = new Set();
+let crmAttachmentsCache = [];
+let crmChecklistsCache = [];
+let crmCommentsCache = [];
+let isSystemAdmin = false;
+let crmProfiles = [];
+let crmMembersCallerIsSystemAdmin = false;
+
+// ─── PERMISSÕES (administrador geral x sub-administrador do CRM) ──────────────
+// "Administrador" geral (system_admins) enxerga todas as abas do sistema.
+// Quem não é, só enxerga a aba CRM (e um dashboard específico do CRM, dentro
+// dela) — seja sub-administrador (crm_admins, vê todas as empresas do CRM) ou
+// alguém com acesso só a empresas específicas (user_company_access).
+const CRM_ONLY_SECTION_IDS = ['sbSecPrincipal', 'sbSecGerenciar', 'sbSecComunicacao', 'sbSecDados'];
+const CRM_ONLY_NAV_IDS = ['nav-dashboard', 'nav-coupons', 'nav-users', 'nav-referrals', 'nav-waitlist', 'nav-corporate', 'nav-campaigns', 'nav-smtp', 'nav-import', 'nav-logs', 'nav-reports'];
+
+async function applyPermissionGating() {
+  const { data: { user } } = await db.auth.getUser();
+  crmUserId = user?.id || null;
+  isSystemAdmin = false;
+  if (crmUserId) {
+    const { data: sysRow } = await db.from('system_admins').select('user_id').eq('user_id', crmUserId).maybeSingle();
+    isSystemAdmin = !!sysRow;
+  }
+  [...CRM_ONLY_SECTION_IDS, ...CRM_ONLY_NAV_IDS].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !isSystemAdmin);
+  });
+  if (isSystemAdmin) {
+    loadDashboard();
+  } else {
+    goTab('crm');
+  }
+}
+
+async function loadCrmProfiles() {
+  const { data, error } = await db.from('crm_profiles').select('user_id,email,display_name').order('email');
+  if (error) { crmProfiles = []; return; }
+  crmProfiles = data || [];
+}
 
 async function loadCrm() {
   if (!crmUserId) {
@@ -4073,9 +4228,11 @@ async function loadCrm() {
     crmUserId = user?.id || null;
   }
   const { data: adminRow } = await db.from('crm_admins').select('user_id').eq('user_id', crmUserId).maybeSingle();
-  crmIsAdmin = !!adminRow;
+  crmIsAdmin = !!adminRow || isSystemAdmin;
   document.getElementById('crmCompaniesBtn').classList.toggle('hidden', !crmIsAdmin);
   document.getElementById('crmMembersBtn').classList.toggle('hidden', !crmIsAdmin);
+
+  await loadCrmProfiles();
 
   const { data: companies, error } = await db.from('companies').select('id,name').order('name');
   if (error) { toast('Erro ao carregar empresas: ' + error.message, 'error'); return; }
@@ -4109,7 +4266,7 @@ async function loadCrmBoard() {
   document.getElementById('crmBoardWrap').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   const [{ data: stages, error: sErr }, { data: links, error: lErr }] = await Promise.all([
     db.from('crm_stages').select('id,name,position').eq('company_id', crmSelectedCompanyId).order('position'),
-    db.from('crm_deal_companies').select('id,company_id,stage_id,value,position,crm_deals(id,title,contact_name,contact_email,contact_phone,notes)').eq('company_id', crmSelectedCompanyId).order('position'),
+    db.from('crm_deal_companies').select('id,company_id,stage_id,value,position,due_date,delivered_at,crm_deals(id,title,contact_name,contact_email,contact_phone,notes),crm_deal_company_labels(crm_labels(id,name,color))').eq('company_id', crmSelectedCompanyId).order('position'),
   ]);
   if (sErr || lErr) { toast('Erro ao carregar quadro: ' + (sErr || lErr).message, 'error'); return; }
   crmStages = stages || [];
@@ -4123,6 +4280,27 @@ async function loadCrmBoard() {
     (allLinks || []).forEach(r => { dealCompanyCount[r.deal_id] = (dealCompanyCount[r.deal_id] || 0) + 1; });
   }
   renderCrmBoard(dealCompanyCount);
+  renderCrmStats();
+}
+
+// Dashboard específico do CRM (negócios/conversão) — propositalmente separado
+// do Dashboard de cupons, cada um com seus próprios números.
+function renderCrmStats() {
+  const total = crmLinks.length;
+  let pipelineValue = 0, overdue = 0, delivered = 0;
+  const today = new Date();
+  crmLinks.forEach(l => {
+    if (l.delivered_at) {
+      delivered++;
+    } else {
+      if (l.value) pipelineValue += Number(l.value) || 0;
+      if (l.due_date && new Date(l.due_date + 'T23:59:59') < today) overdue++;
+    }
+  });
+  document.getElementById('crmStatTotal').textContent = total;
+  document.getElementById('crmStatPipeline').textContent = fmtMoney(pipelineValue) || 'R$ 0,00';
+  document.getElementById('crmStatOverdue').textContent = overdue;
+  document.getElementById('crmStatDelivered').textContent = delivered;
 }
 
 function fmtMoney(v) {
@@ -4145,14 +4323,24 @@ function renderCrmBoard(dealCompanyCount) {
       const d = l.crm_deals || {};
       const n = (dealCompanyCount[d.id] || 1) - 1;
       const multi = n > 0 ? `<span class="crm-card-multi">+${n} empresa${n > 1 ? 's' : ''}</span>` : '';
+      const labels = (l.crm_deal_company_labels || []).map(x => x.crm_labels).filter(Boolean);
+      const labelsHtml = labels.length ? `<div class="crm-card-labels">${labels.map(lb => `<span class="crm-label-chip" style="background:${lb.color}" title="${esc(lb.name)}"></span>`).join('')}</div>` : '';
+      let dueHtml = '';
+      if (l.delivered_at) {
+        dueHtml = `<span class="crm-card-due delivered">✓ Entregue</span>`;
+      } else if (l.due_date) {
+        const overdue = new Date(l.due_date + 'T23:59:59') < new Date();
+        dueHtml = `<span class="crm-card-due${overdue ? ' overdue' : ''}">📅 ${new Date(l.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>`;
+      }
       return `<div class="crm-card" draggable="true" data-link-id="${l.id}" ondragstart="crmCardDragStart(event)" ondragend="crmCardDragEnd(event)" onclick="openCrmDealModal('${d.id}')">
+        ${labelsHtml}
         <div class="crm-card-title">${esc(d.title || '(sem nome)')}</div>
         <div class="crm-card-meta">
           ${d.contact_name ? `<span>👤 ${esc(d.contact_name)}</span>` : ''}
           ${d.contact_phone ? `<span>📞 ${esc(d.contact_phone)}</span>` : ''}
         </div>
         ${l.value ? `<div class="crm-card-value">${fmtMoney(l.value)}</div>` : ''}
-        ${multi}
+        ${(dueHtml || multi) ? `<div>${dueHtml}${multi}</div>` : ''}
       </div>`;
     }).join('');
     return `<div class="crm-col" data-stage-id="${s.id}" ondragover="crmColDragOver(event)" ondragleave="crmColDragLeave(event)" ondrop="crmColDrop(event)">
@@ -4241,10 +4429,23 @@ async function openCrmDealModal(dealId, initialStageId) {
   document.getElementById('crmContactName').value = '';
   document.getElementById('crmContactPhone').value = '';
   document.getElementById('crmContactEmail').value = '';
+  document.getElementById('crmClientCompanyName').value = '';
+  document.getElementById('crmClientCnpj').value = '';
+  document.getElementById('crmClientSegment').value = '';
+  document.getElementById('crmClientAddress').value = '';
   document.getElementById('crmNotes').value = '';
+  document.getElementById('crmDueDate').value = '';
+  document.getElementById('crmDelivered').checked = false;
+  document.getElementById('crmNewCommentBody').value = '';
   crmDealOtherLinks = [];
   crmEditingLinkId = null;
+  crmDealCompanyLabelIds = new Set();
+  crmAttachmentsCache = [];
+  crmChecklistsCache = [];
+  crmCommentsCache = [];
   crmNewDealInitialStage = initialStageId || (crmStages[0] && crmStages[0].id) || null;
+
+  await loadCrmLabelsCatalog();
 
   if (dealId) {
     const { data: deal, error } = await db.from('crm_deals').select('*').eq('id', dealId).single();
@@ -4253,18 +4454,240 @@ async function openCrmDealModal(dealId, initialStageId) {
     document.getElementById('crmContactName').value = deal.contact_name || '';
     document.getElementById('crmContactPhone').value = deal.contact_phone || '';
     document.getElementById('crmContactEmail').value = deal.contact_email || '';
+    document.getElementById('crmClientCompanyName').value = deal.client_company_name || '';
+    document.getElementById('crmClientCnpj').value = deal.client_cnpj || '';
+    document.getElementById('crmClientSegment').value = deal.client_segment || '';
+    document.getElementById('crmClientAddress').value = deal.client_address || '';
     document.getElementById('crmNotes').value = deal.notes || '';
 
-    const { data: links } = await db.from('crm_deal_companies').select('id,company_id,stage_id,value,companies(id,name)').eq('deal_id', dealId);
+    const { data: links } = await db.from('crm_deal_companies').select('id,company_id,stage_id,value,due_date,delivered_at,owner_user_id,companies(id,name)').eq('deal_id', dealId);
     crmDealOtherLinks = links || [];
     const mine = crmDealOtherLinks.find(l => l.company_id === crmSelectedCompanyId);
     crmEditingLinkId = mine ? mine.id : null;
+    if (mine) {
+      document.getElementById('crmDueDate').value = mine.due_date || '';
+      document.getElementById('crmDelivered').checked = !!mine.delivered_at;
+      await loadCrmDealCompanyExtras(mine.id);
+    }
   }
+  if (!crmProfiles.length) await loadCrmProfiles();
   await renderCrmDealCompaniesSection();
+  renderCrmDealExtrasSections(!!crmEditingLinkId);
   document.getElementById('crmDealModal').classList.add('show');
 }
 function closeCrmDealModal() {
   document.getElementById('crmDealModal').classList.remove('show');
+}
+
+// ── Etiquetas, anexos, checklists e comentários (por vínculo empresa) ───────
+async function loadCrmLabelsCatalog() {
+  const { data, error } = await db.from('crm_labels').select('id,name,color').order('name');
+  if (error) { crmLabelsCatalog = []; return; }
+  crmLabelsCatalog = data || [];
+}
+async function loadCrmDealCompanyExtras(dealCompanyId) {
+  const [{ data: labelLinks }, { data: attachments }, { data: checklists }, { data: comments }] = await Promise.all([
+    db.from('crm_deal_company_labels').select('label_id').eq('deal_company_id', dealCompanyId),
+    db.from('crm_deal_company_attachments').select('id,name,url,created_at').eq('deal_company_id', dealCompanyId).order('created_at'),
+    db.from('crm_deal_company_checklists').select('id,name,position,crm_deal_company_checklist_items(id,text,checked,position)').eq('deal_company_id', dealCompanyId).order('position'),
+    db.from('crm_deal_company_comments').select('id,author_name,body,created_at').eq('deal_company_id', dealCompanyId).order('created_at'),
+  ]);
+  crmDealCompanyLabelIds = new Set((labelLinks || []).map(l => l.label_id));
+  crmAttachmentsCache = attachments || [];
+  crmChecklistsCache = (checklists || []).map(c => ({ ...c, items: (c.crm_deal_company_checklist_items || []).slice().sort((a, b) => a.position - b.position) }));
+  crmCommentsCache = comments || [];
+}
+function renderCrmDealExtrasSections(hasLink) {
+  document.getElementById('crmNewLabelRow').classList.toggle('hidden', !hasLink);
+  document.getElementById('crmNewAttachmentRow').classList.toggle('hidden', !hasLink);
+  document.getElementById('crmAddChecklistBtn').classList.toggle('hidden', !hasLink);
+  document.getElementById('crmNewCommentRow').classList.toggle('hidden', !hasLink);
+  if (!hasLink) {
+    const msg = '<p style="font-size:11px;color:var(--text3)">Salve o negócio primeiro pra usar etiquetas, anexos, checklists e comentários.</p>';
+    document.getElementById('crmLabelPicker').innerHTML = msg;
+    document.getElementById('crmAttachmentsList').innerHTML = '';
+    document.getElementById('crmChecklistsList').innerHTML = msg;
+    document.getElementById('crmCommentsList').innerHTML = '';
+    return;
+  }
+  renderCrmLabelPicker();
+  renderCrmAttachments();
+  renderCrmChecklists();
+  renderCrmComments();
+}
+
+// Etiquetas
+function renderCrmLabelPicker() {
+  const picker = document.getElementById('crmLabelPicker');
+  if (!crmLabelsCatalog.length) {
+    picker.innerHTML = '<span style="font-size:11px;color:var(--text3)">Nenhuma etiqueta criada ainda.</span>';
+    return;
+  }
+  picker.innerHTML = crmLabelsCatalog.map(l => {
+    const active = crmDealCompanyLabelIds.has(l.id);
+    return `<span class="crm-label-pill${active ? ' active' : ''}" style="background:${l.color}22;color:${l.color};border-color:${active ? l.color : 'transparent'}" onclick="toggleCrmDealLabel('${l.id}')">
+      <span class="crm-label-dot" style="background:${l.color}"></span>${esc(l.name)}
+    </span>`;
+  }).join('');
+}
+async function toggleCrmDealLabel(labelId) {
+  if (!crmEditingLinkId) { toast('Salve o negócio nessa empresa primeiro.', 'error'); return; }
+  const has = crmDealCompanyLabelIds.has(labelId);
+  if (has) {
+    const { error } = await db.from('crm_deal_company_labels').delete().eq('deal_company_id', crmEditingLinkId).eq('label_id', labelId);
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    crmDealCompanyLabelIds.delete(labelId);
+  } else {
+    const { error } = await db.from('crm_deal_company_labels').insert({ deal_company_id: crmEditingLinkId, label_id: labelId });
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    crmDealCompanyLabelIds.add(labelId);
+  }
+  renderCrmLabelPicker();
+}
+async function createCrmLabel() {
+  const name = document.getElementById('crmNewLabelName').value.trim();
+  const color = document.getElementById('crmNewLabelColor').value || '#7c6af7';
+  if (!name) return;
+  const { data, error } = await db.from('crm_labels').insert({ name, color }).select().single();
+  if (error) { toast('Erro: ' + error.message, 'error'); return; }
+  crmLabelsCatalog.push(data);
+  crmLabelsCatalog.sort((a, b) => a.name.localeCompare(b.name));
+  document.getElementById('crmNewLabelName').value = '';
+  renderCrmLabelPicker();
+  toast('Etiqueta criada.', 'success');
+}
+
+// Anexos
+function renderCrmAttachments() {
+  const list = document.getElementById('crmAttachmentsList');
+  list.innerHTML = crmAttachmentsCache.map(a => `
+    <div class="crm-attachment-row">
+      <a href="${esc(a.url)}" target="_blank" rel="noopener">🔗 ${esc(a.name || a.url)}</a>
+      <button class="btn btn-ghost btn-sm" onclick="removeCrmAttachment('${a.id}')" title="Remover">✕</button>
+    </div>`).join('') || '<p style="font-size:11px;color:var(--text3);margin-bottom:.5rem">Nenhum anexo ainda.</p>';
+}
+async function addCrmAttachment() {
+  if (!crmEditingLinkId) { toast('Salve o negócio nessa empresa primeiro.', 'error'); return; }
+  const nameInp = document.getElementById('crmNewAttachmentName');
+  const urlInp = document.getElementById('crmNewAttachmentUrl');
+  const url = urlInp.value.trim();
+  if (!url) { toast('Cola a URL do anexo.', 'error'); return; }
+  const name = nameInp.value.trim() || url;
+  const { data, error } = await db.from('crm_deal_company_attachments').insert({ deal_company_id: crmEditingLinkId, name, url }).select().single();
+  if (error) { toast('Erro: ' + error.message, 'error'); return; }
+  crmAttachmentsCache.push(data);
+  nameInp.value = ''; urlInp.value = '';
+  renderCrmAttachments();
+}
+function removeCrmAttachment(id) {
+  db.from('crm_deal_company_attachments').delete().eq('id', id).then(({ error }) => {
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    crmAttachmentsCache = crmAttachmentsCache.filter(a => a.id !== id);
+    renderCrmAttachments();
+  });
+}
+
+// Checklists
+function renderCrmChecklists() {
+  const wrap = document.getElementById('crmChecklistsList');
+  if (!crmChecklistsCache.length) { wrap.innerHTML = '<p style="font-size:11px;color:var(--text3)">Nenhum checklist ainda.</p>'; return; }
+  wrap.innerHTML = crmChecklistsCache.map(c => {
+    const total = c.items.length;
+    const done = c.items.filter(i => i.checked).length;
+    const pct = total ? Math.round(done / total * 100) : 0;
+    const items = c.items.map(i => `
+      <div class="crm-checklist-item${i.checked ? ' checked' : ''}">
+        <input type="checkbox" ${i.checked ? 'checked' : ''} onchange="toggleCrmChecklistItem('${i.id}', this.checked)">
+        <span class="crm-checklist-item-text">${esc(i.text)}</span>
+        <button class="btn btn-ghost btn-sm" onclick="removeCrmChecklistItem('${i.id}','${c.id}')" title="Remover" style="padding:0 4px">✕</button>
+      </div>`).join('');
+    return `<div class="crm-checklist">
+      <div class="crm-checklist-head">
+        <span class="crm-checklist-name">${esc(c.name)}${total ? ` (${done}/${total})` : ''}</span>
+        <button class="btn btn-ghost btn-sm" onclick="removeCrmChecklist('${c.id}')" title="Excluir checklist">🗑</button>
+      </div>
+      ${total ? `<div class="crm-progress-bar"><div class="crm-progress-fill" style="width:${pct}%"></div></div>` : ''}
+      ${items}
+      <div style="display:flex;gap:.4rem;margin-top:.4rem">
+        <input class="swap-modal-input" style="margin:0;flex:1" placeholder="Novo item" id="crmNewItem_${c.id}" onkeydown="if(event.key==='Enter'){event.preventDefault();addCrmChecklistItem('${c.id}')}">
+        <button class="btn btn-ghost btn-sm" onclick="addCrmChecklistItem('${c.id}')">+ Item</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function addCrmChecklist() {
+  if (!crmEditingLinkId) { toast('Salve o negócio nessa empresa primeiro.', 'error'); return; }
+  const name = prompt('Nome do checklist:');
+  if (!name || !name.trim()) return;
+  const position = crmChecklistsCache.length ? Math.max(...crmChecklistsCache.map(c => c.position)) + 1 : 0;
+  const { data, error } = await db.from('crm_deal_company_checklists').insert({ deal_company_id: crmEditingLinkId, name: name.trim(), position }).select().single();
+  if (error) { toast('Erro: ' + error.message, 'error'); return; }
+  crmChecklistsCache.push({ ...data, items: [] });
+  renderCrmChecklists();
+}
+function removeCrmChecklist(id) {
+  openConfirm('Excluir checklist', 'Isso remove o checklist e todos os itens dele. Confirma?', async () => {
+    const { error } = await db.from('crm_deal_company_checklists').delete().eq('id', id);
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    crmChecklistsCache = crmChecklistsCache.filter(c => c.id !== id);
+    renderCrmChecklists();
+  }, '🗑 Excluir');
+}
+async function addCrmChecklistItem(checklistId) {
+  const inp = document.getElementById('crmNewItem_' + checklistId);
+  const text = inp.value.trim();
+  if (!text) return;
+  const checklist = crmChecklistsCache.find(c => c.id === checklistId);
+  const position = checklist && checklist.items.length ? Math.max(...checklist.items.map(i => i.position)) + 1 : 0;
+  const { data, error } = await db.from('crm_deal_company_checklist_items').insert({ checklist_id: checklistId, text, checked: false, position }).select().single();
+  if (error) { toast('Erro: ' + error.message, 'error'); return; }
+  if (checklist) checklist.items.push(data);
+  renderCrmChecklists();
+}
+function toggleCrmChecklistItem(itemId, checked) {
+  db.from('crm_deal_company_checklist_items').update({ checked }).eq('id', itemId).then(({ error }) => {
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    for (const c of crmChecklistsCache) {
+      const it = c.items.find(i => i.id === itemId);
+      if (it) { it.checked = checked; break; }
+    }
+    renderCrmChecklists();
+  });
+}
+function removeCrmChecklistItem(itemId, checklistId) {
+  db.from('crm_deal_company_checklist_items').delete().eq('id', itemId).then(({ error }) => {
+    if (error) { toast('Erro: ' + error.message, 'error'); return; }
+    const c = crmChecklistsCache.find(x => x.id === checklistId);
+    if (c) c.items = c.items.filter(i => i.id !== itemId);
+    renderCrmChecklists();
+  });
+}
+
+// Comentários
+function fmtCrmDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+function renderCrmComments() {
+  const list = document.getElementById('crmCommentsList');
+  list.innerHTML = crmCommentsCache.map(c => `
+    <div class="crm-comment">
+      <div class="crm-comment-head"><span class="crm-comment-author">${esc(c.author_name || 'Anônimo')}</span><span>${fmtCrmDate(c.created_at)}</span></div>
+      <div class="crm-comment-body">${esc(c.body)}</div>
+    </div>`).join('') || '<p style="font-size:11px;color:var(--text3)">Nenhum comentário ainda.</p>';
+}
+async function postCrmComment() {
+  if (!crmEditingLinkId) { toast('Salve o negócio nessa empresa primeiro.', 'error'); return; }
+  const body = document.getElementById('crmNewCommentBody').value.trim();
+  if (!body) return;
+  const { data: { user } } = await db.auth.getUser();
+  const authorName = (user?.user_metadata && (user.user_metadata.name || user.user_metadata.full_name)) || user?.email || 'Você';
+  const { data, error } = await db.from('crm_deal_company_comments').insert({ deal_company_id: crmEditingLinkId, author_name: authorName, body }).select().single();
+  if (error) { toast('Erro: ' + error.message, 'error'); return; }
+  crmCommentsCache.push(data);
+  document.getElementById('crmNewCommentBody').value = '';
+  renderCrmComments();
 }
 
 async function renderCrmDealCompaniesSection() {
@@ -4280,6 +4703,11 @@ async function renderCrmDealCompaniesSection() {
     const opts = (stagesByCompany[companyId] || []).map(s => `<option value="${s.id}"${s.id === selectedStageId ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
     return `<select class="filter-sel" ${extraAttr}>${opts}</select>`;
   }
+  function ownerSelect(companyId, selectedOwnerId) {
+    const opts = ['<option value="">— Sem responsável —</option>']
+      .concat(crmProfiles.map(p => `<option value="${p.user_id}"${p.user_id === selectedOwnerId ? ' selected' : ''}>${esc(p.display_name || p.email)}</option>`));
+    return `<select class="filter-sel" id="crmOwner_${companyId}" style="flex:1;min-width:0">${opts.join('')}</select>`;
+  }
 
   const mine = crmDealOtherLinks.find(l => l.company_id === crmSelectedCompanyId);
   companiesShown.add(crmSelectedCompanyId);
@@ -4288,6 +4716,10 @@ async function renderCrmDealCompaniesSection() {
     <div class="crm-link-name">${esc(mineCompanyName)}</div>
     ${stageSelect(crmSelectedCompanyId, mine ? mine.stage_id : crmNewDealInitialStage, `id="crmStage_${crmSelectedCompanyId}" style="min-width:150px"`)}
     <input class="swap-modal-input" style="margin:0;width:110px" placeholder="R$" id="crmValue_${crmSelectedCompanyId}" value="${mine && mine.value ? mine.value : ''}">
+  </div>
+  <div style="display:flex;align-items:center;gap:.5rem;margin:-.3rem 0 .5rem;padding:0 .7rem">
+    <label style="font-size:11px;color:var(--text3);white-space:nowrap">Responsável</label>
+    ${ownerSelect(crmSelectedCompanyId, mine ? mine.owner_user_id : null)}
   </div>`);
 
   crmDealOtherLinks.filter(l => l.company_id !== crmSelectedCompanyId).forEach(l => {
@@ -4297,6 +4729,10 @@ async function renderCrmDealCompaniesSection() {
       ${stageSelect(l.company_id, l.stage_id, `id="crmStage_${l.company_id}" style="min-width:150px"`)}
       <input class="swap-modal-input" style="margin:0;width:110px" placeholder="R$" id="crmValue_${l.company_id}" value="${l.value || ''}">
       <button class="btn btn-ghost btn-sm" onclick="removeCrmDealCompanyLink('${l.company_id}')" title="Desvincular">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:.5rem;margin:-.3rem 0 .5rem;padding:0 .7rem">
+      <label style="font-size:11px;color:var(--text3);white-space:nowrap">Responsável</label>
+      ${ownerSelect(l.company_id, l.owner_user_id)}
     </div>`);
   });
 
@@ -4320,7 +4756,7 @@ async function addCrmDealCompanyLink() {
   if (!stages || !stages.length) { toast('Essa empresa ainda não tem etapas configuradas.', 'error'); return; }
   const { error } = await db.from('crm_deal_companies').insert({ deal_id: crmEditingDealId, company_id: companyId, stage_id: stages[0].id, position: 0 });
   if (error) { toast('Erro: ' + error.message, 'error'); return; }
-  const { data: links } = await db.from('crm_deal_companies').select('id,company_id,stage_id,value,companies(id,name)').eq('deal_id', crmEditingDealId);
+  const { data: links } = await db.from('crm_deal_companies').select('id,company_id,stage_id,value,owner_user_id,companies(id,name)').eq('deal_id', crmEditingDealId);
   crmDealOtherLinks = links || [];
   toast('Vinculado.', 'success');
   renderCrmDealCompaniesSection();
@@ -4347,8 +4783,15 @@ async function saveCrmDeal() {
     contact_name: document.getElementById('crmContactName').value.trim() || null,
     contact_phone: document.getElementById('crmContactPhone').value.trim() || null,
     contact_email: document.getElementById('crmContactEmail').value.trim() || null,
+    client_company_name: document.getElementById('crmClientCompanyName').value.trim() || null,
+    client_cnpj: document.getElementById('crmClientCnpj').value.trim() || null,
+    client_segment: document.getElementById('crmClientSegment').value.trim() || null,
+    client_address: document.getElementById('crmClientAddress').value.trim() || null,
     notes: document.getElementById('crmNotes').value.trim() || null,
   };
+
+  const dueDate = document.getElementById('crmDueDate').value || null;
+  const deliveredChecked = document.getElementById('crmDelivered').checked;
 
   let dealId = crmEditingDealId;
   if (!dealId) {
@@ -4358,28 +4801,37 @@ async function saveCrmDeal() {
     dealId = data.id;
     const stageSel = document.getElementById('crmStage_' + crmSelectedCompanyId);
     const valInp = document.getElementById('crmValue_' + crmSelectedCompanyId);
+    const ownerSel = document.getElementById('crmOwner_' + crmSelectedCompanyId);
     const stageId = stageSel ? stageSel.value : crmNewDealInitialStage;
     const value = valInp && valInp.value ? parseFloat(valInp.value.replace(',', '.')) : null;
-    const { error: linkErr } = await db.from('crm_deal_companies').insert({ deal_id: dealId, company_id: crmSelectedCompanyId, stage_id: stageId, value, position: 0 });
+    const ownerUserId = ownerSel && ownerSel.value ? ownerSel.value : null;
+    const deliveredAt = deliveredChecked ? new Date().toISOString() : null;
+    const { error: linkErr } = await db.from('crm_deal_companies').insert({ deal_id: dealId, company_id: crmSelectedCompanyId, stage_id: stageId, value, due_date: dueDate, delivered_at: deliveredAt, owner_user_id: ownerUserId, position: 0 });
     if (linkErr) toast('Negócio criado, mas erro ao vincular à empresa: ' + linkErr.message, 'error');
   } else {
     const { error } = await db.from('crm_deals').update(payload).eq('id', dealId);
     if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return; }
     const stageSel = document.getElementById('crmStage_' + crmSelectedCompanyId);
     const valInp = document.getElementById('crmValue_' + crmSelectedCompanyId);
+    const ownerSel = document.getElementById('crmOwner_' + crmSelectedCompanyId);
     if (stageSel) {
       const stageId = stageSel.value;
       const value = valInp && valInp.value ? parseFloat(valInp.value.replace(',', '.')) : null;
-      if (crmEditingLinkId) await db.from('crm_deal_companies').update({ stage_id: stageId, value }).eq('id', crmEditingLinkId);
-      else await db.from('crm_deal_companies').insert({ deal_id: dealId, company_id: crmSelectedCompanyId, stage_id: stageId, value, position: 0 });
+      const ownerUserId = ownerSel && ownerSel.value ? ownerSel.value : null;
+      const existingMine = crmDealOtherLinks.find(l => l.id === crmEditingLinkId);
+      const deliveredAt = deliveredChecked ? (existingMine?.delivered_at || new Date().toISOString()) : null;
+      if (crmEditingLinkId) await db.from('crm_deal_companies').update({ stage_id: stageId, value, due_date: dueDate, delivered_at: deliveredAt, owner_user_id: ownerUserId }).eq('id', crmEditingLinkId);
+      else await db.from('crm_deal_companies').insert({ deal_id: dealId, company_id: crmSelectedCompanyId, stage_id: stageId, value, due_date: dueDate, delivered_at: deliveredAt, owner_user_id: ownerUserId, position: 0 });
     }
     for (const l of crmDealOtherLinks.filter(x => x.company_id !== crmSelectedCompanyId)) {
       const sSel = document.getElementById('crmStage_' + l.company_id);
       const vInp = document.getElementById('crmValue_' + l.company_id);
+      const oSel = document.getElementById('crmOwner_' + l.company_id);
       if (!sSel) continue;
       const stageId = sSel.value;
       const value = vInp && vInp.value ? parseFloat(vInp.value.replace(',', '.')) : null;
-      await db.from('crm_deal_companies').update({ stage_id: stageId, value }).eq('id', l.id);
+      const ownerUserId = oSel && oSel.value ? oSel.value : null;
+      await db.from('crm_deal_companies').update({ stage_id: stageId, value, owner_user_id: ownerUserId }).eq('id', l.id);
     }
   }
 
@@ -4451,17 +4903,21 @@ async function loadCrmMembers() {
   const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'list_members' } });
   if (error) { document.getElementById('crmMembersList').innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro: ${esc(error.message || String(error))}</div>`; return; }
   crmMembersCache = data.members || [];
+  crmMembersCallerIsSystemAdmin = !!data.caller_is_system_admin;
   renderCrmMembersList();
 }
 function renderCrmMembersList() {
   if (!crmMembersCache.length) { document.getElementById('crmMembersList').innerHTML = '<div style="font-size:12px;color:var(--text3)">Ninguém tem acesso liberado ainda (além de administradores).</div>'; return; }
   document.getElementById('crmMembersList').innerHTML = crmMembersCache.map(m => `
     <div class="crm-member-row">
-      <div class="crm-member-email">${esc(m.email)}${m.is_admin ? ' <span class="ref-badge">admin</span>' : ''}</div>
+      <div class="crm-member-email">${esc(m.email)}${m.is_system_admin ? ' <span class="ref-badge">admin geral</span>' : (m.is_admin ? ' <span class="ref-badge">admin CRM</span>' : '')}</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
         ${m.companies.map(c => `<span class="crm-chip">${esc(c.name)}<button onclick="revokeCrmAccess('${m.user_id}','${c.id}')" title="Remover acesso">✕</button></span>`).join('') || '<span style="font-size:11px;color:var(--text3)">sem empresas</span>'}
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="toggleCrmAdmin('${m.user_id}', ${!m.is_admin})">${m.is_admin ? 'Tirar admin' : 'Tornar admin'}</button>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="toggleCrmAdmin('${m.user_id}', ${!m.is_admin})">${m.is_admin ? 'Tirar admin CRM' : 'Tornar admin CRM'}</button>
+        ${crmMembersCallerIsSystemAdmin ? `<button class="btn btn-ghost btn-sm" onclick="toggleSystemAdmin('${m.user_id}', ${!m.is_system_admin})">${m.is_system_admin ? 'Tirar admin geral' : 'Tornar admin geral'}</button>` : ''}
+      </div>
     </div>`).join('');
 }
 async function grantCrmAccess() {
@@ -4488,7 +4944,13 @@ async function revokeCrmAccess(user_id, company_id) {
 async function toggleCrmAdmin(user_id, isAdmin) {
   const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'set_admin', user_id, is_admin: isAdmin } });
   if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
-  toast(isAdmin ? 'Agora é admin.' : 'Não é mais admin.', 'success');
+  toast(isAdmin ? 'Agora é admin do CRM.' : 'Não é mais admin do CRM.', 'success');
+  loadCrmMembers();
+}
+async function toggleSystemAdmin(user_id, isSysAdmin) {
+  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'set_system_admin', user_id, is_system_admin: isSysAdmin } });
+  if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
+  toast(isSysAdmin ? 'Agora é administrador geral.' : 'Não é mais administrador geral.', 'success');
   loadCrmMembers();
 }
 </script>
