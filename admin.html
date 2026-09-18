@@ -2589,14 +2589,21 @@ async function loadUsers() {
     (cs1 || []).forEach(c => cMapById[c.id] = c.link);
   }
 
-  // 2. Busca cupons pelo users_id (para registros antigos onde users.coupons_id é null)
+  // 2. Busca cupons pelo users_id (para registros antigos onde users.coupons_id
+  // é null, ou pra quem tem cupom extra vinculado). Não filtra por status —
+  // um cupom já resgatado (status 'redeemed') continua sendo "o link dessa
+  // pessoa" e não deve virar "—" na coluna só porque não está mais
+  // 'delivered'. Ordena por distributed_at crescente e fica só com a
+  // primeira ocorrência por usuário, ou seja: o PRIMEIRO cupom vinculado.
   const usersWithoutCouponId = (us || []).filter(u => !u.coupons_id).map(u => u.id);
   if (usersWithoutCouponId.length) {
     const { data: cs2 } = await db
-      .from('coupons').select('id,link,users_id')
-      .eq('status','delivered')
-      .in('users_id', usersWithoutCouponId);
-    (cs2 || []).forEach(c => { if (c.users_id) { cMapByUser[c.users_id] = c.link; cIdMapByUser[c.users_id] = c.id; } });
+      .from('coupons').select('id,link,users_id,distributed_at')
+      .in('users_id', usersWithoutCouponId)
+      .order('distributed_at', { ascending: true, nullsFirst: false });
+    (cs2 || []).forEach(c => {
+      if (c.users_id && !cMapByUser[c.users_id]) { cMapByUser[c.users_id] = c.link; cIdMapByUser[c.users_id] = c.id; }
+    });
   }
 
   // 3. Conta quantos cupons "ativos" (entregues/resgatados) estão vinculados
