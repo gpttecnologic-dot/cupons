@@ -493,12 +493,13 @@ body{overflow-x:hidden}
           <div class="tbl-sub" style="margin-bottom:1rem">Escolha o modelo e o público. {nome} e {nome_completo} vêm do cadastro; {link}/{links} vêm dos cupons vinculados a cada pessoa.</div>
 
           <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Modelo</label>
-          <select class="filter-sel" id="campTemplate" style="width:100%;max-width:420px;margin-bottom:1rem"></select>
+          <select class="filter-sel" id="campTemplate" style="width:100%;max-width:420px;margin-bottom:1rem" onchange="onCampTemplateChange()"></select>
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.85rem;margin-bottom:1rem">
             <div>
               <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Indicação</label>
               <select class="filter-sel" id="campReferral" style="width:100%"><option value="">Todas as indicações</option></select>
+              <div id="campReferralLockNote" style="font-size:11px;color:var(--text3);margin-top:.3rem;display:none">🔒 Esse modelo é exclusivo dessa indicação — escolha outro modelo (ou um "Geral") pra mudar o público.</div>
             </div>
             <div>
               <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Status do cupom vinculado</label>
@@ -806,6 +807,10 @@ body{overflow-x:hidden}
         </select>
       </div>
     </div>
+
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Indicação</label>
+    <select class="filter-sel" id="tplReferral" style="width:100%;margin-bottom:.35rem"><option value="">Geral (qualquer indicação)</option></select>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:.75rem">Se escolher uma indicação específica, esse modelo só pode ser usado em campanhas pra essa indicação (o filtro fica travado nela). "Geral" deixa livre pra escolher qualquer indicação, ou todas, na hora de montar a campanha.</p>
 
     <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Nome (só pra identificar no admin)</label>
     <input class="swap-modal-input" id="tplName" placeholder="ex: Agradecimento de inscrição" style="margin-bottom:.75rem">
@@ -1116,15 +1121,28 @@ function purposeLabel(p) {
 }
 
 async function loadCampaigns() {
+  // Garante allRefOpts carregado (usado por refLabelById na lista de
+  // modelos) mesmo se essa for a primeira aba visitada no admin.
+  if (!allRefOpts.length) {
+    const { data } = await db.from('referrals').select('id,name');
+    allRefOpts = data || [];
+  }
+
   await loadEmailTemplates();
 
   const { data: refs, error: refErr } = await db.from('referrals').select('id,name').order('name');
   const rsel = document.getElementById('campReferral');
+  const tplRsel = document.getElementById('tplReferral');
   if (!refErr) {
     const current = rsel.value;
     rsel.innerHTML = '<option value="">Todas as indicações</option>' +
       (refs || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
     rsel.value = current;
+
+    const tplCurrent = tplRsel.value;
+    tplRsel.innerHTML = '<option value="">Geral (qualquer indicação)</option>' +
+      (refs || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+    tplRsel.value = tplCurrent;
   }
 
   document.getElementById('campAudiencePreview').innerHTML = '';
@@ -1149,12 +1167,13 @@ function renderEmailTemplates() {
     return;
   }
   el.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
-    <th>Nome</th><th>Chave</th><th>Uso</th><th>Assunto</th><th>PDF</th><th>Ativo</th><th class="sticky-actions">Ações</th>
+    <th>Nome</th><th>Chave</th><th>Uso</th><th>Indicação</th><th>Assunto</th><th>PDF</th><th>Ativo</th><th class="sticky-actions">Ações</th>
   </tr></thead><tbody>${allEmailTemplates.map(t => `
     <tr>
       <td data-label="Nome">${esc(t.name)}</td>
       <td data-label="Chave"><span class="mono" style="font-size:11px">${esc(t.key)}</span></td>
       <td data-label="Uso">${purposeLabel(t.purpose)}</td>
+      <td data-label="Indicação">${t.referral_id ? `<span class="ref-badge">${esc(refLabelById(t.referral_id))}</span>` : '<span style="color:var(--text3)">Geral</span>'}</td>
       <td data-label="Assunto">${esc(t.subject)}</td>
       <td data-label="PDF">${t.pdf_url ? '📎 sim' : '—'}</td>
       <td data-label="Ativo">${t.active ? '✓' : '—'}</td>
@@ -1170,9 +1189,36 @@ function populateCampaignTemplateSelect() {
   const current = sel.value;
   const active = allEmailTemplates.filter(t => t.active);
   sel.innerHTML = active.length
-    ? '<option value="">Selecione um modelo...</option>' + active.map(t => `<option value="${t.id}">${esc(t.name)} · ${purposeLabel(t.purpose)}</option>`).join('')
+    ? '<option value="">Selecione um modelo...</option>' + active.map(t =>
+        `<option value="${t.id}">${esc(t.name)} · ${purposeLabel(t.purpose)}${t.referral_id ? ` · só ${esc(refLabelById(t.referral_id))}` : ''}</option>`
+      ).join('')
     : '<option value="">Nenhum modelo ativo — crie um acima</option>';
   if (current) sel.value = current;
+  onCampTemplateChange();
+}
+
+// Quando o modelo escolhido pertence a uma indicação específica, trava o
+// filtro "Indicação" nela — não faz sentido (nem é permitido pela regra de
+// negócio) mandar um modelo feito pra indicação X pro público de outra
+// indicação, ou pra "todas". Modelo "Geral" (sem referral_id) deixa o
+// filtro livre de novo.
+function onCampTemplateChange() {
+  const templateId = document.getElementById('campTemplate').value;
+  const t = allEmailTemplates.find(x => x.id === templateId);
+  const rsel = document.getElementById('campReferral');
+  const note = document.getElementById('campReferralLockNote');
+  if (t?.referral_id) {
+    rsel.value = t.referral_id;
+    rsel.disabled = true;
+    note.style.display = 'block';
+  } else {
+    rsel.disabled = false;
+    note.style.display = 'none';
+  }
+  // Trocar de modelo invalida o "Ver quem vai receber" já calculado.
+  document.getElementById('campAudiencePreview').innerHTML = '';
+  document.getElementById('campSendBtn').disabled = true;
+  window._campAudience = null;
 }
 
 function openTemplateForm(id) {
@@ -1181,6 +1227,7 @@ function openTemplateForm(id) {
   document.getElementById('tplModalTitle').textContent = t ? '✎ Editar modelo' : '+ Novo modelo';
   document.getElementById('tplKey').value = t ? t.key : '';
   document.getElementById('tplKey').disabled = !!t;
+  document.getElementById('tplReferral').value = t?.referral_id || '';
   document.getElementById('tplName').value = t ? t.name : '';
   document.getElementById('tplPurpose').value = t ? t.purpose : 'campaign';
   document.getElementById('tplSubject').value = t ? t.subject : '';
@@ -1272,6 +1319,7 @@ async function saveTemplateForm() {
   const key     = document.getElementById('tplKey').value.trim();
   const name    = document.getElementById('tplName').value.trim();
   const purpose = document.getElementById('tplPurpose').value;
+  const referral_id = document.getElementById('tplReferral').value || null;
   const subject = document.getElementById('tplSubject').value.trim();
   const body    = document.getElementById('tplBody').value;
   const pdf_url      = document.getElementById('tplPdfUrl').value.trim() || null;
@@ -1281,7 +1329,7 @@ async function saveTemplateForm() {
   if (!key || !name || !subject || !body) { toast('Preencha chave, nome, assunto e corpo.', 'error'); return; }
   if (!/^[a-z0-9_]+$/.test(key)) { toast('Chave só pode ter letras minúsculas, números e _ (ex: campanha_black_friday).', 'error'); return; }
 
-  const payload = { name, purpose, subject, body, pdf_url, pdf_filename, active };
+  const payload = { name, purpose, referral_id, subject, body, pdf_url, pdf_filename, active };
   let error;
   if (editingTemplateId) {
     ({ error } = await db.from('email_templates').update(payload).eq('id', editingTemplateId));
