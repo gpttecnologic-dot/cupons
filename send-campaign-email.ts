@@ -1,27 +1,30 @@
 // supabase/functions/send-campaign-email/index.ts
 // Deploy: supabase functions deploy send-campaign-email
+// Depende de supabase/functions/_shared/mailer.ts — copie ele antes do deploy.
 //
 // Dispara uma campanha de e-mail personalizada para uma lista de usuários.
 // O admin (admin.html) resolve a segmentação (indicação / status do cupom /
 // período) no próprio client e manda só a lista final de user_id — essa
-// função cuida de personalizar cada mensagem, enviar via Resend e registrar
-// o resultado: por usuário em `events` (event_type 'campaign_email_sent' /
-// 'campaign_email_error') e o resumo agregado em `email_campaign_log`.
+// função cuida de personalizar cada mensagem, enviar (SMTP configurado na
+// aba "Servidor SMTP", com fallback pro Resend se só houver email_api_key) e
+// registrar o resultado: por usuário em `events` (event_type
+// 'campaign_email_sent' / 'campaign_email_error') e o resumo agregado em
+// `email_campaign_log`.
 //
 // Body: { template_id: uuid, user_ids: string[], filters?: object }
 //
 // Tags suportadas (mesmas do send-coupon-email):
 //   {nome} {nome_completo} {link} {links}
 // {link}/{links} usam os cupons vinculados a cada usuário (coupons.users_id).
-// Usuário sem cupom vinculado recebe {link}/{links} vazios — o modelo deve
-// ser escrito levando isso em conta quando o público pode incluir esse caso.
+// Usuário sem cupom vinculado recebe {link}/{links} vazios.
 //
 // Limite de 300 destinatários por chamada (a function tem timeout; o admin
-// já divide listas maiores em lotes e chama de novo). Manda ~300ms de
-// intervalo entre envios pra respeitar o rate limit do Resend.
+// já divide listas maiores em lotes e chama de novo). Manda um pequeno
+// intervalo entre envios pra não estourar rate limit do servidor SMTP.
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { sendMail, settingsToConfig } from '../_shared/mailer.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -85,18 +88,7 @@ serve(async (req) => {
     }
 
     const { data: settingsRows } = await supabase.from('settings').select('key, value')
-    const cfg: Record<string, string> = {}
-    ;(settingsRows || []).forEach((r: any) => { cfg[r.key] = r.value })
-    const apiKey   = cfg['email_api_key']
-    const from     = cfg['email_from']      || 'contato@12ia.com.br'
-    const fromName = cfg['email_from_name'] || 'Cupom GPT-Business'
-
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: 'API Key do Resend não configurada.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    const cfg = settingsToConfig(settingsRows)
 
     const { data: template } = await supabase
       .from('email_templates')
@@ -137,45 +129,32 @@ serve(async (req) => {
         links: links.map((l) => `• ${l}`).join('\n'),
       }
       const subject = renderTemplate(template.subject, vars)
-      const body     = renderTemplate(template.body, vars)
-      const html     = toHtml(body)
+      const body_    = renderTemplate(template.body, vars)
+      const html     = toHtml(body_)
 
-      const payload: any = {
-        from: `${fromName} <${from}>`,
-        to: [u.email],
+      const attachments = attachmentB64
+        ? [{ filename: template.pdf_filename || 'anexo.pdf', content: attachmentB64 }]
+        : []
+
+      const result = await sendMail(cfg, {
+        to: u.email,
         subject,
         html: `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#333">${html}</div>`,
-        text: body,
-      }
-      if (attachmentB64) {
-        payload.attachments = [{ filename: template.pdf_filename || 'anexo.pdf', content: attachmentB64 }]
-      }
+        text: body_,
+        attachments,
+      })
 
-      try {
-        const res = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+      if (result.ok) {
+        sent++
+        eventsLog.push({
+          users_id: u.id, event_type: 'campaign_email_sent',
+          metadata: JSON.stringify({ id: result.id || null, template_key: template.key, to: u.email }),
         })
-        const data = await res.json()
-        if (res.ok) {
-          sent++
-          eventsLog.push({
-            users_id: u.id, event_type: 'campaign_email_sent',
-            metadata: JSON.stringify({ resend_id: data.id, template_key: template.key, to: u.email }),
-          })
-        } else {
-          failed++
-          eventsLog.push({
-            users_id: u.id, event_type: 'campaign_email_error',
-            metadata: JSON.stringify({ error: data, template_key: template.key, to: u.email }),
-          })
-        }
-      } catch (err) {
+      } else {
         failed++
         eventsLog.push({
           users_id: u.id, event_type: 'campaign_email_error',
-          metadata: JSON.stringify({ error: String(err), template_key: template.key, to: u.email }),
+          metadata: JSON.stringify({ error: result.error, template_key: template.key, to: u.email }),
         })
       }
 
