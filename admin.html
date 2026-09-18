@@ -775,7 +775,7 @@ body{overflow-x:hidden}
           <div class="page-header-left"><div class="page-title">Negócios</div><div class="page-sub">Quadro por empresa — cada cliente pode estar em mais de uma ao mesmo tempo</div></div>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
             <button class="btn btn-secondary btn-sm hidden" id="crmCompaniesBtn" onclick="openCrmCompaniesModal()">🏢 Empresas</button>
-            <button class="btn btn-secondary btn-sm hidden" id="crmMembersBtn" onclick="openCrmMembersModal()">🔑 Acesso</button>
+            <button class="btn btn-secondary btn-sm hidden" id="crmMembersBtn" onclick="openCrmMembersModal()">👥 Pessoas e permissões</button>
             <button class="btn btn-secondary btn-sm" onclick="loadCrm()">↺ Atualizar</button>
           </div>
         </div>
@@ -1082,16 +1082,28 @@ body{overflow-x:hidden}
 <!-- MODAL ACESSO / MEMBROS (CRM) -->
 <div class="modal-overlay" id="crmMembersModal">
   <div class="modal" style="max-width:560px">
-    <div class="modal-title">🔑 Acesso ao CRM</div>
-    <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;line-height:1.5">Cada login só enxerga as empresas liberadas aqui pra ele. Se o e-mail ainda não tiver login, um novo é criado na hora.</p>
+    <div class="modal-title">👥 Pessoas com acesso ao sistema</div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;line-height:1.5">Cadastre quem pode logar no sistema e o nível de permissão de cada um. Se o e-mail ainda não tiver login, um novo é criado na hora.</p>
 
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
-      <input class="swap-modal-input" id="crmGrantEmail" placeholder="e-mail@exemplo.com" style="margin:0;flex:1;min-width:160px">
-      <select class="filter-sel" id="crmGrantCompany" style="min-width:140px"></select>
-      <button class="btn btn-primary btn-sm" onclick="grantCrmAccess()">Liberar acesso</button>
+    <div class="crm-modal-section" style="border-top:1px solid var(--border);padding-top:.85rem">
+      <div class="crm-modal-section-title"><span>+ Cadastrar acesso</span></div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+        <input class="swap-modal-input" id="crmGrantEmail" placeholder="e-mail@exemplo.com" style="margin:0;flex:1;min-width:160px">
+        <select class="filter-sel" id="crmGrantRole" style="min-width:200px" onchange="onCrmGrantRoleChange()"></select>
+        <select class="filter-sel" id="crmGrantCompany" style="min-width:140px"></select>
+        <button class="btn btn-primary btn-sm" onclick="grantCrmAccess()">Cadastrar</button>
+      </div>
+      <p style="font-size:11px;color:var(--text3);line-height:1.5;margin:0">
+        <strong>Acesso a uma empresa</strong>: só vê os negócios daquela empresa no CRM.
+        <strong>Sub-administrador</strong>: vê todas as empresas do CRM (só a aba CRM).
+        <strong>Administrador geral</strong>: vê o sistema inteiro (cupons, usuários, SMTP etc), não só o CRM.
+      </p>
     </div>
 
-    <div id="crmMembersList" style="margin-top:1rem"></div>
+    <div style="border-top:1px solid var(--border);padding-top:.85rem;margin-top:.85rem">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.5rem">Pessoas cadastradas</div>
+      <div id="crmMembersList"></div>
+    </div>
 
     <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
       <button class="btn btn-secondary" onclick="document.getElementById('crmMembersModal').classList.remove('show')">Fechar</button>
@@ -4896,7 +4908,23 @@ function renameCrmCompany(id, currentName) {
 async function openCrmMembersModal() {
   document.getElementById('crmGrantCompany').innerHTML = crmCompanies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
   await loadCrmMembers();
+  renderCrmGrantRoleOptions();
   document.getElementById('crmMembersModal').classList.add('show');
+}
+// Só quem já é admin geral pode cadastrar outro admin geral (o backend também
+// checa isso — aqui é só pra nem oferecer a opção pra quem não pode usar).
+function renderCrmGrantRoleOptions() {
+  const opts = [
+    '<option value="company">Acesso a uma empresa específica</option>',
+    '<option value="crm_admin">Sub-administrador (todas as empresas do CRM)</option>',
+  ];
+  if (crmMembersCallerIsSystemAdmin) opts.push('<option value="system_admin">Administrador geral (sistema inteiro)</option>');
+  document.getElementById('crmGrantRole').innerHTML = opts.join('');
+  onCrmGrantRoleChange();
+}
+function onCrmGrantRoleChange() {
+  const role = document.getElementById('crmGrantRole').value;
+  document.getElementById('crmGrantCompany').classList.toggle('hidden', role !== 'company');
 }
 async function loadCrmMembers() {
   document.getElementById('crmMembersList').innerHTML = '<div style="font-size:12px;color:var(--text3)">Carregando...</div>';
@@ -4922,15 +4950,35 @@ function renderCrmMembersList() {
 }
 async function grantCrmAccess() {
   const email = document.getElementById('crmGrantEmail').value.trim();
+  const role = document.getElementById('crmGrantRole').value;
   const company_id = document.getElementById('crmGrantCompany').value;
-  if (!email || !company_id) { toast('Preenche o e-mail e a empresa.', 'error'); return; }
-  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'grant', email, company_id } });
+  if (!email) { toast('Preenche o e-mail.', 'error'); return; }
+  if (role === 'company' && !company_id) { toast('Escolhe a empresa.', 'error'); return; }
+
+  // company_id só vai no corpo quando o papel é "acesso a uma empresa" — pra
+  // admin geral/sub-administrador não precisa (eles já enxergam tudo).
+  const { data, error } = await db.functions.invoke('crm-manage-access', {
+    body: role === 'company' ? { action: 'grant', email, company_id } : { action: 'grant', email },
+  });
   if (error) { toast('Erro: ' + (error.message || String(error)), 'error'); return; }
   if (data?.error) { toast('Erro: ' + data.error, 'error'); return; }
+
+  let permErr = null;
+  if (role === 'crm_admin' || role === 'system_admin') {
+    const { data: d2, error: e2 } = await db.functions.invoke('crm-manage-access', { body: { action: 'set_admin', user_id: data.user_id, is_admin: true } });
+    if (e2 || d2?.error) permErr = d2?.error || e2.message || String(e2);
+  }
+  if (!permErr && role === 'system_admin') {
+    const { data: d3, error: e3 } = await db.functions.invoke('crm-manage-access', { body: { action: 'set_system_admin', user_id: data.user_id, is_system_admin: true } });
+    if (e3 || d3?.error) permErr = d3?.error || e3.message || String(e3);
+  }
+
   if (data?.created_new && data?.temp_password) {
-    openConfirm('Novo login criado', `Login criado pra ${email}.\n\nSenha temporária: ${data.temp_password}\n\nAvise essa pessoa por fora daqui (WhatsApp etc) — essa senha não aparece de novo.`, () => {}, 'Ok, copiei');
+    openConfirm('Novo login criado', `Login criado pra ${email}.\n\nSenha temporária: ${data.temp_password}\n\nAvise essa pessoa por fora daqui (WhatsApp etc) — essa senha não aparece de novo.` + (permErr ? `\n\n⚠️ O login foi criado, mas não deu pra aplicar a permissão escolhida (${permErr}). Cadastra de novo com o mesmo e-mail escolhendo o mesmo papel pra tentar novamente.` : ''), () => {}, 'Ok, copiei');
+  } else if (permErr) {
+    toast('Login encontrado, mas erro ao aplicar a permissão: ' + permErr, 'error');
   } else {
-    toast('Acesso liberado.', 'success');
+    toast('Acesso cadastrado.', 'success');
   }
   document.getElementById('crmGrantEmail').value = '';
   loadCrmMembers();
