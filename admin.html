@@ -140,7 +140,7 @@ td.primary{color:var(--text);font-weight:500}
 
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:200;padding:1rem}
 .modal-overlay.show{display:flex}
-.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2rem;max-width:380px;width:100%;box-shadow:var(--shadow)}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2rem;max-width:380px;width:100%;box-shadow:var(--shadow);max-height:calc(100vh - 2rem);overflow-y:auto}
 .modal-title{font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;margin-bottom:.5rem}
 .modal-msg{font-size:13px;color:var(--text2);margin-bottom:1.5rem;line-height:1.55;white-space:pre-line}
 .modal-footer{display:flex;gap:.75rem;justify-content:flex-end}
