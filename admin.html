@@ -4953,6 +4953,29 @@ async function toggleSystemAdmin(user_id, isSysAdmin) {
   toast(isSysAdmin ? 'Agora é administrador geral.' : 'Não é mais administrador geral.', 'success');
   loadCrmMembers();
 }
+
+// ─── Fechar modais clicando fora (no fundo escurecido) ─────────────────────
+// Cada modal tem sua própria função de fechar (algumas limpam estado, ex:
+// closeSwap zera swapState) — por isso o mapa abaixo, em vez de só tirar a
+// classe "show" na marra, que deixaria lixo de estado pra trás.
+const MODAL_CLOSE_FNS = {
+  ativadosModal: () => closeAtivados(),
+  swapModal: () => closeSwap(),
+  exportUsersModal: () => closeExportUsersModal(),
+  viewCouponsModal: () => closeViewCouponsModal(),
+  templateModal: () => closeTemplateForm(),
+  crmDealModal: () => closeCrmDealModal(),
+  crmCompaniesModal: () => document.getElementById('crmCompaniesModal').classList.remove('show'),
+  crmMembersModal: () => document.getElementById('crmMembersModal').classList.remove('show'),
+  confirmModal: () => closeConfirm(),
+};
+document.addEventListener('click', (e) => {
+  // Só fecha se o clique foi direto no fundo (o próprio .modal-overlay), não
+  // em algo dentro do card do modal — senão qualquer clique dentro fecharia.
+  if (!e.target.classList.contains('modal-overlay') || !e.target.classList.contains('show')) return;
+  const fn = MODAL_CLOSE_FNS[e.target.id];
+  if (fn) fn(); else e.target.classList.remove('show');
+});
 </script>
 </body>
 </html>
