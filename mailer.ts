@@ -63,6 +63,15 @@ export async function sendMail(cfg: MailSettings, msg: MailMessage): Promise<Mai
   return { ok: false, error: 'Nenhum servidor de e-mail configurado. Preencha o SMTP na aba "Servidor SMTP" do admin.' }
 }
 
+// A lib denomailer, em alguns erros do protocolo SMTP (ex: usuário/senha
+// rejeitados pelo Gmail, "invalid cmd" na negociação), lança a exceção fora
+// da cadeia de promises que o nosso `await client.send()` consegue capturar
+// — ela aparece como "unhandledrejection" / "event loop error" no runtime do
+// Deno e, sem tratamento, DERRUBA a Edge Function inteira (o isolate reinicia
+// no meio da resposta). O efeito colateral visto no navegador é um erro
+// genérico de CORS/"Failed to fetch", escondendo o erro real. Por isso
+// registramos um listener de 'unhandledrejection' só durante o envio, pra
+// converter qualquer erro assíncrono desse tipo numa resposta normal.
 async function sendViaSmtp(cfg: MailSettings, msg: MailMessage): Promise<MailResult> {
   const from = cfg.email_from || 'contato@12ia.com.br'
   const fromName = cfg.email_from_name || 'Cupom GPT-Business'
@@ -80,25 +89,49 @@ async function sendViaSmtp(cfg: MailSettings, msg: MailMessage): Promise<MailRes
     },
   })
 
-  try {
-    await client.send({
-      from: `${fromName} <${from}>`,
-      to: msg.to,
-      subject: msg.subject,
-      html: msg.html,
-      content: msg.text,
-      attachments: (msg.attachments || []).map((a) => ({
-        filename: a.filename,
-        content: a.content,
-        encoding: 'base64' as const,
-      })),
-    })
-    await client.close()
-    return { ok: true }
-  } catch (err) {
-    try { await client.close() } catch { /* já pode ter caído a conexão */ }
-    return { ok: false, error: String(err) }
-  }
+  return await new Promise<MailResult>((resolve) => {
+    let settled = false
+
+    const finish = (result: MailResult) => {
+      if (settled) return
+      settled = true
+      // deno-lint-ignore no-explicit-any
+      ;(self as any).removeEventListener?.('unhandledrejection', onUnhandled)
+      resolve(result)
+    }
+
+    // deno-lint-ignore no-explicit-any
+    const onUnhandled = (event: any) => {
+      if (settled) return
+      event.preventDefault?.()
+      client.close().catch(() => {})
+      finish({ ok: false, error: 'Erro SMTP (conexão/autenticação recusada pelo servidor): ' + String(event.reason ?? event) })
+    }
+    // deno-lint-ignore no-explicit-any
+    ;(self as any).addEventListener?.('unhandledrejection', onUnhandled)
+
+    ;(async () => {
+      try {
+        await client.send({
+          from: `${fromName} <${from}>`,
+          to: msg.to,
+          subject: msg.subject,
+          html: msg.html,
+          content: msg.text,
+          attachments: (msg.attachments || []).map((a) => ({
+            filename: a.filename,
+            content: a.content,
+            encoding: 'base64' as const,
+          })),
+        })
+        await client.close()
+        finish({ ok: true })
+      } catch (err) {
+        try { await client.close() } catch { /* já pode ter caído a conexão */ }
+        finish({ ok: false, error: String(err) })
+      }
+    })()
+  })
 }
 
 async function sendViaResend(cfg: MailSettings, msg: MailMessage): Promise<MailResult> {
