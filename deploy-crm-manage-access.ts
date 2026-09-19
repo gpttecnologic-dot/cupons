@@ -19,9 +19,18 @@
 // service_role key — não dá pra fazer isso direto do admin.html com a chave
 // anon (nem seria seguro deixar qualquer usuário logado criar outros logins).
 //
-// Login novo = convite por e-mail (admin.auth.admin.inviteUserByEmail): a
-// pessoa recebe um link, clica, e cria a PRÓPRIA senha no admin.html (não tem
-// mais senha temporária gerada aqui).
+// Login novo = convite por e-mail: a pessoa recebe um link, clica, e cria a
+// PRÓPRIA senha no admin.html (não tem mais senha temporária gerada aqui).
+//   IMPORTANTE: o e-mail do convite NÃO usa o mailer interno do Supabase Auth
+//   (admin.auth.admin.inviteUserByEmail manda pelo serviço de e-mail do
+//   próprio Supabase, que aqui nunca foi configurado — por isso os convites
+//   não chegavam). Em vez disso, geramos o link com
+//   admin.auth.admin.generateLink({type:'invite'}) — que cria o login mas NÃO
+//   manda e-mail nenhum — e enviamos o link nós mesmos pelo mesmo SMTP já
+//   configurado na aba "Servidor SMTP" (tabela `settings`), igual ao que
+//   send-coupon-email/send-campaign-email já usam com sucesso. Se o envio
+//   falhar mesmo assim, a resposta devolve o link em `invite_link` pra
+//   copiar/colar manualmente — o login já foi criado de qualquer forma.
 //
 // Body: { action: 'list_members' }
 //     | { action: 'grant', email, company_id?, origin? }  — company_id é
@@ -39,11 +48,130 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+// ── MAILER (SMTP com fallback pra Resend) — mesmo código de send-coupon-email,
+// duplicado aqui porque o editor do Supabase Dashboard publica um arquivo por
+// vez (sem pasta _shared). Lê a config da tabela `settings` (aba "Servidor
+// SMTP" do admin.html) — é o mesmo servidor que já entrega e-mail de cupom. ──
+interface MailSettings {
+  smtp_host?: string
+  smtp_port?: string
+  smtp_user?: string
+  smtp_password?: string
+  smtp_secure?: string
+  email_api_key?: string
+  email_from?: string
+  email_from_name?: string
+  [k: string]: string | undefined
+}
+interface MailMessage { to: string; subject: string; html: string; text: string }
+interface MailResult { ok: boolean; id?: string; error?: unknown }
+
+function settingsToConfig(rows: { key: string; value: string }[] | null): MailSettings {
+  const cfg: Record<string, string> = {}
+  ;(rows || []).forEach((r) => { cfg[r.key] = r.value })
+  return cfg as MailSettings
+}
+
+async function sendMail(cfg: MailSettings, msg: MailMessage): Promise<MailResult> {
+  if (cfg.smtp_host) return sendViaSmtp(cfg, msg)
+  if (cfg.email_api_key) return sendViaResend(cfg, msg)
+  return { ok: false, error: 'Nenhum servidor de e-mail configurado. Preencha o SMTP na aba "Servidor SMTP" do admin.' }
+}
+
+// denomailer, em erros de protocolo SMTP (ex: usuário/senha rejeitados pelo
+// Gmail — "invalid cmd" na negociação), lança fora da cadeia de promises que
+// o try/catch normal consegue pegar; sem tratamento isso derruba a Edge
+// Function inteira (isolate reinicia no meio da resposta), o que aparece no
+// navegador como um erro genérico de CORS/"Failed to fetch" escondendo o erro
+// real. Por isso capturamos via 'unhandledrejection' durante o envio.
+async function sendViaSmtp(cfg: MailSettings, msg: MailMessage): Promise<MailResult> {
+  const from = cfg.email_from || 'contato@12ia.com.br'
+  const fromName = cfg.email_from_name || 'Cupom GPT-Business'
+  const port = parseInt(cfg.smtp_port || '587', 10)
+  const secure = (cfg.smtp_secure || 'starttls').toLowerCase()
+
+  const client = new SMTPClient({
+    connection: {
+      hostname: cfg.smtp_host as string,
+      port,
+      tls: secure === 'ssl',
+      auth: cfg.smtp_user ? { username: cfg.smtp_user, password: cfg.smtp_password || '' } : undefined,
+    },
+  })
+
+  return await new Promise<MailResult>((resolve) => {
+    let settled = false
+    const finish = (result: MailResult) => {
+      if (settled) return
+      settled = true
+      // deno-lint-ignore no-explicit-any
+      ;(self as any).removeEventListener?.('unhandledrejection', onUnhandled)
+      resolve(result)
+    }
+    // deno-lint-ignore no-explicit-any
+    const onUnhandled = (event: any) => {
+      if (settled) return
+      event.preventDefault?.()
+      client.close().catch(() => {})
+      finish({ ok: false, error: 'Erro SMTP (conexão/autenticação recusada pelo servidor): ' + String(event.reason ?? event) })
+    }
+    // deno-lint-ignore no-explicit-any
+    ;(self as any).addEventListener?.('unhandledrejection', onUnhandled)
+
+    ;(async () => {
+      try {
+        await client.send({
+          from: `${fromName} <${from}>`,
+          to: msg.to,
+          subject: msg.subject,
+          html: msg.html,
+          content: msg.text,
+        })
+        await client.close()
+        finish({ ok: true })
+      } catch (err) {
+        try { await client.close() } catch { /* noop */ }
+        finish({ ok: false, error: String(err) })
+      }
+    })()
+  })
+}
+
+async function sendViaResend(cfg: MailSettings, msg: MailMessage): Promise<MailResult> {
+  const from = cfg.email_from || 'contato@12ia.com.br'
+  const fromName = cfg.email_from_name || 'Cupom GPT-Business'
+  const payload: Record<string, unknown> = {
+    from: `${fromName} <${from}>`, to: [msg.to], subject: msg.subject, html: msg.html, text: msg.text,
+  }
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${cfg.email_api_key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) return { ok: false, error: data }
+  return { ok: true, id: data.id }
+}
+// ── FIM MAILER ────────────────────────────────────────────────────────────
+
+function inviteEmailHtml(link: string, fromName: string) {
+  return `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#333">
+    <p>Você foi convidado(a) a acessar o painel de gestão${fromName ? ' da ' + fromName : ''}.</p>
+    <p>Clique no botão abaixo pra criar sua senha e entrar:</p>
+    <p style="margin:24px 0"><a href="${link}" style="background:#6c5ce7;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Criar minha senha</a></p>
+    <p style="font-size:12px;color:#888">Se o botão não funcionar, copie e cole este link no navegador:<br>${link}</p>
+  </div>`
+}
+function inviteEmailText(link: string, fromName: string) {
+  return `Você foi convidado(a) a acessar o painel de gestão${fromName ? ' da ' + fromName : ''}.\n\nCrie sua senha nesse link:\n${link}`
 }
 
 function ok(obj: unknown) {
@@ -236,14 +364,39 @@ serve(async (req) => {
       let targetUser = await findUserByEmail(admin, email)
       let createdNew = false
       let invited = false
+      let mailError: string | null = null
+      let inviteLink: string | null = null
 
       if (!targetUser) {
         const redirectTo = (origin || 'https://12ia.ia.br').replace(/\/$/, '') + '/admin.html'
-        const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo })
-        if (error) return bad('Erro ao convidar login: ' + error.message)
+        const { data, error } = await admin.auth.admin.generateLink({
+          type: 'invite',
+          email,
+          options: { redirectTo },
+        })
+        if (error) return bad('Erro ao criar login: ' + error.message)
         targetUser = data.user
         createdNew = true
-        invited = true
+        inviteLink = data.properties?.action_link || null
+
+        if (inviteLink) {
+          const { data: settingsRows } = await admin.from('settings').select('key, value')
+          const cfg = settingsToConfig(settingsRows)
+          const fromName = cfg.email_from_name || ''
+          const result = await sendMail(cfg, {
+            to: email,
+            subject: 'Seu acesso ao painel — crie sua senha',
+            html: inviteEmailHtml(inviteLink, fromName),
+            text: inviteEmailText(inviteLink, fromName),
+          })
+          if (result.ok) {
+            invited = true
+          } else {
+            mailError = typeof result.error === 'string' ? result.error : JSON.stringify(result.error)
+          }
+        } else {
+          mailError = 'Não foi possível gerar o link de convite.'
+        }
       }
 
       // company_id é opcional: um admin geral ou admin do CRM já enxerga tudo
@@ -258,7 +411,17 @@ serve(async (req) => {
 
       await syncProfile(admin, targetUser!.id, targetUser!.email || email)
 
-      return ok({ success: true, user_id: targetUser!.id, created_new: createdNew, invited })
+      return ok({
+        success: true,
+        user_id: targetUser!.id,
+        created_new: createdNew,
+        invited,
+        // Só preenchidos quando o login é novo mas o e-mail não saiu — dá pra
+        // copiar o link e mandar manualmente. O login já foi criado de
+        // qualquer forma, então isso nunca bloqueia o cadastro em si.
+        mail_error: mailError,
+        invite_link: mailError ? inviteLink : null,
+      })
     }
 
     if (action === 'revoke') {
