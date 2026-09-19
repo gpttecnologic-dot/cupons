@@ -76,6 +76,11 @@ a{color:var(--accent-light);text-decoration:none}
 .sb-badge{background:rgba(124,106,247,.2);color:var(--accent-light);font-size:10px;font-weight:700;padding:1px 7px;border-radius:100px;margin-left:auto}
 .sb-footer{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid var(--border)}
 .sb-user{font-size:12px;color:var(--text3);margin-bottom:.75rem}
+.sb-settings-wrap{position:relative}
+.sb-settings-menu{display:none;position:absolute;bottom:calc(100% + 8px);right:0;min-width:220px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:.35rem;z-index:50}
+.sb-settings-menu.show{display:block}
+.sb-settings-menu .sb-link{border-radius:8px;border-left:none;padding:.575rem .75rem}
+.sb-settings-menu .sb-link.active{background:rgba(124,106,247,.1)}
 
 .main{flex:1;min-width:0;margin-left:220px;padding:2rem;min-height:100vh;background:var(--bg);overflow-x:hidden}
 .page-header{margin-bottom:1.75rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
@@ -350,13 +355,9 @@ body{overflow-x:hidden}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Usuários
       </div>
-      <div class="sb-link" id="nav-permissoes" onclick="goTab('permissions')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        Pessoas e Permissões
-      </div>
       <div class="sb-link" id="nav-referrals" onclick="goTab('referrals')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        Indicações
+        Indicação por Parceiro
         <span class="sb-badge" id="refCount">0</span>
       </div>
       <div class="sb-link" id="nav-waitlist" onclick="goTab('waitlist')">
@@ -373,10 +374,6 @@ body{overflow-x:hidden}
       <div class="sb-link" id="nav-campaigns" onclick="goTab('campaigns')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z" opacity="0"/><path d="M22 6l-10 7L2 6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
         Campanhas de E-mail
-      </div>
-      <div class="sb-link" id="nav-smtp" onclick="goTab('smtp')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg>
-        Servidor SMTP
       </div>
       <div class="sb-section" id="sbSecDados">Dados</div>
       <div class="sb-link" id="nav-import" onclick="goTab('import')">
@@ -403,10 +400,27 @@ body{overflow-x:hidden}
       </div>
       <div class="sb-footer">
         <div class="sb-user" id="sbUser"></div>
-        <button class="btn btn-ghost" style="width:100%;justify-content:flex-start;gap:.6rem;color:var(--danger)" onclick="doLogout()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Sair
-        </button>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn btn-ghost" style="flex:1;justify-content:flex-start;gap:.6rem;color:var(--danger)" onclick="doLogout()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sair
+          </button>
+          <div class="sb-settings-wrap">
+            <button class="btn btn-ghost btn-icon" id="sbSettingsBtn" onclick="toggleSettingsMenu(event)" title="Configurações">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+            <div class="sb-settings-menu" id="sbSettingsMenu">
+              <div class="sb-link" id="nav-permissoes" onclick="goTab('permissions');closeSettingsMenu()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Operadores
+              </div>
+              <div class="sb-link" id="nav-smtp" onclick="goTab('smtp');closeSettingsMenu()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg>
+                Servidor SMTP
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -535,8 +549,8 @@ body{overflow-x:hidden}
       <div id="tab-referrals" class="hidden">
         <div class="page-header">
           <div class="page-header-left">
-            <div class="page-title">Opções de Indicação</div>
-            <div class="page-sub">Estas opções aparecem no formulário público. Arraste para reordenar.</div>
+            <div class="page-title">Indicação por Parceiro</div>
+            <div class="page-sub">Parceiros que indicam clientes — aparecem no formulário público. Arraste para reordenar.</div>
           </div>
         </div>
         <div class="tbl-wrap">
@@ -568,8 +582,18 @@ body{overflow-x:hidden}
           <div class="page-header-left"><div class="page-title">Corporativo</div><div class="page-sub">Pedidos de mais de 10 licenças — aguardando contato comercial</div></div>
           <button class="btn btn-ghost btn-sm" onclick="exportCorporateCSV()">⬇ CSV</button>
         </div>
-        <div class="tbl-wrap">
+        <div class="tbl-wrap" style="margin-bottom:1.5rem">
           <div id="corporateBody"><div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">Carregando...</div></div></div>
+        </div>
+
+        <!-- CLIENTES CORPORATIVOS: quem já virou Corporativo de fato (11ª
+        licença ou marcado manualmente) — lista separada dos pedidos
+        acima, que são só leads aguardando contato. -->
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Clientes Corporativos</div><div class="page-sub">Quem já é Corporativo — pela 11ª licença ou marcado manualmente</div></div>
+        </div>
+        <div class="tbl-wrap">
+          <div id="corporateClientsBody"><div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">Carregando...</div></div></div>
         </div>
       </div>
 
@@ -598,8 +622,8 @@ body{overflow-x:hidden}
 
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.85rem;margin-bottom:1rem">
             <div>
-              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Indicação</label>
-              <select class="filter-sel" id="campReferral" style="width:100%"><option value="">Todas as indicações</option></select>
+              <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Parceiro</label>
+              <select class="filter-sel" id="campReferral" style="width:100%"><option value="">Todos os parceiros</option></select>
               <div id="campReferralLockNote" style="font-size:11px;color:var(--text3);margin-top:.3rem;display:none">🔒 Esse modelo é exclusivo dessa indicação — escolha outro modelo (ou um "Geral") pra mudar o público.</div>
             </div>
             <div>
@@ -820,23 +844,23 @@ body{overflow-x:hidden}
       <!-- PESSOAS E PERMISSÕES -->
       <div id="tab-permissions" class="hidden">
         <div class="page-header">
-          <div class="page-header-left"><div class="page-title">Pessoas e Permissões</div><div class="page-sub">Quem tem login no sistema e o que cada um pode ver — empresas do CRM, abas do sistema e indicações</div></div>
+          <div class="page-header-left"><div class="page-title">Operadores</div><div class="page-sub">Quem tem acesso ao painel, faz login e trabalha no sistema — e o que cada operador pode ver: empresas do CRM, abas do sistema e indicação por parceiro</div></div>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
             <button class="btn btn-secondary btn-sm" onclick="loadPermissionsTab()">↺ Atualizar</button>
           </div>
         </div>
 
         <div class="tbl-wrap" style="padding:1rem 1.25rem;margin-bottom:1rem">
-          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem">+ Cadastrar nova pessoa</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem">+ Cadastrar novo operador</div>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
             <input class="swap-modal-input" id="permNewEmail" placeholder="e-mail@exemplo.com" style="margin:0;flex:1;min-width:200px">
             <button class="btn btn-primary btn-sm" onclick="createPersonInvite()">Convidar</button>
           </div>
-          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 0">Envia um convite por e-mail — a pessoa cria a própria senha no primeiro acesso. Depois, escolha as permissões dela na lista abaixo.</p>
+          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 0">Envia um convite por e-mail — o operador cria a própria senha no primeiro acesso. Depois, escolha as permissões dele na lista abaixo.</p>
         </div>
 
         <div class="tbl-wrap" style="padding:1rem 1.25rem">
-          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem">Pessoas cadastradas</div>
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem">Operadores cadastrados</div>
           <div id="permPeopleList"><div style="font-size:12px;color:var(--text3)">Carregando...</div></div>
         </div>
       </div>
@@ -974,8 +998,8 @@ body{overflow-x:hidden}
       </div>
     </div>
 
-    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Indicação</label>
-    <select class="filter-sel" id="tplReferral" style="width:100%;margin-bottom:.35rem"><option value="">Geral (qualquer indicação)</option></select>
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Parceiro</label>
+    <select class="filter-sel" id="tplReferral" style="width:100%;margin-bottom:.35rem"><option value="">Geral (qualquer parceiro)</option></select>
     <p style="font-size:11px;color:var(--text3);margin-bottom:.75rem">Se escolher uma indicação específica, esse modelo só pode ser usado em campanhas pra essa indicação (o filtro fica travado nela). "Geral" deixa livre pra escolher qualquer indicação, ou todas, na hora de montar a campanha.</p>
 
     <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Nome (só pra identificar no admin)</label>
@@ -1146,7 +1170,7 @@ body{overflow-x:hidden}
 <div class="modal-overlay" id="crmMembersModal">
   <div class="modal" style="max-width:560px">
     <div class="modal-title">🔑 Acesso ao CRM</div>
-    <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;line-height:1.5">Cadastro rápido de acesso a uma empresa do CRM. Se o e-mail ainda não tiver login, um convite é enviado por e-mail pra pessoa criar a própria senha. Pra sub-administrador, administrador geral, abas do sistema e indicações, use a aba "Pessoas e Permissões" no menu (só administradores gerais).</p>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;line-height:1.5">Cadastro rápido de acesso a uma empresa do CRM. Se o e-mail ainda não tiver login, um convite é enviado por e-mail pro operador criar a própria senha. Pra sub-administrador, administrador geral, abas do sistema e indicação por parceiro, use a aba "Operadores" no menu (só administradores gerais).</p>
 
     <div class="crm-modal-section" style="border-top:1px solid var(--border);padding-top:.85rem">
       <div class="crm-modal-section-title"><span>+ Cadastrar acesso</span></div>
@@ -1155,11 +1179,11 @@ body{overflow-x:hidden}
         <select class="filter-sel" id="crmGrantCompany" style="min-width:140px"></select>
         <button class="btn btn-primary btn-sm" onclick="grantCrmAccess()">Cadastrar</button>
       </div>
-      <p style="font-size:11px;color:var(--text3);line-height:1.5;margin:0">A pessoa só vê os negócios dessa empresa no CRM.</p>
+      <p style="font-size:11px;color:var(--text3);line-height:1.5;margin:0">O operador só vê os negócios dessa empresa no CRM.</p>
     </div>
 
     <div style="border-top:1px solid var(--border);padding-top:.85rem;margin-top:.85rem">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.5rem">Pessoas cadastradas</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.5rem">Operadores cadastrados</div>
       <div id="crmMembersList"></div>
     </div>
 
@@ -1194,7 +1218,7 @@ body{overflow-x:hidden}
     </div>
 
     <div class="crm-modal-section">
-      <div class="crm-modal-section-title"><span>🔗 Indicações (Meu Desempenho)</span></div>
+      <div class="crm-modal-section-title"><span>🔗 Indicação por Parceiro (Meu Desempenho)</span></div>
       <div id="permEditReferrals" style="display:flex;flex-wrap:wrap;gap:.5rem"></div>
     </div>
 
@@ -1425,7 +1449,7 @@ function goTab(id) {
   if (id === 'users')     loadUsers();
   if (id === 'logs')      loadLogs();
   if (id === 'waitlist')  loadWaitlist();
-  if (id === 'corporate') loadCorporateLeads();
+  if (id === 'corporate') { loadCorporateLeads(); loadCorporateClients(); }
   if (id === 'referrals') loadRefOptions();
   if (id === 'campaigns') loadCampaigns();
   if (id === 'smtp')      loadSmtpSettings();
@@ -1434,6 +1458,23 @@ function goTab(id) {
   if (id === 'partner')   loadPartnerDashboard();
   closeSidebar();
 }
+
+// Menu de configurações (engrenagem ao lado de "Sair"): abriga o que só faz
+// sentido mexer de vez em quando (SMTP, Pessoas e Permissões) — fora da lista
+// principal do dia a dia.
+function toggleSettingsMenu(e) {
+  e.stopPropagation();
+  document.getElementById('sbSettingsMenu').classList.toggle('show');
+}
+function closeSettingsMenu() {
+  document.getElementById('sbSettingsMenu').classList.remove('show');
+}
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('sbSettingsMenu');
+  if (!menu.classList.contains('show')) return;
+  if (menu.contains(e.target) || document.getElementById('sbSettingsBtn').contains(e.target)) return;
+  closeSettingsMenu();
+});
 
 // Mobile sidebar
 function toggleSidebar() {
@@ -1522,12 +1563,12 @@ async function loadCampaigns() {
   const tplRsel = document.getElementById('tplReferral');
   if (!refErr) {
     const current = rsel.value;
-    rsel.innerHTML = '<option value="">Todas as indicações</option>' +
+    rsel.innerHTML = '<option value="">Todos os parceiros</option>' +
       (refs || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
     rsel.value = current;
 
     const tplCurrent = tplRsel.value;
-    tplRsel.innerHTML = '<option value="">Geral (qualquer indicação)</option>' +
+    tplRsel.innerHTML = '<option value="">Geral (qualquer parceiro)</option>' +
       (refs || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
     tplRsel.value = tplCurrent;
   }
@@ -1554,13 +1595,13 @@ function renderEmailTemplates() {
     return;
   }
   el.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
-    <th>Nome</th><th>Chave</th><th>Uso</th><th>Indicação</th><th>Assunto</th><th>PDF</th><th>Ativo</th><th class="sticky-actions">Ações</th>
+    <th>Nome</th><th>Chave</th><th>Uso</th><th>Parceiro</th><th>Assunto</th><th>PDF</th><th>Ativo</th><th class="sticky-actions">Ações</th>
   </tr></thead><tbody>${allEmailTemplates.map(t => `
     <tr>
       <td data-label="Nome">${esc(t.name)}</td>
       <td data-label="Chave"><span class="mono" style="font-size:11px">${esc(t.key)}</span></td>
       <td data-label="Uso">${purposeLabel(t.purpose)}</td>
-      <td data-label="Indicação">${t.referral_id ? `<span class="ref-badge">${esc(refLabelById(t.referral_id))}</span>` : '<span style="color:var(--text3)">Geral</span>'}</td>
+      <td data-label="Parceiro">${t.referral_id ? `<span class="ref-badge">${esc(refLabelById(t.referral_id))}</span>` : '<span style="color:var(--text3)">Geral</span>'}</td>
       <td data-label="Assunto">${esc(t.subject)}</td>
       <td data-label="PDF">${t.pdf_url ? '📎 sim' : '—'}</td>
       <td data-label="Ativo">${t.active ? '✓' : '—'}</td>
@@ -2079,7 +2120,7 @@ async function loadIndicadores(force=false){
     <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="border-bottom:1px solid var(--border)">
-          <th style="text-align:left;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Indicação</th>
+          <th style="text-align:left;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Parceiro</th>
           <th style="text-align:right;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Cadastros do dia</th>
           <th style="text-align:right;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px">Participação</th>
           <th style="text-align:right;padding:7px 1rem;font-weight:700;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Últimas 72h</th>
@@ -2436,7 +2477,7 @@ function renderDashCharts(){
   // específica pra aparecer quando uma é filtrada).
   // Usa filtRedeemed/semCupom, que já respeitam o período selecionado
   // (7d/30d/90d/6m/Tudo — ver `inPeriod` mais acima).
-  const NAO_IDENTIFICADA = 'Indicação não identificada';
+  const NAO_IDENTIFICADA = 'Parceiro não identificado';
   const redByRef={}, anzByRef={};
   let redSemVinculo=0, anzSemVinculo=0;
   filtRedeemed.forEach(c=>{
@@ -2576,12 +2617,12 @@ async function loadDashboard(force = true) {
       return `<tr>
       <td class="primary" data-label="Nome">${esc(u.name)}</td>
       <td data-label="E-mail">${esc(u.email)}</td>
-      <td data-label="Indicação"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
+      <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
       <td class="truncate mono" style="max-width:200px" data-label="Link"><a href="${esc(link || '#')}" target="_blank" rel="noopener">${esc(link || '—')}</a></td>
       <td data-label="Data">${fmtDate(u.created_at)}</td>
     </tr>`;
     }).join('');
-    rb.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Indicação</th><th>Link</th><th>Data</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    rb.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Parceiro</th><th>Link</th><th>Data</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
 
   // Gráfico de indicações
@@ -2736,7 +2777,7 @@ function renderCoupons() {
     </td>
     <td class="primary" data-label="Usuário">${esc(c.user?.name || '—')}</td>
     <td data-label="E-mail">${esc(c.user?.email || '—')}</td>
-    <td data-label="Indicação"><span class="ref-badge">${esc(refLabelById(c.user?.referral_id))}</span></td>
+    <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(c.user?.referral_id))}</span></td>
     <td data-label="Entregue em">${fmtDate(c.distributed_at)}</td>
     <td class="sticky-actions">
       <div class="btns">
@@ -3010,7 +3051,7 @@ async function loadUsers() {
 
   let { data: us, error } = await db
     .from('users')
-    .select('id,name,email,phone,referral_id,coupons_id,quantidade_licencas,created_at')
+    .select('id,name,email,phone,referral_id,coupons_id,quantidade_licencas,segmento,created_at')
     .order('created_at', { ascending: false });
 
   // A coluna quantidade_licencas só existe depois de rodar o SQL
@@ -3021,16 +3062,33 @@ async function loadUsers() {
     toast('Rode o SQL "licencas_corporativas_setup.sql" no Supabase para habilitar o campo de licenças.', 'error', 8000);
     const retry = await db
       .from('users')
-      .select('id,name,email,phone,referral_id,coupons_id,created_at')
+      .select('id,name,email,phone,referral_id,coupons_id,segmento,created_at')
       .order('created_at', { ascending: false });
     us = retry.data; error = retry.error;
     (us || []).forEach(u => { u.quantidade_licencas = 1; });
+  }
+
+  // A coluna segmento só existe depois de rodar o SQL
+  // "supabase_migration_client_segmento.sql" no Supabase. Sem ela, assume
+  // 'varejo' pra todo mundo em vez de quebrar a tela.
+  if (error && /segmento/i.test(error.message || '')) {
+    toast('Rode o SQL "supabase_migration_client_segmento.sql" no Supabase para habilitar Varejo/Corporativo.', 'error', 8000);
+    const retry = await db
+      .from('users')
+      .select('id,name,email,phone,referral_id,coupons_id,quantidade_licencas,created_at')
+      .order('created_at', { ascending: false });
+    us = retry.data; error = retry.error;
+    (us || []).forEach(u => { u.segmento = 'varejo'; });
   }
 
   if (error) {
     document.getElementById('userBody').innerHTML = `<div class="empty-state"><div class="empty-title">Erro: ${esc(error.message)}</div></div>`;
     return;
   }
+
+  // Clientes já promovidos a Corporativo saem da lista de Usuários — passam
+  // a aparecer só na aba Corporativo (seção "Clientes Corporativos").
+  us = (us || []).filter(u => (u.segmento || 'varejo') !== 'corporativo');
 
   // Join duplo: pelo coupons_id do usuário E pelo users_id do cupom (cobre registros antigos)
   const cIdsFromUser = [...new Set((us || []).map(u => u.coupons_id).filter(Boolean))];
@@ -3143,7 +3201,7 @@ function renderUsers() {
     <td class="primary" data-label="Nome">${esc(u.name)}</td>
     <td data-label="E-mail">${esc(u.email)}</td>
     <td data-label="Telefone">${esc(u.phone || '—')}</td>
-    <td data-label="Indicação"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
+    <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
     <td data-label="Licenças">
       ${(u.quantidade_licencas || 1) > 1
         ? `<span class="ref-badge" title="Licenças pedidas no cadastro vs. cupons já emitidos para essa pessoa">${u.quantidade_licencas} pedidas · ${u.couponsIssued} emitidas</span>`
@@ -3159,6 +3217,7 @@ function renderUsers() {
     <td class="sticky-actions">
       <div class="btns">
         <button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom vinculados a esta pessoa, trocar/devolver escolhendo qual link, gerar mais, e opcionalmente enviar um e-mail com eles">🔗 Cupons${u.couponsIssued > 0 ? ` (${u.couponsIssued})` : ''}</button>
+        <button class="btn btn-ghost btn-sm" onclick="marcarComoCorporativo('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Marcar manualmente como cliente Corporativo — passa a aparecer na aba Corporativo em vez de Usuários">🏢 Corporativo</button>
         <button class="btn btn-ghost btn-sm btn-icon"
           onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')"
           title="Excluir">🗑</button>
@@ -3189,6 +3248,32 @@ function renderUsers() {
     ${sortableTh('Cadastrado em','date')}
     <th class="sticky-actions"></th>
   </tr></thead><tbody>${rows}</tbody></table></div>${pager}`;
+}
+
+// Promove manualmente um usuário pra Corporativo, independente de quantas
+// licenças ele tenha — o admin pode decidir isso a qualquer momento
+// ("quando o usuário quiser"). Só um UPDATE direto em users.segmento; a
+// promoção automática pela 11ª licença (trigger no banco) faz a mesma coisa.
+async function marcarComoCorporativo(id, name) {
+  openConfirm(
+    'Marcar como Corporativo',
+    `Marcar "${name}" como cliente Corporativo?\n\nEssa pessoa vai sair da lista de Usuários e passar a aparecer na aba Corporativo, em "Clientes Corporativos".`,
+    async () => {
+      const { error } = await db.from('users').update({ segmento: 'corporativo' }).eq('id', id);
+      if (error) {
+        if (/segmento/i.test(error.message || '')) {
+          toast('Rode o SQL "supabase_migration_client_segmento.sql" no Supabase antes de usar isso.', 'error', 8000);
+        } else {
+          toast('Erro ao marcar como Corporativo: ' + error.message, 'error', 6000);
+        }
+        return;
+      }
+      toast(`"${name}" agora é Corporativo.`, 'success');
+      loadUsers();
+      loadCorporateClients();
+    },
+    '🏢 Marcar como Corporativo'
+  );
 }
 
 async function deleteUser(id, name, couponId) {
@@ -3609,7 +3694,7 @@ async function loadWaitlist() {
     <td class="primary" data-label="Nome">${esc(w.name)}</td>
     <td data-label="E-mail">${esc(w.email)}</td>
     <td data-label="Telefone">${esc(w.phone || '—')}</td>
-    <td data-label="Indicação"><span class="ref-badge">${esc(refLabelById(w.referral_id))}</span></td>
+    <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(w.referral_id))}</span></td>
     <td data-label="Cadastrado em">${fmtDate(w.created_at)}</td>
     <td data-label="Status"><span class="badge ${w.notified ? 'b-distributed' : 'b-available'}">${w.notified ? 'Notificado' : 'Aguardando'}</span></td>
     <td class="sticky-actions">
@@ -3620,7 +3705,7 @@ async function loadWaitlist() {
     </td>
   </tr>`).join('');
 
-  body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Cadastrado em</th><th>Status</th><th class="sticky-actions">Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Parceiro</th><th>Cadastrado em</th><th>Status</th><th class="sticky-actions">Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 async function markNotified(id) {
@@ -3708,7 +3793,7 @@ function renderCorporateLeads() {
     <td class="primary" data-label="Nome">${esc(l.name)}</td>
     <td data-label="E-mail">${esc(l.email)}</td>
     <td data-label="Telefone">${esc(l.phone || '—')}</td>
-    <td data-label="Indicação"><span class="ref-badge">${esc(refLabelById(l.referral_id))}</span></td>
+    <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(l.referral_id))}</span></td>
     <td data-label="Licenças"><strong>${l.quantidade_licencas}</strong> licenças</td>
     <td data-label="Cadastrado em">${fmtDate(l.created_at)}</td>
     <td data-label="E-mail comercial">
@@ -3735,7 +3820,7 @@ function renderCorporateLeads() {
   </tr>`).join('');
 
   body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
-    <th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Licenças</th>
+    <th>Nome</th><th>E-mail</th><th>Telefone</th><th>Parceiro</th><th>Licenças</th>
     <th>Cadastrado em</th><th>E-mail comercial</th><th>Status</th><th>Cupons</th><th class="sticky-actions"></th>
   </tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -3878,6 +3963,99 @@ function exportCorporateCSV() {
 async function exportCorporateCSVFull() {
   await loadCorporateLeads();
   exportCorporateCSV();
+}
+
+// ─── CLIENTES CORPORATIVOS ──────────────────────────────────────────────────
+// Diferente de corporate_leads (pedidos aguardando contato), isso é
+// users.segmento = 'corporativo': gente que já É corporativa de fato, seja
+// pela 11ª licença (trigger no banco, ver supabase_migration_client_segmento.sql)
+// ou marcada manualmente pelo admin (marcarComoCorporativo(), na aba Usuários).
+let allCorporateClients = [];
+async function loadCorporateClients() {
+  const body = document.getElementById('corporateClientsBody');
+  body.innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+
+  if (!allRefOpts.length) {
+    const { data } = await db.from('referrals').select('id,name');
+    allRefOpts = data || [];
+  }
+
+  const { data, error } = await db
+    .from('users')
+    .select('id,name,email,phone,referral_id,created_at')
+    .eq('segmento', 'corporativo')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    // Coluna ainda não existe (SQL não rodado) — não quebra a tela, só
+    // mostra vazio (não tem como ter corporativo sem a coluna).
+    if (/segmento/i.test(error.message || '')) {
+      allCorporateClients = [];
+      renderCorporateClients();
+      return;
+    }
+    body.innerHTML = `<div class="empty-state"><div class="empty-title">Erro: ${esc(error.message)}</div></div>`;
+    return;
+  }
+
+  const ids = (data || []).map(u => u.id);
+  let countByUser = {};
+  if (ids.length) {
+    const cs = await fetchInBatches('coupons', 'users_id,status', 'users_id', ids);
+    cs.forEach(c => {
+      if (c.status === 'delivered' || c.status === 'redeemed') {
+        countByUser[c.users_id] = (countByUser[c.users_id] || 0) + 1;
+      }
+    });
+  }
+
+  allCorporateClients = (data || []).map(u => ({ ...u, couponsIssued: countByUser[u.id] || 0 }));
+  renderCorporateClients();
+}
+
+function renderCorporateClients() {
+  const body = document.getElementById('corporateClientsBody');
+  if (!allCorporateClients.length) {
+    body.innerHTML = '<div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">Nenhum cliente Corporativo ainda</div></div>';
+    return;
+  }
+
+  const rows = allCorporateClients.map(u => `<tr>
+    <td class="primary" data-label="Nome">${esc(u.name)}</td>
+    <td data-label="E-mail">${esc(u.email)}</td>
+    <td data-label="Telefone">${esc(u.phone || '—')}</td>
+    <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
+    <td data-label="Licenças"><strong>${u.couponsIssued}</strong> emitidas</td>
+    <td data-label="Cliente desde">${fmtDate(u.created_at)}</td>
+    <td class="sticky-actions">
+      <div class="btns">
+        <button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom vinculados a esta pessoa">🔗 Ver cupons</button>
+        <button class="btn btn-ghost btn-sm" onclick="voltarParaVarejo('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Volta esse cliente para Varejo — decisão manual, o sistema nunca rebaixa sozinho">↩ Voltar para Varejo</button>
+      </div>
+    </td>
+  </tr>`).join('');
+
+  body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
+    <th>Nome</th><th>E-mail</th><th>Telefone</th><th>Parceiro</th><th>Licenças</th><th>Cliente desde</th><th class="sticky-actions"></th>
+  </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// A promoção automática (11ª licença) é só de ida — o trigger nunca rebaixa
+// sozinho. Voltar pra Varejo é sempre uma decisão manual do admin, feita
+// aqui.
+async function voltarParaVarejo(id, name) {
+  openConfirm(
+    'Voltar para Varejo',
+    `Voltar "${name}" para Varejo?\n\nEssa pessoa vai sair de "Clientes Corporativos" e voltar a aparecer na aba Usuários.`,
+    async () => {
+      const { error } = await db.from('users').update({ segmento: 'varejo' }).eq('id', id);
+      if (error) { toast('Erro ao voltar para Varejo: ' + error.message, 'error', 6000); return; }
+      toast(`"${name}" voltou para Varejo.`, 'success');
+      loadCorporateClients();
+      loadUsers();
+    },
+    '↩ Voltar para Varejo'
+  );
 }
 
 // ─── INDICAÇÕES ───────────────────────────────────────────────────────────────
@@ -5112,7 +5290,7 @@ async function grantCrmAccess() {
   if (data?.error) { toast('Erro: ' + data.error, 'error'); return; }
 
   if (data?.created_new && data?.invited) {
-    openConfirm('Convite enviado', `Um e-mail de convite foi enviado pra ${email}. A pessoa clica no link e cria a própria senha na primeira vez que entrar.`, () => {}, 'Ok');
+    openConfirm('Convite enviado', `Um e-mail de convite foi enviado pra ${email}. O operador clica no link e cria a própria senha na primeira vez que entrar.`, () => {}, 'Ok');
   } else if (data?.created_new && data?.invite_link) {
     openConfirm('Login criado — envie o link manualmente', `Não deu pra mandar o e-mail de convite automaticamente (${esc(data.mail_error || 'erro no envio')}). Copie e envie este link pra ${email} criar a senha:\n\n${data.invite_link}`, () => {}, 'Ok');
   } else {
