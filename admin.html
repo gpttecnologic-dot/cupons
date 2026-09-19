@@ -47,6 +47,7 @@ a{color:var(--accent-light);text-decoration:none}
 ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
 
 #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:2rem}
+#setPasswordScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:2rem}
 .login-card{width:100%;max-width:380px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);padding:2.5rem;box-shadow:var(--shadow)}
 .login-icon{font-size:36px;margin-bottom:1rem;display:block;text-align:center}
 .login-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;text-align:center;margin-bottom:.25rem}
@@ -302,6 +303,19 @@ body{overflow-x:hidden}
   </div>
 </div>
 
+<!-- CRIAR SENHA (primeiro acesso via convite) -->
+<div id="setPasswordScreen" style="display:none">
+  <div class="login-card">
+    <span class="login-icon">🔐</span>
+    <div class="login-title">Crie sua senha</div>
+    <div class="login-sub">Esse é o primeiro acesso — escolha a senha que vai usar daqui pra frente</div>
+    <div class="login-err" id="setPassErr"></div>
+    <div class="lf"><label>Nova senha</label><input type="password" id="setPassNew" placeholder="Mínimo 6 caracteres" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSetPassword()"/></div>
+    <div class="lf"><label>Confirme a senha</label><input type="password" id="setPassConfirm" placeholder="Repita a senha" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSetPassword()"/></div>
+    <button class="btn btn-primary" style="width:100%" onclick="doSetPassword()" id="setPassBtn">Criar senha e entrar</button>
+  </div>
+</div>
+
 <!-- ADMIN -->
 <div id="adminScreen">
   <div class="mobile-topbar">
@@ -335,6 +349,10 @@ body{overflow-x:hidden}
       <div class="sb-link" id="nav-users" onclick="goTab('users')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Usuários
+      </div>
+      <div class="sb-link" id="nav-permissoes" onclick="goTab('permissions')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Pessoas e Permissões
       </div>
       <div class="sb-link" id="nav-referrals" onclick="goTab('referrals')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
@@ -372,6 +390,11 @@ body{overflow-x:hidden}
       <div class="sb-link" id="nav-reports" onclick="goTab('reports')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Relatórios
+      </div>
+      <div class="sb-section" id="sbSecParceiro">Parceiro</div>
+      <div class="sb-link" id="nav-partner" onclick="goTab('partner')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+        Meu Desempenho
       </div>
       <div class="sb-section">CRM</div>
       <div class="sb-link" id="nav-crm" onclick="goTab('crm')">
@@ -775,7 +798,7 @@ body{overflow-x:hidden}
           <div class="page-header-left"><div class="page-title">Negócios</div><div class="page-sub">Quadro por empresa — cada cliente pode estar em mais de uma ao mesmo tempo</div></div>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
             <button class="btn btn-secondary btn-sm hidden" id="crmCompaniesBtn" onclick="openCrmCompaniesModal()">🏢 Empresas</button>
-            <button class="btn btn-secondary btn-sm hidden" id="crmMembersBtn" onclick="openCrmMembersModal()">👥 Pessoas e permissões</button>
+            <button class="btn btn-secondary btn-sm hidden" id="crmMembersBtn" onclick="openCrmMembersModal()">🔑 Acesso ao CRM</button>
             <button class="btn btn-secondary btn-sm" onclick="loadCrm()">↺ Atualizar</button>
           </div>
         </div>
@@ -791,6 +814,46 @@ body{overflow-x:hidden}
         </div>
         <div id="crmBoardWrap">
           <div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Carregando...</div></div>
+        </div>
+      </div>
+
+      <!-- PESSOAS E PERMISSÕES -->
+      <div id="tab-permissions" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Pessoas e Permissões</div><div class="page-sub">Quem tem login no sistema e o que cada um pode ver — empresas do CRM, abas do sistema e indicações</div></div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="loadPermissionsTab()">↺ Atualizar</button>
+          </div>
+        </div>
+
+        <div class="tbl-wrap" style="padding:1rem 1.25rem;margin-bottom:1rem">
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem">+ Cadastrar nova pessoa</div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <input class="swap-modal-input" id="permNewEmail" placeholder="e-mail@exemplo.com" style="margin:0;flex:1;min-width:200px">
+            <button class="btn btn-primary btn-sm" onclick="createPersonInvite()">Convidar</button>
+          </div>
+          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 0">Envia um convite por e-mail — a pessoa cria a própria senha no primeiro acesso. Depois, escolha as permissões dela na lista abaixo.</p>
+        </div>
+
+        <div class="tbl-wrap" style="padding:1rem 1.25rem">
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem">Pessoas cadastradas</div>
+          <div id="permPeopleList"><div style="font-size:12px;color:var(--text3)">Carregando...</div></div>
+        </div>
+      </div>
+
+      <!-- MEU DESEMPENHO (indicação/parceiro) -->
+      <div id="tab-partner" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Meu Desempenho</div><div class="page-sub">Quantas pessoas entraram pelo seu link e quantas resgataram o cupom</div></div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <select class="filter-sel" id="partnerRefSelect" style="min-width:180px" onchange="loadPartnerStats()"></select>
+            <button class="btn btn-secondary btn-sm" onclick="loadPartnerStats()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div class="stats-grid" id="partnerStatsGrid">
+          <div class="stat-card"><div class="stat-label">Entraram pelo seu link</div><div class="stat-val white" id="partnerStatSignups">—</div></div>
+          <div class="stat-card"><div class="stat-label">✅ Fecharam (resgataram)</div><div class="stat-val green" id="partnerStatClosed">—</div></div>
+          <div class="stat-card"><div class="stat-label">Taxa de conversão</div><div class="stat-val purple" id="partnerStatRate">—</div></div>
         </div>
       </div>
 
@@ -1082,8 +1145,8 @@ body{overflow-x:hidden}
 <!-- MODAL ACESSO / MEMBROS (CRM) -->
 <div class="modal-overlay" id="crmMembersModal">
   <div class="modal" style="max-width:560px">
-    <div class="modal-title">👥 Pessoas com acesso ao sistema</div>
-    <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;line-height:1.5">Cadastre quem pode logar no sistema e o nível de permissão de cada um. Se o e-mail ainda não tiver login, um novo é criado na hora.</p>
+    <div class="modal-title">🔑 Acesso ao CRM</div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;line-height:1.5">Cadastro rápido de acesso ao CRM (empresa a empresa). Se o e-mail ainda não tiver login, um convite é enviado por e-mail pra pessoa criar a própria senha. Pra gerenciar TUDO — abas do sistema, indicações e administrador geral — use a aba "Pessoas e Permissões" no menu (só administradores gerais).</p>
 
     <div class="crm-modal-section" style="border-top:1px solid var(--border);padding-top:.85rem">
       <div class="crm-modal-section-title"><span>+ Cadastrar acesso</span></div>
@@ -1107,6 +1170,42 @@ body{overflow-x:hidden}
 
     <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
       <button class="btn btn-secondary" onclick="document.getElementById('crmMembersModal').classList.remove('show')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDITAR PERMISSÕES (aba Pessoas e Permissões) -->
+<div class="modal-overlay" id="permEditModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">Permissões — <span id="permEditEmail"></span></div>
+
+    <div class="crm-modal-section" style="border-top:none;padding-top:0;margin-top:0">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-bottom:.5rem">
+        <input type="checkbox" id="permEditIsAdmin"> Sub-administrador (todas as empresas do CRM)
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+        <input type="checkbox" id="permEditIsSystemAdmin"> Administrador geral (sistema inteiro)
+      </label>
+    </div>
+
+    <div class="crm-modal-section">
+      <div class="crm-modal-section-title"><span>🏢 Empresas do CRM</span></div>
+      <div id="permEditCompanies" style="display:flex;flex-wrap:wrap;gap:.5rem"></div>
+    </div>
+
+    <div class="crm-modal-section">
+      <div class="crm-modal-section-title"><span>📑 Abas do sistema</span></div>
+      <div id="permEditTabs" style="display:flex;flex-wrap:wrap;gap:.5rem"></div>
+    </div>
+
+    <div class="crm-modal-section">
+      <div class="crm-modal-section-title"><span>🔗 Indicações (Meu Desempenho)</span></div>
+      <div id="permEditReferrals" style="display:flex;flex-wrap:wrap;gap:.5rem"></div>
+    </div>
+
+    <div class="modal-footer" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="document.getElementById('permEditModal').classList.remove('show')">Cancelar</button>
+      <button class="btn btn-primary" onclick="savePersonPermissions()">Salvar</button>
     </div>
   </div>
 </div>
@@ -1139,6 +1238,11 @@ const PUBLIC_FORM_URL = window.location.origin + '/';
 
 const { createClient } = supabase;
 const db = createClient(SUPA_URL, SUPA_KEY);
+
+// Detecta se a pessoa chegou aqui por um link de convite (primeiro acesso) —
+// precisa capturar isso JÁ, porque o supabase-js processa e limpa o hash da
+// URL sozinho (detectSessionInUrl) logo depois de criar o client acima.
+const _inviteFlow = /type=invite|type=recovery/.test(window.location.hash);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let allCoupons = [], allUsers = [], allRefOpts = [], allWaitlist = [];
@@ -1269,9 +1373,17 @@ async function doLogout() {
   document.getElementById('loginPass').value = '';
 }
 
-// Auto-login se já tem sessão
+// Auto-login se já tem sessão (ou tela de "crie sua senha" se veio de convite)
 (async () => {
+  // Dá um instante pro supabase-js processar o hash da URL (#access_token=...)
+  // e criar a sessão a partir do link de convite/recuperação antes de checar.
+  if (_inviteFlow) await new Promise(r => setTimeout(r, 300));
   const { data: { session } } = await db.auth.getSession();
+  if (session && _inviteFlow) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('setPasswordScreen').style.display = 'flex';
+    return;
+  }
   if (session) {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminScreen').style.display = 'block';
@@ -1281,10 +1393,30 @@ async function doLogout() {
 })();
 db.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') {
+    document.getElementById('setPasswordScreen').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('adminScreen').style.display = 'none';
   }
 });
+
+async function doSetPassword() {
+  const p1 = document.getElementById('setPassNew').value;
+  const p2 = document.getElementById('setPassConfirm').value;
+  const err = document.getElementById('setPassErr');
+  err.style.display = 'none';
+  if (!p1 || p1.length < 6) { err.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; err.style.display = 'block'; return; }
+  if (p1 !== p2) { err.textContent = 'As senhas não são iguais.'; err.style.display = 'block'; return; }
+  const btn = document.getElementById('setPassBtn');
+  btn.disabled = true; btn.textContent = 'Criando...';
+  const { data: { session } } = await db.auth.getSession();
+  const { error } = await db.auth.updateUser({ password: p1 });
+  btn.disabled = false; btn.textContent = 'Criar senha e entrar';
+  if (error) { err.textContent = 'Erro ao criar senha: ' + error.message; err.style.display = 'block'; return; }
+  document.getElementById('setPasswordScreen').style.display = 'none';
+  document.getElementById('adminScreen').style.display = 'block';
+  document.getElementById('sbUser').textContent = session?.user?.email || '';
+  applyPermissionGating();
+}
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
 function goTab(id) {
@@ -1303,6 +1435,8 @@ function goTab(id) {
   if (id === 'campaigns') loadCampaigns();
   if (id === 'smtp')      loadSmtpSettings();
   if (id === 'crm')       loadCrm();
+  if (id === 'permissions') loadPermissionsTab();
+  if (id === 'partner')   loadPartnerDashboard();
   closeSidebar();
 }
 
@@ -4200,32 +4334,74 @@ let crmCommentsCache = [];
 let isSystemAdmin = false;
 let crmProfiles = [];
 let crmMembersCallerIsSystemAdmin = false;
+let myTabAccess = [];      // tab_ids liberados avulsamente (user_tab_access)
+let myReferralAccess = []; // indicações liberadas pro painel "Meu Desempenho"
 
-// ─── PERMISSÕES (administrador geral x sub-administrador do CRM) ──────────────
+// ─── PERMISSÕES ────────────────────────────────────────────────────────────
 // "Administrador" geral (system_admins) enxerga todas as abas do sistema.
-// Quem não é, só enxerga a aba CRM (e um dashboard específico do CRM, dentro
-// dela) — seja sub-administrador (crm_admins, vê todas as empresas do CRM) ou
-// alguém com acesso só a empresas específicas (user_company_access).
+// Quem não é, só enxerga: a aba CRM (se tiver acesso via crm_admins ou
+// user_company_access), abas avulsas liberadas em user_tab_access, e/ou a
+// aba "Meu Desempenho" (se tiver acesso a alguma indicação via
+// user_referral_access). "nav-permissoes" é sempre restrita a admin geral —
+// não dá pra liberar ela avulsamente (é quem gerencia todo o resto).
+const SYSTEM_TAB_META = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'coupons', label: 'Cupons' },
+  { id: 'users', label: 'Usuários' },
+  { id: 'referrals', label: 'Indicações' },
+  { id: 'waitlist', label: 'Lista de Espera' },
+  { id: 'corporate', label: 'Corporativo' },
+  { id: 'campaigns', label: 'Campanhas de E-mail' },
+  { id: 'smtp', label: 'Servidor SMTP' },
+  { id: 'import', label: 'Importar' },
+  { id: 'logs', label: 'Logs' },
+  { id: 'reports', label: 'Relatórios' },
+];
 const CRM_ONLY_SECTION_IDS = ['sbSecPrincipal', 'sbSecGerenciar', 'sbSecComunicacao', 'sbSecDados'];
-const CRM_ONLY_NAV_IDS = ['nav-dashboard', 'nav-coupons', 'nav-users', 'nav-referrals', 'nav-waitlist', 'nav-corporate', 'nav-campaigns', 'nav-smtp', 'nav-import', 'nav-logs', 'nav-reports'];
 
 async function applyPermissionGating() {
   const { data: { user } } = await db.auth.getUser();
   crmUserId = user?.id || null;
   isSystemAdmin = false;
+  myTabAccess = [];
+  myReferralAccess = [];
   if (crmUserId) {
-    const { data: sysRow } = await db.from('system_admins').select('user_id').eq('user_id', crmUserId).maybeSingle();
+    const [{ data: sysRow }, { data: tabRows }, { data: refRows }] = await Promise.all([
+      db.from('system_admins').select('user_id').eq('user_id', crmUserId).maybeSingle(),
+      db.from('user_tab_access').select('tab_id').eq('user_id', crmUserId),
+      db.from('user_referral_access').select('referral_id, referrals(id,name)').eq('user_id', crmUserId),
+    ]);
     isSystemAdmin = !!sysRow;
+    myTabAccess = (tabRows || []).map(r => r.tab_id);
+    myReferralAccess = (refRows || []).map(r => ({ id: r.referral_id, name: r.referrals?.name || '?' }));
   }
-  [...CRM_ONLY_SECTION_IDS, ...CRM_ONLY_NAV_IDS].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('hidden', !isSystemAdmin);
+
+  SYSTEM_TAB_META.forEach(t => {
+    const el = document.getElementById('nav-' + t.id);
+    if (el) el.classList.toggle('hidden', !(isSystemAdmin || myTabAccess.includes(t.id)));
   });
-  if (isSystemAdmin) {
-    loadDashboard();
-  } else {
-    goTab('crm');
-  }
+  document.getElementById('nav-permissoes').classList.toggle('hidden', !isSystemAdmin);
+  document.getElementById('nav-partner').classList.toggle('hidden', !myReferralAccess.length);
+  document.getElementById('sbSecParceiro').classList.toggle('hidden', !myReferralAccess.length);
+
+  // Seções só aparecem se tiverem pelo menos um link visível dentro delas.
+  CRM_ONLY_SECTION_IDS.forEach(secId => {
+    const sec = document.getElementById(secId);
+    if (!sec) return;
+    let next = sec.nextElementSibling, anyVisible = false;
+    while (next && !next.classList.contains('sb-section')) {
+      if (next.classList.contains('sb-link') && !next.classList.contains('hidden')) anyVisible = true;
+      next = next.nextElementSibling;
+    }
+    sec.classList.toggle('hidden', !anyVisible);
+  });
+
+  if (isSystemAdmin) { loadDashboard(); return; }
+  // Pouso: primeira aba avulsa liberada > Meu Desempenho > CRM (que já trata
+  // sozinho o caso de não ter nenhuma empresa liberada).
+  if (myTabAccess.length) { goTab(myTabAccess[0]); return; }
+  if (myReferralAccess.length) { goTab('partner'); return; }
+  goTab('crm');
 }
 
 async function loadCrmProfiles() {
@@ -4958,7 +5134,9 @@ async function grantCrmAccess() {
   // company_id só vai no corpo quando o papel é "acesso a uma empresa" — pra
   // admin geral/sub-administrador não precisa (eles já enxergam tudo).
   const { data, error } = await db.functions.invoke('crm-manage-access', {
-    body: role === 'company' ? { action: 'grant', email, company_id } : { action: 'grant', email },
+    body: role === 'company'
+      ? { action: 'grant', email, company_id, origin: window.location.origin }
+      : { action: 'grant', email, origin: window.location.origin },
   });
   if (error) { toast('Erro: ' + (error.message || String(error)), 'error'); return; }
   if (data?.error) { toast('Erro: ' + data.error, 'error'); return; }
@@ -4973,8 +5151,8 @@ async function grantCrmAccess() {
     if (e3 || d3?.error) permErr = d3?.error || e3.message || String(e3);
   }
 
-  if (data?.created_new && data?.temp_password) {
-    openConfirm('Novo login criado', `Login criado pra ${email}.\n\nSenha temporária: ${data.temp_password}\n\nAvise essa pessoa por fora daqui (WhatsApp etc) — essa senha não aparece de novo.` + (permErr ? `\n\n⚠️ O login foi criado, mas não deu pra aplicar a permissão escolhida (${permErr}). Cadastra de novo com o mesmo e-mail escolhendo o mesmo papel pra tentar novamente.` : ''), () => {}, 'Ok, copiei');
+  if (data?.created_new && data?.invited) {
+    openConfirm('Convite enviado', `Um e-mail de convite foi enviado pra ${email}. A pessoa clica no link e cria a própria senha na primeira vez que entrar.` + (permErr ? `\n\n⚠️ O convite foi enviado, mas não deu pra aplicar a permissão escolhida (${permErr}). Assim que ela aceitar o convite, ajusta a permissão pela lista abaixo.` : ''), () => {}, 'Ok');
   } else if (permErr) {
     toast('Login encontrado, mas erro ao aplicar a permissão: ' + permErr, 'error');
   } else {
@@ -5002,6 +5180,144 @@ async function toggleSystemAdmin(user_id, isSysAdmin) {
   loadCrmMembers();
 }
 
+// ── Pessoas e Permissões (aba dedicada, só administrador geral) ─────────────
+// Aqui dá pra personalizar, pessoa por pessoa: empresas do CRM, abas soltas
+// do sistema (fora do CRM) e indicações (acesso ao painel "Meu Desempenho").
+let permMembersCache = [];
+let permAllReferrals = [];
+let permEditingUserId = null;
+
+async function loadPermissionsTab() {
+  document.getElementById('permPeopleList').innerHTML = '<div style="font-size:12px;color:var(--text3)">Carregando...</div>';
+  const [{ data, error }, { data: refs }, { data: comps }] = await Promise.all([
+    db.functions.invoke('crm-manage-access', { body: { action: 'list_members' } }),
+    db.from('referrals').select('id,name').order('name'),
+    db.from('companies').select('id,name').order('name'),
+  ]);
+  permAllReferrals = refs || [];
+  crmCompanies = comps || [];
+  if (error) { document.getElementById('permPeopleList').innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro: ${esc(error.message || String(error))}</div>`; return; }
+  if (data?.error) { document.getElementById('permPeopleList').innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro: ${esc(data.error)}</div>`; return; }
+  permMembersCache = data.members || [];
+  crmMembersCallerIsSystemAdmin = !!data.caller_is_system_admin;
+  renderPermPeopleList();
+}
+
+function renderPermPeopleList() {
+  if (!permMembersCache.length) { document.getElementById('permPeopleList').innerHTML = '<div style="font-size:12px;color:var(--text3)">Ninguém cadastrado ainda.</div>'; return; }
+  document.getElementById('permPeopleList').innerHTML = permMembersCache.map(m => {
+    const badges = [];
+    if (m.is_system_admin) badges.push('<span class="ref-badge">admin geral</span>');
+    else if (m.is_admin) badges.push('<span class="ref-badge">admin CRM</span>');
+    const chips = [
+      ...m.companies.map(c => `<span class="crm-chip">🏢 ${esc(c.name)}</span>`),
+      ...(m.tab_ids || []).map(t => `<span class="crm-chip">📑 ${esc((SYSTEM_TAB_META.find(x => x.id === t) || {}).label || t)}</span>`),
+      ...(m.referrals || []).map(r => `<span class="crm-chip">🔗 ${esc(r.name)}</span>`),
+    ].join('');
+    return `<div class="crm-member-row">
+      <div class="crm-member-email" style="cursor:pointer" onclick="openPermEdit('${m.user_id}')">${esc(m.email)} ${badges.join(' ')}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${chips || '<span style="font-size:11px;color:var(--text3)">sem permissões ainda</span>'}</div>
+      <button class="btn btn-ghost btn-sm" onclick="openPermEdit('${m.user_id}')">✎ Editar permissões</button>
+    </div>`;
+  }).join('');
+}
+
+async function createPersonInvite() {
+  const email = document.getElementById('permNewEmail').value.trim();
+  if (!email) { toast('Preenche o e-mail.', 'error'); return; }
+  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'grant', email, origin: window.location.origin } });
+  if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
+  document.getElementById('permNewEmail').value = '';
+  toast(data.created_new && data.invited ? 'Convite enviado pra ' + email + '.' : 'Login já existia — ajusta as permissões dele abaixo.', 'success');
+  await loadPermissionsTab();
+  if (data.user_id) openPermEdit(data.user_id);
+}
+
+function permCheckboxChip(value, label, checked) {
+  return `<label style="display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:100px;padding:4px 10px;font-size:12px;cursor:pointer">
+    <input type="checkbox" data-value="${value}" ${checked ? 'checked' : ''} style="margin:0">${esc(label)}
+  </label>`;
+}
+function permCheckedValues(containerId) {
+  return [...document.querySelectorAll('#' + containerId + ' input[type=checkbox]:checked')].map(el => el.dataset.value);
+}
+
+function openPermEdit(userId) {
+  const m = permMembersCache.find(x => x.user_id === userId);
+  if (!m) return;
+  permEditingUserId = userId;
+  document.getElementById('permEditEmail').textContent = m.email;
+  document.getElementById('permEditIsAdmin').checked = !!m.is_admin;
+  document.getElementById('permEditIsSystemAdmin').checked = !!m.is_system_admin;
+  document.getElementById('permEditIsSystemAdmin').closest('label').classList.toggle('hidden', !crmMembersCallerIsSystemAdmin);
+
+  const companyIds = new Set(m.companies.map(c => c.id));
+  document.getElementById('permEditCompanies').innerHTML = crmCompanies.map(c =>
+    permCheckboxChip(c.id, c.name, companyIds.has(c.id))
+  ).join('') || '<span style="font-size:11px;color:var(--text3)">Nenhuma empresa cadastrada no CRM ainda.</span>';
+
+  const tabIds = new Set(m.tab_ids || []);
+  document.getElementById('permEditTabs').innerHTML = SYSTEM_TAB_META.map(t =>
+    permCheckboxChip(t.id, t.label, tabIds.has(t.id))
+  ).join('');
+
+  const refIds = new Set((m.referrals || []).map(r => r.id));
+  document.getElementById('permEditReferrals').innerHTML = permAllReferrals.map(r =>
+    permCheckboxChip(r.id, r.name, refIds.has(r.id))
+  ).join('') || '<span style="font-size:11px;color:var(--text3)">Nenhuma indicação cadastrada ainda.</span>';
+
+  document.getElementById('permEditModal').classList.add('show');
+}
+
+async function savePersonPermissions() {
+  if (!permEditingUserId) return;
+  const payload = {
+    action: 'set_permissions',
+    user_id: permEditingUserId,
+    company_ids: permCheckedValues('permEditCompanies'),
+    tab_ids: permCheckedValues('permEditTabs'),
+    referral_ids: permCheckedValues('permEditReferrals'),
+    is_admin: document.getElementById('permEditIsAdmin').checked,
+  };
+  if (crmMembersCallerIsSystemAdmin) payload.is_system_admin = document.getElementById('permEditIsSystemAdmin').checked;
+  const { data, error } = await db.functions.invoke('crm-manage-access', { body: payload });
+  if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
+  toast('Permissões salvas.', 'success');
+  document.getElementById('permEditModal').classList.remove('show');
+  loadPermissionsTab();
+}
+
+// ── Meu Desempenho (painel do parceiro/indicação) ────────────────────────────
+// Só mostra os números agregados da(s) indicação(ões) liberadas pra esse
+// login (via crm_referral_stats, que confere a permissão no banco) — nunca
+// nomes, e-mails ou telefones de clientes.
+async function loadPartnerDashboard() {
+  const sel = document.getElementById('partnerRefSelect');
+  sel.innerHTML = myReferralAccess.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+  if (!myReferralAccess.length) {
+    document.getElementById('partnerStatSignups').textContent = '—';
+    document.getElementById('partnerStatClosed').textContent = '—';
+    document.getElementById('partnerStatRate').textContent = '—';
+    return;
+  }
+  await loadPartnerStats();
+}
+async function loadPartnerStats() {
+  const refId = document.getElementById('partnerRefSelect').value;
+  if (!refId) return;
+  document.getElementById('partnerStatSignups').textContent = '…';
+  document.getElementById('partnerStatClosed').textContent = '…';
+  document.getElementById('partnerStatRate').textContent = '…';
+  const { data, error } = await db.rpc('crm_referral_stats', { rid: refId });
+  if (error) { toast('Erro ao carregar seu desempenho: ' + error.message, 'error'); return; }
+  const row = (data && data[0]) || { signups: 0, closed: 0 };
+  const signups = Number(row.signups) || 0;
+  const closed = Number(row.closed) || 0;
+  document.getElementById('partnerStatSignups').textContent = signups;
+  document.getElementById('partnerStatClosed').textContent = closed;
+  document.getElementById('partnerStatRate').textContent = signups ? Math.round((closed / signups) * 100) + '%' : '—';
+}
+
 // ─── Fechar modais clicando fora (no fundo escurecido) ─────────────────────
 // Cada modal tem sua própria função de fechar (algumas limpam estado, ex:
 // closeSwap zera swapState) — por isso o mapa abaixo, em vez de só tirar a
@@ -5015,6 +5331,7 @@ const MODAL_CLOSE_FNS = {
   crmDealModal: () => closeCrmDealModal(),
   crmCompaniesModal: () => document.getElementById('crmCompaniesModal').classList.remove('show'),
   crmMembersModal: () => document.getElementById('crmMembersModal').classList.remove('show'),
+  permEditModal: () => document.getElementById('permEditModal').classList.remove('show'),
   confirmModal: () => closeConfirm(),
 };
 document.addEventListener('click', (e) => {
