@@ -1146,21 +1146,16 @@ body{overflow-x:hidden}
 <div class="modal-overlay" id="crmMembersModal">
   <div class="modal" style="max-width:560px">
     <div class="modal-title">🔑 Acesso ao CRM</div>
-    <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;line-height:1.5">Cadastro rápido de acesso ao CRM (empresa a empresa). Se o e-mail ainda não tiver login, um convite é enviado por e-mail pra pessoa criar a própria senha. Pra gerenciar TUDO — abas do sistema, indicações e administrador geral — use a aba "Pessoas e Permissões" no menu (só administradores gerais).</p>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:1rem;line-height:1.5">Cadastro rápido de acesso a uma empresa do CRM. Se o e-mail ainda não tiver login, um convite é enviado por e-mail pra pessoa criar a própria senha. Pra sub-administrador, administrador geral, abas do sistema e indicações, use a aba "Pessoas e Permissões" no menu (só administradores gerais).</p>
 
     <div class="crm-modal-section" style="border-top:1px solid var(--border);padding-top:.85rem">
       <div class="crm-modal-section-title"><span>+ Cadastrar acesso</span></div>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
         <input class="swap-modal-input" id="crmGrantEmail" placeholder="e-mail@exemplo.com" style="margin:0;flex:1;min-width:160px">
-        <select class="filter-sel" id="crmGrantRole" style="min-width:200px" onchange="onCrmGrantRoleChange()"></select>
         <select class="filter-sel" id="crmGrantCompany" style="min-width:140px"></select>
         <button class="btn btn-primary btn-sm" onclick="grantCrmAccess()">Cadastrar</button>
       </div>
-      <p style="font-size:11px;color:var(--text3);line-height:1.5;margin:0">
-        <strong>Acesso a uma empresa</strong>: só vê os negócios daquela empresa no CRM.
-        <strong>Sub-administrador</strong>: vê todas as empresas do CRM (só a aba CRM).
-        <strong>Administrador geral</strong>: vê o sistema inteiro (cupons, usuários, SMTP etc), não só o CRM.
-      </p>
+      <p style="font-size:11px;color:var(--text3);line-height:1.5;margin:0">A pessoa só vê os negócios dessa empresa no CRM.</p>
     </div>
 
     <div style="border-top:1px solid var(--border);padding-top:.85rem;margin-top:.85rem">
@@ -5084,23 +5079,7 @@ function renameCrmCompany(id, currentName) {
 async function openCrmMembersModal() {
   document.getElementById('crmGrantCompany').innerHTML = crmCompanies.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
   await loadCrmMembers();
-  renderCrmGrantRoleOptions();
   document.getElementById('crmMembersModal').classList.add('show');
-}
-// Só quem já é admin geral pode cadastrar outro admin geral (o backend também
-// checa isso — aqui é só pra nem oferecer a opção pra quem não pode usar).
-function renderCrmGrantRoleOptions() {
-  const opts = [
-    '<option value="company">Acesso a uma empresa específica</option>',
-    '<option value="crm_admin">Sub-administrador (todas as empresas do CRM)</option>',
-  ];
-  if (crmMembersCallerIsSystemAdmin) opts.push('<option value="system_admin">Administrador geral (sistema inteiro)</option>');
-  document.getElementById('crmGrantRole').innerHTML = opts.join('');
-  onCrmGrantRoleChange();
-}
-function onCrmGrantRoleChange() {
-  const role = document.getElementById('crmGrantRole').value;
-  document.getElementById('crmGrantCompany').classList.toggle('hidden', role !== 'company');
 }
 async function loadCrmMembers() {
   document.getElementById('crmMembersList').innerHTML = '<div style="font-size:12px;color:var(--text3)">Carregando...</div>';
@@ -5118,43 +5097,24 @@ function renderCrmMembersList() {
       <div style="display:flex;gap:4px;flex-wrap:wrap">
         ${m.companies.map(c => `<span class="crm-chip">${esc(c.name)}<button onclick="revokeCrmAccess('${m.user_id}','${c.id}')" title="Remover acesso">✕</button></span>`).join('') || '<span style="font-size:11px;color:var(--text3)">sem empresas</span>'}
       </div>
-      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="toggleCrmAdmin('${m.user_id}', ${!m.is_admin})">${m.is_admin ? 'Tirar admin CRM' : 'Tornar admin CRM'}</button>
-        ${crmMembersCallerIsSystemAdmin ? `<button class="btn btn-ghost btn-sm" onclick="toggleSystemAdmin('${m.user_id}', ${!m.is_system_admin})">${m.is_system_admin ? 'Tirar admin geral' : 'Tornar admin geral'}</button>` : ''}
-      </div>
     </div>`).join('');
 }
 async function grantCrmAccess() {
   const email = document.getElementById('crmGrantEmail').value.trim();
-  const role = document.getElementById('crmGrantRole').value;
   const company_id = document.getElementById('crmGrantCompany').value;
   if (!email) { toast('Preenche o e-mail.', 'error'); return; }
-  if (role === 'company' && !company_id) { toast('Escolhe a empresa.', 'error'); return; }
+  if (!company_id) { toast('Escolhe a empresa.', 'error'); return; }
 
-  // company_id só vai no corpo quando o papel é "acesso a uma empresa" — pra
-  // admin geral/sub-administrador não precisa (eles já enxergam tudo).
   const { data, error } = await db.functions.invoke('crm-manage-access', {
-    body: role === 'company'
-      ? { action: 'grant', email, company_id, origin: window.location.origin }
-      : { action: 'grant', email, origin: window.location.origin },
+    body: { action: 'grant', email, company_id, origin: window.location.origin },
   });
   if (error) { toast('Erro: ' + (error.message || String(error)), 'error'); return; }
   if (data?.error) { toast('Erro: ' + data.error, 'error'); return; }
 
-  let permErr = null;
-  if (role === 'crm_admin' || role === 'system_admin') {
-    const { data: d2, error: e2 } = await db.functions.invoke('crm-manage-access', { body: { action: 'set_admin', user_id: data.user_id, is_admin: true } });
-    if (e2 || d2?.error) permErr = d2?.error || e2.message || String(e2);
-  }
-  if (!permErr && role === 'system_admin') {
-    const { data: d3, error: e3 } = await db.functions.invoke('crm-manage-access', { body: { action: 'set_system_admin', user_id: data.user_id, is_system_admin: true } });
-    if (e3 || d3?.error) permErr = d3?.error || e3.message || String(e3);
-  }
-
   if (data?.created_new && data?.invited) {
-    openConfirm('Convite enviado', `Um e-mail de convite foi enviado pra ${email}. A pessoa clica no link e cria a própria senha na primeira vez que entrar.` + (permErr ? `\n\n⚠️ O convite foi enviado, mas não deu pra aplicar a permissão escolhida (${permErr}). Assim que ela aceitar o convite, ajusta a permissão pela lista abaixo.` : ''), () => {}, 'Ok');
-  } else if (permErr) {
-    toast('Login encontrado, mas erro ao aplicar a permissão: ' + permErr, 'error');
+    openConfirm('Convite enviado', `Um e-mail de convite foi enviado pra ${email}. A pessoa clica no link e cria a própria senha na primeira vez que entrar.`, () => {}, 'Ok');
+  } else if (data?.created_new && data?.invite_link) {
+    openConfirm('Login criado — envie o link manualmente', `Não deu pra mandar o e-mail de convite automaticamente (${esc(data.mail_error || 'erro no envio')}). Copie e envie este link pra ${email} criar a senha:\n\n${data.invite_link}`, () => {}, 'Ok');
   } else {
     toast('Acesso cadastrado.', 'success');
   }
@@ -5165,18 +5125,6 @@ async function revokeCrmAccess(user_id, company_id) {
   const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'revoke', user_id, company_id } });
   if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
   toast('Acesso removido.', 'info');
-  loadCrmMembers();
-}
-async function toggleCrmAdmin(user_id, isAdmin) {
-  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'set_admin', user_id, is_admin: isAdmin } });
-  if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
-  toast(isAdmin ? 'Agora é admin do CRM.' : 'Não é mais admin do CRM.', 'success');
-  loadCrmMembers();
-}
-async function toggleSystemAdmin(user_id, isSysAdmin) {
-  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'set_system_admin', user_id, is_system_admin: isSysAdmin } });
-  if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
-  toast(isSysAdmin ? 'Agora é administrador geral.' : 'Não é mais administrador geral.', 'success');
   loadCrmMembers();
 }
 
@@ -5228,7 +5176,13 @@ async function createPersonInvite() {
   const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'grant', email, origin: window.location.origin } });
   if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
   document.getElementById('permNewEmail').value = '';
-  toast(data.created_new && data.invited ? 'Convite enviado pra ' + email + '.' : 'Login já existia — ajusta as permissões dele abaixo.', 'success');
+  if (data.created_new && data.invited) {
+    toast('Convite enviado pra ' + email + '.', 'success');
+  } else if (data.created_new && data.invite_link) {
+    openConfirm('Login criado — envie o link manualmente', `Não deu pra mandar o e-mail de convite automaticamente (${esc(data.mail_error || 'erro no envio')}). Copie e envie este link pra ${email} criar a senha:\n\n${data.invite_link}`, () => {}, 'Ok');
+  } else {
+    toast('Login já existia — ajusta as permissões dele abaixo.', 'success');
+  }
   await loadPermissionsTab();
   if (data.user_id) openPermEdit(data.user_id);
 }
