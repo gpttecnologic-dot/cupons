@@ -151,6 +151,7 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
       <div class="fg"><label>Nome completo <span>*</span></label><input type="text" id="f-name" placeholder="Seu nome completo" autocomplete="name" /></div>
       <div class="fg"><label>Telefone / WhatsApp <span>*</span></label><input type="tel" id="f-phone" placeholder="(11) 99999-9999" autocomplete="tel" /></div>
       <div class="fg"><label>E-mail <span>*</span></label><input type="email" id="f-email" placeholder="seu@email.com" autocomplete="email" /></div>
+      <div class="fg hidden" id="cpfField"><label>CPF <span>*</span></label><input type="text" id="f-cpf" placeholder="000.000.000-00" inputmode="numeric" maxlength="14" autocomplete="off" /></div>
       <!-- A indicação não é mais escolhida pela pessoa: ela vem sempre do
       link usado pra acessar o formulário (?ref=NomeDaIndicação), gerado na
       aba Indicações do admin. Esse input escondido só guarda o id resolvido
@@ -334,6 +335,7 @@ const norm = {
 let lastSubmit = 0;
 let currentLink = '';
 let alreadyLink = '';
+let currentReferralProtected = false;
 
 // A indicação não é mais escolhida no formulário — ela é sempre resolvida
 // a partir do link usado pra chegar aqui (?ref=NomeDaIndicação, gerado na
@@ -349,7 +351,7 @@ async function initReferral() {
   try {
     let { data, error } = await db
       .from('referrals')
-      .select('id, name, logo_url')
+      .select('id, name, logo_url, protected_origin, allowed_origin')
       .eq('active', true)
       .order('created_at', { ascending: true });
 
@@ -359,7 +361,7 @@ async function initReferral() {
     if (error && /logo_url/i.test(error.message || '')) {
       const retry = await db
         .from('referrals')
-        .select('id, name')
+        .select('id, name, protected_origin, allowed_origin')
         .eq('active', true)
         .order('created_at', { ascending: true });
       data = retry.data; error = retry.error;
@@ -379,6 +381,11 @@ async function initReferral() {
     const match = data.find(o => normalizeRef(o.name) === normalizeRef(slug));
 
     if (!match) { showState('stateInvalidRef'); return; }
+
+    currentReferralProtected = match.protected_origin === true;
+    const cpfField = document.getElementById('cpfField');
+    if (cpfField) cpfField.classList.toggle('hidden', !currentReferralProtected);
+    if (!currentReferralProtected) document.getElementById('f-cpf').value = '';
 
     document.getElementById('f-referral').value = match.id;
 
@@ -411,6 +418,26 @@ function showErr(msg) {
 }
 function hideErr() { document.getElementById('alertBox').classList.add('hidden'); }
 
+
+function normalizeCpf(v) { return (v || '').replace(/\D/g, ''); }
+function isValidCpf(v) {
+  const cpf = normalizeCpf(v);
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  const calc = len => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(cpf[i]) * (len + 1 - i);
+    const d = (sum * 10) % 11;
+    return d === 10 ? 0 : d;
+  };
+  return calc(9) === Number(cpf[9]) && calc(10) === Number(cpf[10]);
+}
+
+const cpfInput = document.getElementById('f-cpf');
+if (cpfInput) cpfInput.addEventListener('input', e => {
+  const d = normalizeCpf(e.target.value).slice(0,11);
+  e.target.value = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+});
+
 async function submitForm() {
   const now = Date.now();
   if (now - lastSubmit < 3000) { showErr('Aguarde alguns segundos.'); return; }
@@ -418,6 +445,7 @@ async function submitForm() {
   const name     = document.getElementById('f-name').value.trim();
   const phone    = norm.phone(document.getElementById('f-phone').value);
   const email    = norm.email(document.getElementById('f-email').value);
+  const cpf      = normalizeCpf(document.getElementById('f-cpf').value);
   const referral = document.getElementById('f-referral').value;
   const qtd      = parseInt(document.getElementById('f-qtd').value, 10);
   const terms    = document.getElementById('f-terms').checked;
@@ -426,6 +454,7 @@ async function submitForm() {
   if (!name)             return showErr('Nome é obrigatório.');
   if (phone.length < 10) return showErr('Telefone/WhatsApp inválido.');
   if (!email.includes('@')) return showErr('E-mail inválido.');
+  if (currentReferralProtected && !isValidCpf(cpf)) return showErr('CPF obrigatório e inválido. Informe um CPF válido.');
   if (!referral)         return showErr('Link inválido. Recarregue a página ou peça um novo link.');
   if (!Number.isInteger(qtd) || qtd < 2) return showErr('Informe a quantidade de licenças (mínimo 2).');
   if (!terms)            return showErr('Aceite os termos para continuar.');
@@ -443,7 +472,7 @@ async function submitForm() {
     if (qtd > 10) {
       const { data: lead, error: leadErr } = await db
         .from('corporate_leads')
-        .insert({ name, email, phone, referral_id: referral, quantidade_licencas: qtd })
+        .insert({ name, email, phone, cpf: currentReferralProtected ? cpf : null, referral_id: referral, quantidade_licencas: qtd })
         .select();
 
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
@@ -508,7 +537,7 @@ async function submitForm() {
     // ainda faltam licenças a emitir manualmente pra essa pessoa.
     const { data: newUser, error: uErr } = await db
       .from('users')
-      .insert({ name, email, phone, referral_id: referral, coupons_id: coupon.id, quantidade_licencas: qtd })
+      .insert({ name, email, phone, cpf: currentReferralProtected ? cpf : null, referral_id: referral, coupons_id: coupon.id, quantidade_licencas: qtd })
       .select();
 
     if (uErr) {
@@ -527,7 +556,7 @@ async function submitForm() {
       coupons_id: coupon.id,
       users_id: newUser[0].id,
       event_type: 'delivered',
-      metadata: JSON.stringify({ email, phone, referral_id: referral })
+      metadata: JSON.stringify({ email, phone, referral_id: referral, cpf_required: currentReferralProtected })
     });
 
     // 6. Dispara o e-mail de agradecimento + link (Edge Function
