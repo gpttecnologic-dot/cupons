@@ -3161,15 +3161,29 @@ async function loadUsers() {
   renderUsers();
 }
 
+function normalizeUserSearch(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+function normalizeUserDigits(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
 function renderUsers() {
-  const q = (document.getElementById('userSearch').value || '').toLowerCase();
+  const rawQ = document.getElementById('userSearch').value || '';
+  const q = normalizeUserSearch(rawQ);
+  const qDigits = normalizeUserDigits(rawQ);
   let list = q
     ? allUsers.filter(u =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        (u.phone || '').includes(q) ||
-        (u.cpf || '').replace(/\D/g,'').includes(q.replace(/\D/g,'')) ||
-        (u.couponLink || '').toLowerCase().includes(q))
+        normalizeUserSearch(u.name).includes(q) ||
+        normalizeUserSearch(u.email).includes(q) ||
+        normalizeUserSearch(u.phone).includes(q) ||
+        (qDigits && normalizeUserDigits(u.phone).includes(qDigits)) ||
+        (qDigits && normalizeUserDigits(u.cpf).includes(qDigits)) ||
+        normalizeUserSearch(u.couponLink).includes(q))
     : allUsers;
 
   if (userSort) {
