@@ -142,7 +142,15 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
     <div class="logo-sub">Links exclusivos de desconto</div>
 
     <!-- FORMULÁRIO -->
-    <div id="stateForm">
+    <div id="stateLoading">
+      <div class="empty-box">
+        <div class="spinner" style="margin:0 auto .75rem"></div>
+        <div class="empty-title">Verificando acesso...</div>
+        <div class="empty-sub">Aguarde enquanto validamos o parceiro e a origem do acesso.</div>
+      </div>
+    </div>
+
+    <div id="stateForm" class="hidden">
       <div class="title">Cadastre-se e receba</div>
       <div class="subtitle">Preencha seus dados para receber um link de cupom exclusivo. Cada pessoa pode resgatar apenas <strong style="color:var(--text)">1 cupom</strong>.</div>
 
@@ -373,12 +381,18 @@ function validateProtectedOrigin(referral) {
 
   const allowedHost = normalizeHostFromUrl(referral.allowed_origin);
   let referrerHost = '';
+  let referrerProtocol = '';
   try {
-    referrerHost = document.referrer ? new URL(document.referrer).hostname.toLowerCase().replace(/^www\./, '') : '';
+    if (document.referrer) {
+      const refUrl = new URL(document.referrer);
+      referrerHost = refUrl.hostname.toLowerCase().replace(/^www\./, '');
+      referrerProtocol = refUrl.protocol.toLowerCase();
+    }
   } catch (_) {}
 
-  // Fail closed: parceiro protegido sem domínio configurado ou sem Referer válido.
-  return !!allowedHost && !!referrerHost && referrerHost === allowedHost;
+  // Fail closed: parceiro protegido sem domínio, sem Referer, origem diferente
+  // ou navegação sem HTTPS nunca libera o formulário.
+  return !!allowedHost && !!referrerHost && referrerProtocol === 'https:' && referrerHost === allowedHost;
 }
 
 function showProtectedOrigin(referral) {
@@ -462,13 +476,18 @@ async function initReferral() {
         wrap.classList.remove('hidden');
       }
     }
+
+    // O formulário só aparece DEPOIS de toda a validação de origem terminar.
+    // Isso evita que um parceiro protegido veja/interaja com o formulário
+    // durante a consulta assíncrona ao banco.
+    showState('stateForm');
   } catch (e) {
     showState('stateInvalidRef');
   }
 }
 
 function showState(id) {
-  ['stateForm','stateSuccess','stateAlready','stateEmpty','stateCorporate','stateInvalidRef','stateProtectedOrigin'].forEach(s =>
+  ['stateLoading','stateForm','stateSuccess','stateAlready','stateEmpty','stateCorporate','stateInvalidRef','stateProtectedOrigin'].forEach(s =>
     document.getElementById(s).classList.toggle('hidden', s !== id)
   );
 }
