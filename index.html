@@ -242,6 +242,16 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
       </div>
     </div>
 
+    <!-- ACESSO BLOQUEADO POR ORIGEM DO PARCEIRO -->
+    <div id="stateProtectedOrigin" class="hidden">
+      <div class="empty-box">
+        <div class="empty-icon">🔒</div>
+        <div class="empty-title">Benefício exclusivo</div>
+        <div class="empty-sub" id="protectedOriginMsg">Este benefício é exclusivo para membros e parceiros. Acesse pela plataforma do parceiro para continuar.</div>
+        <a id="protectedOriginLink" class="btn btn-primary" style="margin-top:1.25rem" href="#" rel="noopener">Acessar site do parceiro</a>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -347,6 +357,49 @@ let currentReferralProtected = false;
 // "DN.IA" ou "DNIA", sem depender de digitar exatamente igual.
 const normalizeRef = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
+function normalizeHostFromUrl(value) {
+  try {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return u.hostname.toLowerCase().replace(/^www\./, '');
+  } catch (_) {
+    return '';
+  }
+}
+
+function validateProtectedOrigin(referral) {
+  if (referral.protected_origin !== true) return true;
+
+  const allowedHost = normalizeHostFromUrl(referral.allowed_origin);
+  let referrerHost = '';
+  try {
+    referrerHost = document.referrer ? new URL(document.referrer).hostname.toLowerCase().replace(/^www\./, '') : '';
+  } catch (_) {}
+
+  // Fail closed: parceiro protegido sem domínio configurado ou sem Referer válido.
+  return !!allowedHost && !!referrerHost && referrerHost === allowedHost;
+}
+
+function showProtectedOrigin(referral) {
+  const url = String(referral.allowed_origin || '').trim();
+  const link = document.getElementById('protectedOriginLink');
+  const msg = document.getElementById('protectedOriginMsg');
+  const partnerName = referral.name || 'parceiro';
+
+  msg.textContent = `Este benefício é exclusivo para membros e parceiros da ${partnerName}. Para acessar, entre através da plataforma do parceiro.`;
+
+  if (url) {
+    link.href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    link.textContent = `Acessar ${partnerName}`;
+    link.classList.remove('hidden');
+  } else {
+    link.classList.add('hidden');
+  }
+
+  showState('stateProtectedOrigin');
+}
+
 async function initReferral() {
   try {
     let { data, error } = await db
@@ -382,6 +435,11 @@ async function initReferral() {
 
     if (!match) { showState('stateInvalidRef'); return; }
 
+    if (!validateProtectedOrigin(match)) {
+      showProtectedOrigin(match);
+      return;
+    }
+
     currentReferralProtected = match.protected_origin === true;
     const cpfField = document.getElementById('cpfField');
     if (cpfField) cpfField.classList.toggle('hidden', !currentReferralProtected);
@@ -405,7 +463,7 @@ async function initReferral() {
 }
 
 function showState(id) {
-  ['stateForm','stateSuccess','stateAlready','stateEmpty','stateCorporate','stateInvalidRef'].forEach(s =>
+  ['stateForm','stateSuccess','stateAlready','stateEmpty','stateCorporate','stateInvalidRef','stateProtectedOrigin'].forEach(s =>
     document.getElementById(s).classList.toggle('hidden', s !== id)
   );
 }
