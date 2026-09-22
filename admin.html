@@ -524,7 +524,7 @@ body{overflow-x:hidden}
                 <option value="invalid">Inválidos</option>
                 <option value="validate">⏳ Aguardando validação</option>
               </select>
-              <input class="search-input" id="couponSearch" placeholder="Buscar URL..." oninput="renderCoupons()"/>
+              <input class="search-input" id="couponSearch" placeholder="Buscar link, nome, e-mail ou telefone..." oninput="couponPage=0;renderCoupons()"/>
             </div>
           </div>
           <div id="couponBody"><div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Carregando...</div></div></div>
@@ -583,6 +583,9 @@ body{overflow-x:hidden}
           <button class="btn btn-ghost btn-sm" onclick="exportCorporateCSV()">⬇ CSV</button>
         </div>
         <div class="tbl-wrap" style="margin-bottom:1.5rem">
+          <div class="tbl-head">
+            <input class="search-input" id="corporateSearch" placeholder="Buscar nome, e-mail, telefone ou CPF..." oninput="renderCorporateLeads()" style="width:280px"/>
+          </div>
           <div id="corporateBody"><div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">Carregando...</div></div></div>
         </div>
 
@@ -593,6 +596,9 @@ body{overflow-x:hidden}
           <div class="page-header-left"><div class="page-title">Clientes Corporativos</div><div class="page-sub">Quem já é Corporativo — pela 11ª licença ou marcado manualmente</div></div>
         </div>
         <div class="tbl-wrap">
+          <div class="tbl-head">
+            <input class="search-input" id="corporateClientsSearch" placeholder="Buscar nome, e-mail, telefone ou CPF..." oninput="renderCorporateClients()" style="width:280px"/>
+          </div>
           <div id="corporateClientsBody"><div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">Carregando...</div></div></div>
         </div>
       </div>
@@ -2670,7 +2676,7 @@ async function loadCoupons() {
   let from = 0;
   while(true){
     const{data:batch,error}=await db.from('coupons')
-      .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at,users!coupons_users_id_fkey(id,name,email,referral_id,coupons_id)')
+      .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at,users!coupons_users_id_fkey(id,name,email,phone,cpf,referral_id,coupons_id)')
       .order('created_at',{ascending:false})
       .range(from, from+999);
     if(error){console.error('loadCoupons error:',error);break;}
@@ -2692,7 +2698,9 @@ async function loadCoupons() {
 
 function renderCoupons() {
   const f = document.getElementById('couponFilter').value;
-  const q = (document.getElementById('couponSearch').value || '').toLowerCase();
+  const rawQ = document.getElementById('couponSearch').value || '';
+  const q = normalizeUserSearch(rawQ);
+  const qDigits = normalizeUserDigits(rawQ);
   const now = Date.now();
   const HOURS_72 = 72 * 60 * 60 * 1000;
 
@@ -2717,9 +2725,12 @@ function renderCoupons() {
   }
 
   if(q) list = list.filter(c =>
-    (c.link||'').toLowerCase().includes(q) ||
-    (c.user?.name||'').toLowerCase().includes(q) ||
-    (c.user?.email||'').toLowerCase().includes(q)
+    normalizeUserSearch(c.link).includes(q) ||
+    normalizeUserSearch(c.user?.name).includes(q) ||
+    normalizeUserSearch(c.user?.email).includes(q) ||
+    normalizeUserSearch(c.user?.phone).includes(q) ||
+    (qDigits && normalizeUserDigits(c.user?.phone).includes(qDigits)) ||
+    (qDigits && normalizeUserDigits(c.user?.cpf).includes(qDigits))
   );
 
   // Ordenação por coluna (clicando no cabeçalho) sobrepõe a ordenação
@@ -3805,12 +3816,23 @@ async function loadCorporateLeads() {
 
 function renderCorporateLeads() {
   const body = document.getElementById('corporateBody');
-  if (!allCorporateLeads.length) {
+  const searchEl = document.getElementById('corporateSearch');
+  const rawQ = searchEl ? searchEl.value : '';
+  const q = normalizeUserSearch(rawQ);
+  const qDigits = normalizeUserDigits(rawQ);
+  const list = q ? allCorporateLeads.filter(l =>
+    normalizeUserSearch(l.name).includes(q) ||
+    normalizeUserSearch(l.email).includes(q) ||
+    normalizeUserSearch(l.phone).includes(q) ||
+    (qDigits && normalizeUserDigits(l.phone).includes(qDigits)) ||
+    (qDigits && normalizeUserDigits(l.cpf).includes(qDigits))
+  ) : allCorporateLeads;
+  if (!list.length) {
     body.innerHTML = '<div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">Nenhum pedido corporativo ainda</div></div>';
     return;
   }
 
-  const rows = allCorporateLeads.map(l => `<tr>
+  const rows = list.map(l => `<tr>
     <td class="primary" data-label="Nome">${esc(l.name)}</td>
     <td data-label="E-mail">${esc(l.email)}</td>
     <td data-label="Telefone">${esc(l.phone || '—')}</td>
@@ -4037,12 +4059,23 @@ async function loadCorporateClients() {
 
 function renderCorporateClients() {
   const body = document.getElementById('corporateClientsBody');
-  if (!allCorporateClients.length) {
+  const searchEl = document.getElementById('corporateClientsSearch');
+  const rawQ = searchEl ? searchEl.value : '';
+  const q = normalizeUserSearch(rawQ);
+  const qDigits = normalizeUserDigits(rawQ);
+  const list = q ? allCorporateClients.filter(u =>
+    normalizeUserSearch(u.name).includes(q) ||
+    normalizeUserSearch(u.email).includes(q) ||
+    normalizeUserSearch(u.phone).includes(q) ||
+    (qDigits && normalizeUserDigits(u.phone).includes(qDigits)) ||
+    (qDigits && normalizeUserDigits(u.cpf).includes(qDigits))
+  ) : allCorporateClients;
+  if (!list.length) {
     body.innerHTML = '<div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">Nenhum cliente Corporativo ainda</div></div>';
     return;
   }
 
-  const rows = allCorporateClients.map(u => `<tr>
+  const rows = list.map(u => `<tr>
     <td class="primary" data-label="Nome">${esc(u.name)}</td>
     <td data-label="E-mail">${esc(u.email)}</td>
     <td data-label="Telefone">${esc(u.phone || '—')}</td>
