@@ -861,7 +861,6 @@ body{overflow-x:hidden}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
             <input class="swap-modal-input" id="permNewName" placeholder="Nome do operador" style="margin:0">
             <input class="swap-modal-input" id="permNewEmail" type="email" placeholder="e-mail@exemplo.com" style="margin:0">
-            <input class="swap-modal-input" id="permNewPassword" type="password" placeholder="Senha (mínimo 8 caracteres)" style="margin:0">
             <select class="filter-sel" id="permNewRole" onchange="renderNewOperatorCompanies()" style="margin:0">
               <option value="company_admin">ADM Empresa</option>
               <option value="master">Master</option>
@@ -872,7 +871,7 @@ body{overflow-x:hidden}
             <div id="permNewCompanies" style="display:flex;flex-wrap:wrap;gap:.5rem"></div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="createOperator()" style="margin-top:.8rem">Criar operador</button>
-          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 0">O login é criado diretamente com a senha definida aqui. Master acessa todo o sistema; ADM Empresa fica restrito às empresas selecionadas.</p>
+          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 0">O operador recebe um e-mail para ativar o primeiro acesso e cadastrar a própria senha. Master acessa todo o sistema; ADM Empresa fica restrito às empresas selecionadas.</p>
         </div>
 
         <div class="tbl-wrap" style="padding:1rem 1.25rem">
@@ -5566,18 +5565,15 @@ function renderNewOperatorCompanies() {
 async function createOperator() {
   const name = document.getElementById('permNewName').value.trim();
   const email = document.getElementById('permNewEmail').value.trim();
-  const password = document.getElementById('permNewPassword').value;
   const permission = document.getElementById('permNewRole').value;
   const company_ids = permission === 'master' ? [] : permCheckedValues('permNewCompanies');
-  if (!name || !email || !password) { toast('Preencha nome, e-mail e senha.', 'error'); return; }
-  if (password.length < 8) { toast('A senha deve ter pelo menos 8 caracteres.', 'error'); return; }
+  if (!name || !email) { toast('Preencha nome e e-mail.', 'error'); return; }
   if (permission === 'company_admin' && !company_ids.length) { toast('Selecione pelo menos uma empresa.', 'error'); return; }
-  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action:'create_operator', name, email, password, permission, company_ids } });
+  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action:'create_operator', name, email, permission, company_ids, redirect_to: window.location.origin + window.location.pathname } });
   if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error', 6000); return; }
   document.getElementById('permNewName').value = '';
   document.getElementById('permNewEmail').value = '';
-  document.getElementById('permNewPassword').value = '';
-  toast('Operador criado com sucesso.', 'success');
+  toast('Operador cadastrado. O convite para criar a senha foi enviado por e-mail.', 'success', 5000);
   await loadPermissionsTab();
   renderNewOperatorCompanies();
 }
