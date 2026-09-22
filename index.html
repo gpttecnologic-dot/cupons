@@ -400,12 +400,13 @@ function showProtectedOrigin(referral) {
   const link = document.getElementById('protectedOriginLink');
   const msg = document.getElementById('protectedOriginMsg');
   const partnerName = referral.name || 'parceiro';
+  const partnerDisplayName = partnerName.toUpperCase();
 
-  msg.textContent = `Este benefício é exclusivo para parceiros da ${partnerName}. Acesse a plataforma ${partnerName} ou entre em contato para saber mais.`;
+  msg.textContent = `Este benefício é exclusivo para parceiros da ${partnerDisplayName}. Acesse a plataforma ${partnerDisplayName} ou entre em contato para saber mais.`;
 
   if (url) {
     link.href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
-    link.textContent = `Acessar ${partnerName}`;
+    link.textContent = `Acessar ${partnerDisplayName}`;
     link.classList.remove('hidden');
   } else {
     link.classList.add('hidden');
