@@ -4797,6 +4797,7 @@ let crmChecklistsCache = [];
 let crmCommentsCache = [];
 let isSystemAdmin = false;
 let crmProfiles = [];
+let crmEligibleOwnersByCompany = {};
 let crmMembersCallerIsSystemAdmin = false;
 let myTabAccess = [];      // tab_ids liberados avulsamente (user_tab_access)
 let myReferralAccess = []; // indicações liberadas pro painel "Meu Desempenho"
@@ -4876,6 +4877,19 @@ async function loadCrmProfiles() {
   if (error) { crmProfiles = []; return; }
   crmProfiles = data || [];
 }
+async function loadCrmEligibleOwners() {
+  const [{ data: accessRows }, { data: sysRows }] = await Promise.all([
+    db.from('user_company_access').select('user_id,company_id'),
+    db.from('system_admins').select('user_id')
+  ]);
+  const masters = new Set((sysRows || []).map(r => r.user_id));
+  crmEligibleOwnersByCompany = {};
+  crmCompanies.forEach(company => {
+    crmEligibleOwnersByCompany[company.id] = crmProfiles.filter(p =>
+      masters.has(p.user_id) || (accessRows || []).some(a => a.user_id === p.user_id && a.company_id === company.id)
+    );
+  });
+}
 
 async function loadCrm() {
   if (!crmUserId) {
@@ -4892,6 +4906,7 @@ async function loadCrm() {
   const { data: companies, error } = await db.from('companies').select('id,name').order('name');
   if (error) { toast('Erro ao carregar empresas: ' + error.message, 'error'); return; }
   crmCompanies = companies || [];
+  await loadCrmEligibleOwners();
 
   if (!crmCompanies.length) {
     document.getElementById('crmCompanyTabs').innerHTML = '<span style="font-size:12px;color:var(--text3)">Nenhuma empresa cadastrada ainda' + (crmIsAdmin ? ' — clique em "Empresas" pra criar a primeira.' : ' — peça pra um admin te liberar o acesso.') + '</span>';
@@ -5383,8 +5398,9 @@ async function renderCrmDealCompaniesSection() {
     return `<select class="filter-sel" ${extraAttr}>${opts}</select>`;
   }
   function ownerSelect(companyId, selectedOwnerId) {
+    const eligible = crmEligibleOwnersByCompany[companyId] || [];
     const opts = ['<option value="">— Sem responsável —</option>']
-      .concat(crmProfiles.map(p => `<option value="${p.user_id}"${p.user_id === selectedOwnerId ? ' selected' : ''}>${esc(p.display_name || p.email)}</option>`));
+      .concat(eligible.map(p => `<option value="${p.user_id}"${p.user_id === selectedOwnerId ? ' selected' : ''}>${esc(p.display_name || p.email)}</option>`));
     return `<select class="filter-sel" id="crmOwner_${companyId}" style="flex:1;min-width:0">${opts.join('')}</select>`;
   }
 
