@@ -858,11 +858,21 @@ body{overflow-x:hidden}
 
         <div class="tbl-wrap" style="padding:1rem 1.25rem;margin-bottom:1rem">
           <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:.6rem">+ Cadastrar novo operador</div>
-          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-            <input class="swap-modal-input" id="permNewEmail" placeholder="e-mail@exemplo.com" style="margin:0;flex:1;min-width:200px">
-            <button class="btn btn-primary btn-sm" onclick="createPersonInvite()">Convidar</button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+            <input class="swap-modal-input" id="permNewName" placeholder="Nome do operador" style="margin:0">
+            <input class="swap-modal-input" id="permNewEmail" type="email" placeholder="e-mail@exemplo.com" style="margin:0">
+            <input class="swap-modal-input" id="permNewPassword" type="password" placeholder="Senha (mínimo 8 caracteres)" style="margin:0">
+            <select class="filter-sel" id="permNewRole" onchange="renderNewOperatorCompanies()" style="margin:0">
+              <option value="company_admin">ADM Empresa</option>
+              <option value="master">Master</option>
+            </select>
           </div>
-          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 0">Envia um convite por e-mail — o operador cria a própria senha no primeiro acesso. Depois, escolha as permissões dele na lista abaixo.</p>
+          <div id="permNewCompaniesWrap" style="margin-top:.7rem">
+            <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:.4rem">Empresa(s)</div>
+            <div id="permNewCompanies" style="display:flex;flex-wrap:wrap;gap:.5rem"></div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="createOperator()" style="margin-top:.8rem">Criar operador</button>
+          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 0">O login é criado diretamente com a senha definida aqui. Master acessa todo o sistema; ADM Empresa fica restrito às empresas selecionadas.</p>
         </div>
 
         <div class="tbl-wrap" style="padding:1rem 1.25rem">
@@ -1215,10 +1225,10 @@ body{overflow-x:hidden}
 
     <div class="crm-modal-section" style="border-top:none;padding-top:0;margin-top:0">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-bottom:.5rem">
-        <input type="checkbox" id="permEditIsAdmin"> Sub-administrador (todas as empresas do CRM)
+        <input type="checkbox" id="permEditIsAdmin"> ADM Empresa
       </label>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-        <input type="checkbox" id="permEditIsSystemAdmin"> Administrador geral (sistema inteiro)
+        <input type="checkbox" id="permEditIsSystemAdmin"> Master
       </label>
     </div>
 
@@ -5517,6 +5527,7 @@ async function loadPermissionsTab() {
   ]);
   permAllReferrals = refs || [];
   crmCompanies = comps || [];
+  renderNewOperatorCompanies();
   if (error) { document.getElementById('permPeopleList').innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro: ${esc(error.message || String(error))}</div>`; return; }
   if (data?.error) { document.getElementById('permPeopleList').innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro: ${esc(data.error)}</div>`; return; }
   permMembersCache = data.members || [];
@@ -5528,8 +5539,8 @@ function renderPermPeopleList() {
   if (!permMembersCache.length) { document.getElementById('permPeopleList').innerHTML = '<div style="font-size:12px;color:var(--text3)">Ninguém cadastrado ainda.</div>'; return; }
   document.getElementById('permPeopleList').innerHTML = permMembersCache.map(m => {
     const badges = [];
-    if (m.is_system_admin) badges.push('<span class="ref-badge">admin geral</span>');
-    else if (m.is_admin) badges.push('<span class="ref-badge">admin CRM</span>');
+    if (m.is_system_admin) badges.push('<span class="ref-badge">Master</span>');
+    else if (m.companies?.length) badges.push('<span class="ref-badge">ADM Empresa</span>');
     const chips = [
       ...m.companies.map(c => `<span class="crm-chip">🏢 ${esc(c.name)}</span>`),
       ...(m.tab_ids || []).map(t => `<span class="crm-chip">📑 ${esc((SYSTEM_TAB_META.find(x => x.id === t) || {}).label || t)}</span>`),
@@ -5543,21 +5554,32 @@ function renderPermPeopleList() {
   }).join('');
 }
 
-async function createPersonInvite() {
+function renderNewOperatorCompanies() {
+  const role = document.getElementById('permNewRole')?.value || 'company_admin';
+  const wrap = document.getElementById('permNewCompaniesWrap');
+  if (!wrap) return;
+  wrap.classList.toggle('hidden', role === 'master');
+  const box = document.getElementById('permNewCompanies');
+  if (box) box.innerHTML = crmCompanies.map(c => permCheckboxChip(c.id, c.name, false)).join('');
+}
+
+async function createOperator() {
+  const name = document.getElementById('permNewName').value.trim();
   const email = document.getElementById('permNewEmail').value.trim();
-  if (!email) { toast('Preenche o e-mail.', 'error'); return; }
-  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action: 'grant', email, origin: window.location.origin } });
-  if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error'); return; }
+  const password = document.getElementById('permNewPassword').value;
+  const permission = document.getElementById('permNewRole').value;
+  const company_ids = permission === 'master' ? [] : permCheckedValues('permNewCompanies');
+  if (!name || !email || !password) { toast('Preencha nome, e-mail e senha.', 'error'); return; }
+  if (password.length < 8) { toast('A senha deve ter pelo menos 8 caracteres.', 'error'); return; }
+  if (permission === 'company_admin' && !company_ids.length) { toast('Selecione pelo menos uma empresa.', 'error'); return; }
+  const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action:'create_operator', name, email, password, permission, company_ids } });
+  if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error', 6000); return; }
+  document.getElementById('permNewName').value = '';
   document.getElementById('permNewEmail').value = '';
-  if (data.created_new && data.invited) {
-    toast('Convite enviado pra ' + email + '.', 'success');
-  } else if (data.created_new && data.invite_link) {
-    openConfirm('Login criado — envie o link manualmente', `Não deu pra mandar o e-mail de convite automaticamente (${esc(data.mail_error || 'erro no envio')}). Copie e envie este link pra ${email} criar a senha:\n\n${data.invite_link}`, () => {}, 'Ok');
-  } else {
-    toast('Login já existia — ajusta as permissões dele abaixo.', 'success');
-  }
+  document.getElementById('permNewPassword').value = '';
+  toast('Operador criado com sucesso.', 'success');
   await loadPermissionsTab();
-  if (data.user_id) openPermEdit(data.user_id);
+  renderNewOperatorCompanies();
 }
 
 function permCheckboxChip(value, label, checked) {
