@@ -1307,6 +1307,7 @@ function sortUsers(col) {
   renderUsers();
 }
 let confirmCallback = null, dragSrcId = null;
+let originConfigOpen = new Set();
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function esc(s) {
@@ -4124,17 +4125,22 @@ function renderRefList() {
       </div>
       <div class="ref-link-row" style="align-items:flex-start;flex-direction:column;gap:.65rem">
         <div style="display:flex;align-items:center;gap:.6rem;width:100%;flex-wrap:wrap">
-          <button class="toggle-btn ${o.protected_origin ? 'on' : 'off'}" onclick="toggleProtectedOrigin('${o.id}',${!!o.protected_origin})">
+          <button type="button" draggable="false" class="toggle-btn ${o.protected_origin ? 'on' : 'off'}"
+            onmousedown="event.stopPropagation()"
+            onclick="event.stopPropagation();toggleProtectedOrigin('${o.id}',${!!o.protected_origin})">
             ${o.protected_origin ? '● Bloquear por origem' : '○ Bloquear por origem'}
           </button>
           <span style="font-size:11px;color:var(--text3)">${o.protected_origin ? 'Acesso restrito ao domínio cadastrado · CPF obrigatório no formulário' : 'Acesso público pelo link do parceiro'}</span>
         </div>
-        ${o.protected_origin ? `
+        ${(o.protected_origin || originConfigOpen.has(String(o.id))) ? `
           <div style="display:flex;gap:.5rem;width:100%;flex-wrap:wrap;align-items:center">
-            <input class="ref-add-input" id="origin-${o.id}" value="${esc(o.allowed_origin || '')}" placeholder="https://dynamus.com.br/" style="min-width:240px;flex:1">
-            <button class="btn btn-secondary btn-sm" onclick="saveAllowedOrigin('${o.id}')">💾 Salvar domínio</button>
+            <input class="ref-add-input" id="origin-${o.id}" value="${esc(o.allowed_origin || '')}" placeholder="https://dynamus.com.br/" style="min-width:240px;flex:1" draggable="false" onmousedown="event.stopPropagation()">
+            ${o.protected_origin
+              ? `<button type="button" draggable="false" class="btn btn-secondary btn-sm" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();saveAllowedOrigin('${o.id}')">💾 Salvar domínio</button>`
+              : `<button type="button" draggable="false" class="btn btn-primary btn-sm" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();activateProtectedOrigin('${o.id}')">🔒 Ativar bloqueio</button>
+                 <button type="button" draggable="false" class="btn btn-ghost btn-sm" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();cancelProtectedOriginConfig('${o.id}')">Cancelar</button>`}
           </div>
-          <div style="font-size:10.5px;color:var(--text3)">Digite a URL principal, por exemplo <span class="mono">https://dynamus.com.br/</span>. O formulário também aceitará a variação com/sem <span class="mono">www.</span>.</div>
+          <div style="font-size:10.5px;color:var(--text3)">${o.protected_origin ? 'Digite a URL principal, por exemplo' : 'Informe o domínio permitido e clique em Ativar bloqueio. Exemplo:'} <span class="mono">https://dynamus.com.br/</span>. O formulário também aceitará a variação com/sem <span class="mono">www.</span>.</div>
         ` : ''}
       </div>
     </div>`; }).join('');
@@ -4166,18 +4172,58 @@ function normalizeAllowedOriginUrl(raw) {
   return `https://${url.hostname.toLowerCase()}/`;
 }
 
+function openProtectedOriginConfig(id) {
+  originConfigOpen.add(String(id));
+  renderRefList();
+  setTimeout(() => document.getElementById(`origin-${id}`)?.focus(), 0);
+}
+
+function cancelProtectedOriginConfig(id) {
+  originConfigOpen.delete(String(id));
+  renderRefList();
+}
+
 async function toggleProtectedOrigin(id, curr) {
-  const ns = !curr;
   const item = allRefOpts.find(o => String(o.id) === String(id));
   if (!item) return;
 
-  // Ao ligar, apenas exibe o campo. O domínio é salvo separadamente.
-  // Ao desligar, preserva allowed_origin para facilitar uma futura reativação.
-  const { error } = await db.from('referrals').update({ protected_origin: ns }).eq('id', id);
-  if (error) { toast('Erro ao alterar bloqueio por origem: ' + error.message, 'error', 6000); return; }
-  allRefOpts = allRefOpts.map(o => String(o.id) === String(id) ? { ...o, protected_origin: ns } : o);
+  // Se estiver desligado, o primeiro clique apenas abre o campo de domínio.
+  // O bloqueio só é gravado depois que o admin informa uma URL válida e
+  // clica em "Ativar bloqueio". Isso evita depender de prompt() do navegador.
+  if (!curr) {
+    openProtectedOriginConfig(id);
+    return;
+  }
+
+  const { error } = await db.from('referrals').update({ protected_origin: false }).eq('id', id);
+  if (error) { toast('Erro ao desligar bloqueio por origem: ' + error.message, 'error', 6000); return; }
+  allRefOpts = allRefOpts.map(o => String(o.id) === String(id) ? { ...o, protected_origin: false } : o);
+  originConfigOpen.delete(String(id));
   renderRefList();
-  toast(ns ? 'Bloqueio por origem ligado. Preencha e salve o domínio permitido.' : 'Bloqueio por origem desligado.', 'info', 5000);
+  toast('Bloqueio por origem desligado.', 'info');
+}
+
+async function activateProtectedOrigin(id) {
+  const input = document.getElementById(`origin-${id}`);
+  const normalized = normalizeAllowedOriginUrl(input?.value || '');
+  if (!normalized) {
+    toast('Informe uma URL HTTPS válida, por exemplo https://dynamus.com.br/', 'error', 6000);
+    input?.focus();
+    return;
+  }
+
+  const { error } = await db.from('referrals')
+    .update({ protected_origin: true, allowed_origin: normalized })
+    .eq('id', id);
+
+  if (error) { toast('Erro ao ligar bloqueio por origem: ' + error.message, 'error', 6000); return; }
+
+  allRefOpts = allRefOpts.map(o => String(o.id) === String(id)
+    ? { ...o, protected_origin: true, allowed_origin: normalized }
+    : o);
+  originConfigOpen.delete(String(id));
+  renderRefList();
+  toast('Bloqueio por origem ligado. CPF será obrigatório para acessos autorizados.', 'success', 5000);
 }
 
 async function saveAllowedOrigin(id) {
