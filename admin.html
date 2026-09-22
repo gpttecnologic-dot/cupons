@@ -1071,6 +1071,12 @@ body{overflow-x:hidden}
     </div>
     <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">E-mail do contato</label>
     <input class="swap-modal-input" id="crmContactEmail" placeholder="contato@cliente.com" style="margin-bottom:.75rem">
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Cargo do contato</label>
+    <input class="swap-modal-input" id="crmContactRole" placeholder="Ex: Diretor, Comercial..." style="margin-bottom:.75rem">
+    <div class="crm-modal-section">
+      <div class="crm-modal-section-title"><span>👥 Contatos adicionais</span><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmContactRow()">+ Adicionar contato</button></div>
+      <div id="crmContactsList"></div>
+    </div>
 
     <div class="crm-modal-section" style="border-top:1px solid var(--border);padding-top:.85rem">
       <div class="crm-modal-section-title"><span>🏢 Dados da empresa do cliente</span></div>
@@ -1090,6 +1096,8 @@ body{overflow-x:hidden}
       <input class="swap-modal-input" id="crmClientAddress" placeholder="Endereço completo" style="margin:0">
     </div>
 
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Objeto da parceria</label>
+    <textarea id="crmPartnershipObject" style="width:100%;height:60px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;outline:none;margin-bottom:.75rem" placeholder="Descreva o objeto da parceria..."></textarea>
     <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Observações</label>
     <textarea id="crmNotes" style="width:100%;height:80px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;outline:none;margin-bottom:1rem" placeholder="Anotações sobre o negócio..."></textarea>
 
@@ -4935,6 +4943,21 @@ function deleteCrmStage(id) {
   }, '🗑 Excluir');
 }
 
+// ── Contatos adicionais do negócio ──────────────────────────────────────────
+let crmContactsCache = [];
+function renderCrmContacts() {
+  const el = document.getElementById('crmContactsList');
+  if (!el) return;
+  el.innerHTML = crmContactsCache.map((x,i) => `<div style="display:grid;grid-template-columns:1.2fr 1fr 1fr 1.2fr auto;gap:.4rem;margin-bottom:.5rem">
+    <input class="swap-modal-input" value="${esc(x.name||'')}" placeholder="Nome" oninput="crmContactsCache[${i}].name=this.value" style="margin:0">
+    <input class="swap-modal-input" value="${esc(x.role||'')}" placeholder="Cargo" oninput="crmContactsCache[${i}].role=this.value" style="margin:0">
+    <input class="swap-modal-input" value="${esc(x.phone||'')}" placeholder="Telefone" oninput="crmContactsCache[${i}].phone=this.value" style="margin:0">
+    <input class="swap-modal-input" value="${esc(x.email||'')}" placeholder="E-mail" oninput="crmContactsCache[${i}].email=this.value" style="margin:0">
+    <button type="button" class="btn btn-ghost btn-sm btn-icon" onclick="crmContactsCache.splice(${i},1);renderCrmContacts()">🗑</button>
+  </div>`).join('') || '<div style="font-size:11px;color:var(--text3);margin-bottom:.5rem">Nenhum contato adicional.</div>';
+}
+function addCrmContactRow(){ crmContactsCache.push({name:'',role:'',phone:'',email:''}); renderCrmContacts(); }
+
 // ── Modal de negócio ─────────────────────────────────────────────────────────
 async function openCrmDealModal(dealId, initialStageId) {
   crmEditingDealId = dealId || null;
@@ -4944,6 +4967,10 @@ async function openCrmDealModal(dealId, initialStageId) {
   document.getElementById('crmContactName').value = '';
   document.getElementById('crmContactPhone').value = '';
   document.getElementById('crmContactEmail').value = '';
+  document.getElementById('crmContactRole').value = '';
+  document.getElementById('crmPartnershipObject').value = '';
+  crmContactsCache = [];
+  renderCrmContacts();
   document.getElementById('crmClientCompanyName').value = '';
   document.getElementById('crmClientCnpj').value = '';
   document.getElementById('crmClientSegment').value = '';
@@ -4969,6 +4996,11 @@ async function openCrmDealModal(dealId, initialStageId) {
     document.getElementById('crmContactName').value = deal.contact_name || '';
     document.getElementById('crmContactPhone').value = deal.contact_phone || '';
     document.getElementById('crmContactEmail').value = deal.contact_email || '';
+    document.getElementById('crmContactRole').value = deal.contact_role || '';
+    document.getElementById('crmPartnershipObject').value = deal.partnership_object || '';
+    const { data: dealContacts } = await db.from('crm_deal_contacts').select('id,name,role,phone,email').eq('deal_id', dealId).order('created_at');
+    crmContactsCache = dealContacts || [];
+    renderCrmContacts();
     document.getElementById('crmClientCompanyName').value = deal.client_company_name || '';
     document.getElementById('crmClientCnpj').value = deal.client_cnpj || '';
     document.getElementById('crmClientSegment').value = deal.client_segment || '';
@@ -5298,6 +5330,8 @@ async function saveCrmDeal() {
     contact_name: document.getElementById('crmContactName').value.trim() || null,
     contact_phone: document.getElementById('crmContactPhone').value.trim() || null,
     contact_email: document.getElementById('crmContactEmail').value.trim() || null,
+    contact_role: document.getElementById('crmContactRole').value.trim() || null,
+    partnership_object: document.getElementById('crmPartnershipObject').value.trim() || null,
     client_company_name: document.getElementById('crmClientCompanyName').value.trim() || null,
     client_cnpj: document.getElementById('crmClientCnpj').value.trim() || null,
     client_segment: document.getElementById('crmClientSegment').value.trim() || null,
@@ -5348,6 +5382,13 @@ async function saveCrmDeal() {
       const ownerUserId = oSel && oSel.value ? oSel.value : null;
       await db.from('crm_deal_companies').update({ stage_id: stageId, value, owner_user_id: ownerUserId }).eq('id', l.id);
     }
+  }
+
+  await db.from('crm_deal_contacts').delete().eq('deal_id', dealId);
+  const validContacts = crmContactsCache.filter(x => (x.name||'').trim()).map(x => ({deal_id:dealId,name:x.name.trim(),role:(x.role||'').trim()||null,phone:(x.phone||'').trim()||null,email:(x.email||'').trim()||null}));
+  if (validContacts.length) {
+    const { error: contactsErr } = await db.from('crm_deal_contacts').insert(validContacts);
+    if (contactsErr) { toast('Negócio salvo, mas houve erro nos contatos adicionais: '+contactsErr.message,'error',6000); return; }
   }
 
   toast('Negócio salvo.', 'success');
