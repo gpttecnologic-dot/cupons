@@ -142,7 +142,15 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
     <div class="logo-sub">Links exclusivos de desconto</div>
 
     <!-- FORMULÁRIO -->
-    <div id="stateForm">
+    <div id="stateLoading">
+      <div class="empty-box">
+        <div class="spinner" style="margin:0 auto .75rem"></div>
+        <div class="empty-title">Verificando acesso...</div>
+        <div class="empty-sub">Aguarde enquanto validamos o parceiro e a origem do acesso.</div>
+      </div>
+    </div>
+
+    <div id="stateForm" class="hidden">
       <div class="title">Cadastre-se e receba</div>
       <div class="subtitle">Preencha seus dados para receber um link de cupom exclusivo. Cada pessoa pode resgatar apenas <strong style="color:var(--text)">1 cupom</strong>.</div>
 
@@ -151,6 +159,7 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
       <div class="fg"><label>Nome completo <span>*</span></label><input type="text" id="f-name" placeholder="Seu nome completo" autocomplete="name" /></div>
       <div class="fg"><label>Telefone / WhatsApp <span>*</span></label><input type="tel" id="f-phone" placeholder="(11) 99999-9999" autocomplete="tel" /></div>
       <div class="fg"><label>E-mail <span>*</span></label><input type="email" id="f-email" placeholder="seu@email.com" autocomplete="email" /></div>
+      <div class="fg hidden" id="cpfField"><label>CPF <span>*</span></label><input type="text" id="f-cpf" placeholder="000.000.000-00" inputmode="numeric" maxlength="14" autocomplete="off" /></div>
       <!-- A indicação não é mais escolhida pela pessoa: ela vem sempre do
       link usado pra acessar o formulário (?ref=NomeDaIndicação), gerado na
       aba Indicações do admin. Esse input escondido só guarda o id resolvido
@@ -158,7 +167,7 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
       <input type="hidden" id="f-referral" value="">
       <div class="fg">
         <label>Quantas licenças você precisa? <span>*</span></label>
-        <input type="number" id="f-qtd" min="1" step="1" value="1" />
+        <input type="number" id="f-qtd" min="2" step="1" value="2" />
         <div style="font-size:11px;color:var(--text3);margin-top:.4rem">Pedidos de mais de 10 licenças não geram cupom automático — nossa equipe entra em contato para o atendimento corporativo.</div>
       </div>
       <div class="check-row">
@@ -238,6 +247,16 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
         <div class="empty-icon">🔗</div>
         <div class="empty-title">Link inválido ou incompleto</div>
         <div class="empty-sub">Este cadastro só funciona através de um link específico de indicação. Peça um novo link para quem te indicou.</div>
+      </div>
+    </div>
+
+    <!-- ACESSO BLOQUEADO POR ORIGEM DO PARCEIRO -->
+    <div id="stateProtectedOrigin" class="hidden">
+      <div class="empty-box">
+        <div class="empty-icon">🔒</div>
+        <div class="empty-title">Benefício exclusivo</div>
+        <div class="empty-sub" id="protectedOriginMsg">Este benefício é exclusivo para membros e parceiros. Acesse pela plataforma do parceiro para continuar.</div>
+        <a id="protectedOriginLink" class="btn btn-primary" style="margin-top:1.25rem" href="#" rel="noopener">Acessar site do parceiro</a>
       </div>
     </div>
 
@@ -334,6 +353,7 @@ const norm = {
 let lastSubmit = 0;
 let currentLink = '';
 let alreadyLink = '';
+let currentReferralProtected = false;
 
 // A indicação não é mais escolhida no formulário — ela é sempre resolvida
 // a partir do link usado pra chegar aqui (?ref=NomeDaIndicação, gerado na
@@ -345,11 +365,60 @@ let alreadyLink = '';
 // "DN.IA" ou "DNIA", sem depender de digitar exatamente igual.
 const normalizeRef = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
+function normalizeHostFromUrl(value) {
+  try {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return u.hostname.toLowerCase().replace(/^www\./, '');
+  } catch (_) {
+    return '';
+  }
+}
+
+function validateProtectedOrigin(referral) {
+  if (referral.protected_origin !== true) return true;
+
+  const allowedHost = normalizeHostFromUrl(referral.allowed_origin);
+  let referrerHost = '';
+  let referrerProtocol = '';
+  try {
+    if (document.referrer) {
+      const refUrl = new URL(document.referrer);
+      referrerHost = refUrl.hostname.toLowerCase().replace(/^www\./, '');
+      referrerProtocol = refUrl.protocol.toLowerCase();
+    }
+  } catch (_) {}
+
+  // Fail closed: parceiro protegido sem domínio, sem Referer, origem diferente
+  // ou navegação sem HTTPS nunca libera o formulário.
+  return !!allowedHost && !!referrerHost && referrerProtocol === 'https:' && referrerHost === allowedHost;
+}
+
+function showProtectedOrigin(referral) {
+  const url = String(referral.allowed_origin || '').trim();
+  const link = document.getElementById('protectedOriginLink');
+  const msg = document.getElementById('protectedOriginMsg');
+  const partnerName = referral.name || 'parceiro';
+
+  msg.textContent = `Este benefício é exclusivo para parceiros da ${partnerName}. Acesse a plataforma ${partnerName} ou entre em contato para saber mais.`;
+
+  if (url) {
+    link.href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    link.textContent = `Acessar ${partnerName}`;
+    link.classList.remove('hidden');
+  } else {
+    link.classList.add('hidden');
+  }
+
+  showState('stateProtectedOrigin');
+}
+
 async function initReferral() {
   try {
     let { data, error } = await db
       .from('referrals')
-      .select('id, name, logo_url')
+      .select('id, name, logo_url, protected_origin, allowed_origin')
       .eq('active', true)
       .order('created_at', { ascending: true });
 
@@ -359,7 +428,7 @@ async function initReferral() {
     if (error && /logo_url/i.test(error.message || '')) {
       const retry = await db
         .from('referrals')
-        .select('id, name')
+        .select('id, name, protected_origin, allowed_origin')
         .eq('active', true)
         .order('created_at', { ascending: true });
       data = retry.data; error = retry.error;
@@ -380,6 +449,21 @@ async function initReferral() {
 
     if (!match) { showState('stateInvalidRef'); return; }
 
+    if (!validateProtectedOrigin(match)) {
+      showProtectedOrigin(match);
+      return;
+    }
+
+    currentReferralProtected = match.protected_origin === true;
+    const cpfField = document.getElementById('cpfField');
+    const cpfInput = document.getElementById('f-cpf');
+    if (cpfField) cpfField.classList.toggle('hidden', !currentReferralProtected);
+    if (cpfInput) {
+      cpfInput.required = currentReferralProtected;
+      cpfInput.setAttribute('aria-required', currentReferralProtected ? 'true' : 'false');
+      if (!currentReferralProtected) cpfInput.value = '';
+    }
+
     document.getElementById('f-referral').value = match.id;
 
     // Logo do parceiro (opcional, por indicação) — só aparece quando essa
@@ -392,13 +476,18 @@ async function initReferral() {
         wrap.classList.remove('hidden');
       }
     }
+
+    // O formulário só aparece DEPOIS de toda a validação de origem terminar.
+    // Isso evita que um parceiro protegido veja/interaja com o formulário
+    // durante a consulta assíncrona ao banco.
+    showState('stateForm');
   } catch (e) {
     showState('stateInvalidRef');
   }
 }
 
 function showState(id) {
-  ['stateForm','stateSuccess','stateAlready','stateEmpty','stateCorporate','stateInvalidRef'].forEach(s =>
+  ['stateLoading','stateForm','stateSuccess','stateAlready','stateEmpty','stateCorporate','stateInvalidRef','stateProtectedOrigin'].forEach(s =>
     document.getElementById(s).classList.toggle('hidden', s !== id)
   );
 }
@@ -411,6 +500,26 @@ function showErr(msg) {
 }
 function hideErr() { document.getElementById('alertBox').classList.add('hidden'); }
 
+
+function normalizeCpf(v) { return (v || '').replace(/\D/g, ''); }
+function isValidCpf(v) {
+  const cpf = normalizeCpf(v);
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  const calc = len => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(cpf[i]) * (len + 1 - i);
+    const d = (sum * 10) % 11;
+    return d === 10 ? 0 : d;
+  };
+  return calc(9) === Number(cpf[9]) && calc(10) === Number(cpf[10]);
+}
+
+const cpfInput = document.getElementById('f-cpf');
+if (cpfInput) cpfInput.addEventListener('input', e => {
+  const d = normalizeCpf(e.target.value).slice(0,11);
+  e.target.value = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+});
+
 async function submitForm() {
   const now = Date.now();
   if (now - lastSubmit < 3000) { showErr('Aguarde alguns segundos.'); return; }
@@ -418,6 +527,7 @@ async function submitForm() {
   const name     = document.getElementById('f-name').value.trim();
   const phone    = norm.phone(document.getElementById('f-phone').value);
   const email    = norm.email(document.getElementById('f-email').value);
+  const cpf      = normalizeCpf(document.getElementById('f-cpf').value);
   const referral = document.getElementById('f-referral').value;
   const qtd      = parseInt(document.getElementById('f-qtd').value, 10);
   const terms    = document.getElementById('f-terms').checked;
@@ -426,8 +536,9 @@ async function submitForm() {
   if (!name)             return showErr('Nome é obrigatório.');
   if (phone.length < 10) return showErr('Telefone/WhatsApp inválido.');
   if (!email.includes('@')) return showErr('E-mail inválido.');
+  if (currentReferralProtected && !isValidCpf(cpf)) return showErr('CPF obrigatório e inválido. Informe um CPF válido.');
   if (!referral)         return showErr('Link inválido. Recarregue a página ou peça um novo link.');
-  if (!Number.isInteger(qtd) || qtd < 1) return showErr('Informe a quantidade de licenças (mínimo 1).');
+  if (!Number.isInteger(qtd) || qtd < 2) return showErr('Informe a quantidade de licenças (mínimo 2).');
   if (!terms)            return showErr('Aceite os termos para continuar.');
 
   const btn = document.getElementById('submitBtn');
@@ -443,7 +554,7 @@ async function submitForm() {
     if (qtd > 10) {
       const { data: lead, error: leadErr } = await db
         .from('corporate_leads')
-        .insert({ name, email, phone, referral_id: referral, quantidade_licencas: qtd })
+        .insert({ name, email, phone, cpf: currentReferralProtected ? cpf : null, referral_id: referral, quantidade_licencas: qtd })
         .select();
 
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
@@ -508,7 +619,7 @@ async function submitForm() {
     // ainda faltam licenças a emitir manualmente pra essa pessoa.
     const { data: newUser, error: uErr } = await db
       .from('users')
-      .insert({ name, email, phone, referral_id: referral, coupons_id: coupon.id, quantidade_licencas: qtd })
+      .insert({ name, email, phone, cpf: currentReferralProtected ? cpf : null, referral_id: referral, coupons_id: coupon.id, quantidade_licencas: qtd })
       .select();
 
     if (uErr) {
@@ -527,16 +638,20 @@ async function submitForm() {
       coupons_id: coupon.id,
       users_id: newUser[0].id,
       event_type: 'delivered',
-      metadata: JSON.stringify({ email, phone, referral_id: referral })
+      metadata: JSON.stringify({ email, phone, referral_id: referral, cpf_required: currentReferralProtected })
     });
 
-    // 6. Dispara o e-mail com o link (Edge Function send-coupon-email, via
-    // Resend). Não bloqueia nem quebra o cadastro se falhar — o usuário já
-    // vê o link na tela de qualquer forma; o e-mail é um reforço, não o
-    // único jeito de receber o link. Erros ficam registrados dentro da
-    // própria função (tabela events, event_type='email_error').
+    // 6. Dispara o e-mail de agradecimento + link (Edge Function
+    // send-coupon-email, via Resend). template_key='signup_thank_you' usa o
+    // modelo cadastrado em email_templates (editável na aba "Campanhas de
+    // E-mail" do admin) — se a migração ainda não rodou ou o modelo não
+    // existir, a function cai automaticamente no texto padrão antigo. Não
+    // bloqueia nem quebra o cadastro se falhar — o usuário já vê o link na
+    // tela de qualquer forma; o e-mail é um reforço, não o único jeito de
+    // receber o link. Erros ficam registrados dentro da própria função
+    // (tabela events, event_type='email_error').
     db.functions.invoke('send-coupon-email', {
-      body: { user_id: newUser[0].id, coupon_id: coupon.id }
+      body: { user_id: newUser[0].id, coupon_id: coupon.id, template_key: 'signup_thank_you' }
     }).catch(() => {});
 
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
