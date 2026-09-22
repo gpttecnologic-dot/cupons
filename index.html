@@ -387,7 +387,7 @@ function showProtectedOrigin(referral) {
   const msg = document.getElementById('protectedOriginMsg');
   const partnerName = referral.name || 'parceiro';
 
-  msg.textContent = `Este benefício é exclusivo para membros e parceiros da ${partnerName}. Para acessar, entre através da plataforma do parceiro.`;
+  msg.textContent = `Este benefício é exclusivo para parceiros da ${partnerName}. Acesse a plataforma ${partnerName} ou entre em contato para saber mais.`;
 
   if (url) {
     link.href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
@@ -442,8 +442,13 @@ async function initReferral() {
 
     currentReferralProtected = match.protected_origin === true;
     const cpfField = document.getElementById('cpfField');
+    const cpfInput = document.getElementById('f-cpf');
     if (cpfField) cpfField.classList.toggle('hidden', !currentReferralProtected);
-    if (!currentReferralProtected) document.getElementById('f-cpf').value = '';
+    if (cpfInput) {
+      cpfInput.required = currentReferralProtected;
+      cpfInput.setAttribute('aria-required', currentReferralProtected ? 'true' : 'false');
+      if (!currentReferralProtected) cpfInput.value = '';
+    }
 
     document.getElementById('f-referral').value = match.id;
 
