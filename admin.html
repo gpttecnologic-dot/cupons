@@ -400,6 +400,10 @@ body{overflow-x:hidden}
       </div>
       <div class="sb-footer">
         <div class="sb-user" id="sbUser"></div>
+        <div class="sb-link" id="nav-sla" onclick="goTab('sla')" style="margin:0 0 .65rem;padding:.55rem .65rem;border-radius:8px;border-left:0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          SLA
+        </div>
         <div style="display:flex;gap:.5rem">
           <button class="btn btn-ghost" style="flex:1;justify-content:flex-start;gap:.6rem;color:var(--danger)" onclick="doLogout()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -845,6 +849,33 @@ body{overflow-x:hidden}
         <div id="crmBoardWrap">
           <div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Carregando...</div></div>
         </div>
+      </div>
+
+      <!-- SLA -->
+      <div id="tab-sla" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">SLA</div><div class="page-sub">Chamados internos, prazos e tempo de resolução</div></div>
+          <div style="display:flex;gap:.5rem"><button class="btn btn-secondary btn-sm" onclick="loadSla()">↺ Atualizar</button><button class="btn btn-primary btn-sm" onclick="openSlaForm()">+ Novo chamado</button></div>
+        </div>
+        <div class="stats-grid" style="margin-bottom:1rem">
+          <div class="stat-card"><div class="stat-label">Em aberto</div><div class="stat-val white" id="slaStatOpen">0</div></div>
+          <div class="stat-card"><div class="stat-label">SLA vencido</div><div class="stat-val red" id="slaStatOverdue">0</div></div>
+          <div class="stat-card"><div class="stat-label">Resolvidos</div><div class="stat-val green" id="slaStatResolved">0</div></div>
+          <div class="stat-card"><div class="stat-label">Tempo médio resolução</div><div class="stat-val purple" id="slaStatAvg">—</div></div>
+        </div>
+        <div id="slaForm" class="tbl-wrap hidden" style="padding:1rem 1.25rem;margin-bottom:1rem">
+          <div style="font-weight:700;margin-bottom:.8rem">Novo chamado</div>
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:.6rem">
+            <input class="swap-modal-input" id="slaTitle" placeholder="Assunto do chamado" style="margin:0">
+            <select class="filter-sel" id="slaPriority"><option value="critical">Crítica</option><option value="high">Alta</option><option value="normal" selected>Normal</option><option value="low">Baixa</option></select>
+            <select class="filter-sel" id="slaCompany"><option value="">Empresa interna / cliente</option></select>
+            <input class="swap-modal-input" id="slaClient" placeholder="Cliente" style="margin:0">
+            <input class="swap-modal-input" id="slaProduct" placeholder="Produto / sistema" style="margin:0">
+          </div>
+          <textarea class="swap-modal-input" id="slaDescription" placeholder="Descreva a ocorrência..." style="margin-top:.6rem;min-height:90px;resize:vertical"></textarea>
+          <div style="display:flex;gap:.5rem"><button class="btn btn-primary btn-sm" onclick="createSlaTicket()">Criar chamado</button><button class="btn btn-secondary btn-sm" onclick="openSlaForm(false)">Cancelar</button></div>
+        </div>
+        <div id="slaBoard" style="display:flex;gap:1rem;overflow-x:auto;align-items:flex-start;padding-bottom:1rem"></div>
       </div>
 
       <!-- PESSOAS E PERMISSÕES -->
@@ -1462,6 +1493,57 @@ async function doSetPassword() {
   applyPermissionGating();
 }
 
+// ─── SLA ──────────────────────────────────────────────────────────────────────
+const SLA_STAGES=[['new','Novo'],['analysis','Em análise'],['in_progress','Em atendimento'],['waiting_client','Aguardando cliente'],['resolved','Resolvido'],['closed','Encerrado']];
+const SLA_PRIORITY={critical:'Crítica',high:'Alta',normal:'Normal',low:'Baixa'};
+let slaTickets=[],slaSettings={};
+
+function openSlaForm(show=true){ document.getElementById('slaForm').classList.toggle('hidden',!show); }
+function slaDuration(ms){ if(ms<0)ms=0; const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000); return h? h+'h '+m+'min':m+'min'; }
+async function loadSla(){
+  const [{data:t,error},{data:s},{data:companies}]=await Promise.all([
+    db.from('sla_tickets').select('*').order('created_at',{ascending:false}),
+    db.from('sla_settings').select('*'),
+    db.from('companies').select('id,name').order('name')
+  ]);
+  if(error){toast('Erro ao carregar SLA: '+error.message,'error');return}
+  slaTickets=t||[]; slaSettings=Object.fromEntries((s||[]).map(x=>[x.priority,x]));
+  document.getElementById('slaCompany').innerHTML='<option value="">Sem empresa vinculada</option>'+((companies||[]).map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join(''));
+  renderSla();
+}
+function renderSla(){
+  const now=Date.now(), open=slaTickets.filter(x=>!['resolved','closed'].includes(x.status));
+  document.getElementById('slaStatOpen').textContent=open.length;
+  document.getElementById('slaStatOverdue').textContent=open.filter(x=>x.resolution_due_at&&new Date(x.resolution_due_at).getTime()<now).length;
+  document.getElementById('slaStatResolved').textContent=slaTickets.filter(x=>x.resolved_at).length;
+  const done=slaTickets.filter(x=>x.resolved_at).map(x=>new Date(x.resolved_at)-new Date(x.created_at));
+  document.getElementById('slaStatAvg').textContent=done.length?slaDuration(done.reduce((a,b)=>a+b,0)/done.length):'—';
+  document.getElementById('slaBoard').innerHTML=SLA_STAGES.map(([key,label])=>{
+    const rows=slaTickets.filter(x=>x.status===key);
+    return '<div style="min-width:270px;width:270px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:.8rem" ondragover="event.preventDefault()" ondrop="moveSlaTicket(event,\''+key+'\')"><div style="font-weight:700;margin-bottom:.7rem">'+label+' <span style="color:var(--text3);font-size:11px">'+rows.length+'</span></div>'+
+    rows.map(x=>{const overdue=x.resolution_due_at&&new Date(x.resolution_due_at).getTime()<now&&!['resolved','closed'].includes(x.status);return '<div draggable="true" ondragstart="event.dataTransfer.setData(\'text/plain\',\''+x.id+'\')" style="background:var(--bg3);border:1px solid '+(overdue?'var(--danger)':'var(--border)')+';border-radius:9px;padding:.75rem;margin-bottom:.6rem;cursor:grab"><div style="font-size:10px;color:var(--text3)">#'+x.ticket_number+' · '+SLA_PRIORITY[x.priority]+'</div><div style="font-weight:600;margin:.25rem 0">'+esc(x.title)+'</div><div style="font-size:11px;color:var(--text3)">'+esc(x.client_name||x.product||'Interno')+'</div><div style="font-size:10px;margin-top:.45rem;color:'+(overdue?'var(--danger)':'var(--text3)')+'">'+(overdue?'SLA vencido · ':'Aberto há ')+slaDuration(now-new Date(x.created_at).getTime())+'</div></div>'}).join('')+'</div>';
+  }).join('');
+}
+async function createSlaTicket(){
+  const title=document.getElementById('slaTitle').value.trim(),description=document.getElementById('slaDescription').value.trim(),priority=document.getElementById('slaPriority').value;
+  if(!title||!description){toast('Informe assunto e descrição.','error');return}
+  const {data:{user}}=await db.auth.getUser(), cfg=slaSettings[priority], now=new Date();
+  const payload={title,description,priority,client_name:document.getElementById('slaClient').value.trim()||null,product:document.getElementById('slaProduct').value.trim()||null,company_id:document.getElementById('slaCompany').value||null,created_by:user.id,first_response_due_at:new Date(now.getTime()+(cfg?.first_response_minutes||240)*60000).toISOString(),resolution_due_at:new Date(now.getTime()+(cfg?.resolution_minutes||1440)*60000).toISOString()};
+  const {data,error}=await db.from('sla_tickets').insert(payload).select().single();
+  if(error){toast('Erro ao criar chamado: '+error.message,'error');return}
+  await db.from('sla_ticket_history').insert({ticket_id:data.id,to_status:'new',changed_by:user.id});
+  ['slaTitle','slaDescription','slaClient','slaProduct'].forEach(id=>document.getElementById(id).value=''); openSlaForm(false); toast('Chamado #'+data.ticket_number+' criado.','success'); loadSla();
+}
+async function moveSlaTicket(ev,status){
+  const id=ev.dataTransfer.getData('text/plain'), ticket=slaTickets.find(x=>x.id===id); if(!ticket||ticket.status===status)return;
+  const {data:{user}}=await db.auth.getUser(), patch={status,updated_at:new Date().toISOString()};
+  if(!ticket.first_response_at && status!=='new') patch.first_response_at=new Date().toISOString();
+  if(status==='resolved') patch.resolved_at=new Date().toISOString();
+  if(status==='closed') patch.closed_at=new Date().toISOString();
+  const {error}=await db.from('sla_tickets').update(patch).eq('id',id); if(error){toast('Erro ao mover chamado: '+error.message,'error');return}
+  await db.from('sla_ticket_history').insert({ticket_id:id,from_status:ticket.status,to_status:status,changed_by:user.id}); loadSla();
+}
+
 // ─── TABS ─────────────────────────────────────────────────────────────────────
 function goTab(id) {
   document.querySelectorAll('.main > div').forEach(d => d.classList.add('hidden'));
@@ -1479,6 +1561,7 @@ function goTab(id) {
   if (id === 'campaigns') loadCampaigns();
   if (id === 'smtp')      loadSmtpSettings();
   if (id === 'crm')       loadCrm();
+  if (id === 'sla')       loadSla();
   if (id === 'permissions') loadPermissionsTab();
   if (id === 'partner')   loadPartnerDashboard();
   closeSidebar();
