@@ -449,6 +449,18 @@ async function initReferral() {
 
     if (!match) { showState('stateInvalidRef'); return; }
 
+    // Mostra a logo do parceiro assim que a indicação é identificada,
+    // inclusive na tela de acesso bloqueado por origem.
+    if (match.logo_url) {
+      const img = document.getElementById('partnerLogoImg');
+      const wrap = document.getElementById('partnerLogoWrap');
+      if (img && wrap) {
+        img.src = match.logo_url;
+        img.alt = `Logo da ${match.name || 'parceiro'}`;
+        wrap.classList.remove('hidden');
+      }
+    }
+
     if (!validateProtectedOrigin(match)) {
       showProtectedOrigin(match);
       return;
@@ -465,17 +477,6 @@ async function initReferral() {
     }
 
     document.getElementById('f-referral').value = match.id;
-
-    // Logo do parceiro (opcional, por indicação) — só aparece quando essa
-    // indicação tiver uma logo cadastrada na aba Indicações do admin.
-    if (match.logo_url) {
-      const img = document.getElementById('partnerLogoImg');
-      const wrap = document.getElementById('partnerLogoWrap');
-      if (img && wrap) {
-        img.src = match.logo_url;
-        wrap.classList.remove('hidden');
-      }
-    }
 
     // O formulário só aparece DEPOIS de toda a validação de origem terminar.
     // Isso evita que um parceiro protegido veja/interaja com o formulário
