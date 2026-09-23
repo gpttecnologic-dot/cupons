@@ -3320,11 +3320,23 @@ async function loadUsers() {
     allRefOpts = data || [];
   }
 
-  let { data: us, error } = await db
-    .from('users')
-    .select('id,name,email,phone,cpf,referral_id,coupons_id,quantidade_licencas,segmento,created_at,archived_at')
-    .is('archived_at', null)
-    .order('created_at', { ascending: false });
+  // A base já ultrapassa 1.000 usuários. Uma consulta simples do PostgREST
+  // devolve no máximo o limite configurado e fazia cadastros antigos sumirem
+  // da busca. Carrega os usuários ativos em páginas de 1.000.
+  let us = [], error = null, from = 0;
+  while (true) {
+    const batch = await db
+      .from('users')
+      .select('id,name,email,phone,cpf,referral_id,coupons_id,quantidade_licencas,segmento,created_at,archived_at')
+      .is('archived_at', null)
+      .order('created_at', { ascending: false })
+      .range(from, from + 999);
+    if (batch.error) { error = batch.error; break; }
+    if (!batch.data?.length) break;
+    us = us.concat(batch.data);
+    if (batch.data.length < 1000) break;
+    from += 1000;
+  }
 
   // A coluna quantidade_licencas só existe depois de rodar o SQL
   // "licencas_corporativas_setup.sql" no Supabase. Se ainda não rodou,
