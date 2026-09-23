@@ -1265,6 +1265,30 @@ body{overflow-x:hidden}
     </div>
 
     <div class="crm-modal-section">
+      <div class="crm-modal-section-title">
+        <span>📅 Tarefas</span>
+        <button class="btn btn-secondary btn-sm" id="crmAddTaskBtn" onclick="openCrmTaskForm()">+ Nova tarefa</button>
+      </div>
+      <div id="crmTasksList"></div>
+      <div id="crmTaskForm" class="hidden" style="margin-top:.75rem;padding:.75rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-lg)">
+        <input type="hidden" id="crmTaskId">
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:.5rem">
+          <select class="filter-sel" id="crmTaskType"><option value="task">Tarefa</option><option value="meeting">Reunião</option><option value="visit">Visita</option><option value="call">Ligação</option><option value="follow_up">Follow-up</option><option value="other">Outro</option></select>
+          <input class="swap-modal-input" id="crmTaskTitle" placeholder="Título da tarefa" style="margin:0">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.5rem">
+          <div><label class="form-label">Início</label><input type="datetime-local" class="swap-modal-input" id="crmTaskStart" style="margin:0"></div>
+          <div><label class="form-label">Término</label><input type="datetime-local" class="swap-modal-input" id="crmTaskEnd" style="margin:0"></div>
+        </div>
+        <label class="form-label" style="margin-top:.5rem">Responsável</label>
+        <select class="filter-sel" id="crmTaskResponsible" style="width:100%"></select>
+        <label class="form-label" style="margin-top:.5rem">Observações</label>
+        <textarea id="crmTaskNotes" style="width:100%;height:60px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem;color:var(--text);resize:vertical"></textarea>
+        <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.6rem"><button class="btn btn-ghost btn-sm" onclick="closeCrmTaskForm()">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveCrmTask()">Salvar tarefa</button></div>
+      </div>
+    </div>
+
+    <div class="crm-modal-section">
       <div class="crm-modal-section-title"><span>💬 Comentários</span></div>
       <div id="crmCommentsList"></div>
       <div id="crmNewCommentRow">
@@ -4890,6 +4914,7 @@ let crmDealCompanyLabelIds = new Set();
 let crmAttachmentsCache = [];
 let crmChecklistsCache = [];
 let crmCommentsCache = [];
+let crmTasksCache = [];
 let isSystemAdmin = false;
 let crmProfiles = [];
 let crmEligibleOwnersByCompany = {};
@@ -5272,6 +5297,7 @@ async function openCrmDealModal(dealId, initialStageId) {
   crmAttachmentsCache = [];
   crmChecklistsCache = [];
   crmCommentsCache = [];
+  crmTasksCache = [];
   crmNewDealInitialStage = initialStageId || (crmStages[0] && crmStages[0].id) || null;
 
   await loadCrmLabelsCatalog();
@@ -5302,6 +5328,7 @@ async function openCrmDealModal(dealId, initialStageId) {
       document.getElementById('crmDueDate').value = mine.due_date || '';
       document.getElementById('crmDelivered').checked = !!mine.delivered_at;
       await loadCrmDealCompanyExtras(mine.id);
+      await loadCrmTasks(mine.id);
     }
   }
   if (!crmProfiles.length) await loadCrmProfiles();
@@ -5337,18 +5364,22 @@ function renderCrmDealExtrasSections(hasLink) {
   document.getElementById('crmNewAttachmentRow').classList.toggle('hidden', !hasLink);
   document.getElementById('crmAddChecklistBtn').classList.toggle('hidden', !hasLink);
   document.getElementById('crmNewCommentRow').classList.toggle('hidden', !hasLink);
+  document.getElementById('crmAddTaskBtn').classList.toggle('hidden', !hasLink);
   if (!hasLink) {
     const msg = '<p style="font-size:11px;color:var(--text3)">Salve o negócio primeiro pra usar etiquetas, anexos, checklists e comentários.</p>';
     document.getElementById('crmLabelPicker').innerHTML = msg;
     document.getElementById('crmAttachmentsList').innerHTML = '';
     document.getElementById('crmChecklistsList').innerHTML = msg;
     document.getElementById('crmCommentsList').innerHTML = '';
+    document.getElementById('crmTasksList').innerHTML = msg;
+    closeCrmTaskForm();
     return;
   }
   renderCrmLabelPicker();
   renderCrmAttachments();
   renderCrmChecklists();
   renderCrmComments();
+  renderCrmTasks();
 }
 
 // Etiquetas
@@ -5497,6 +5528,61 @@ function removeCrmChecklistItem(itemId, checklistId) {
     renderCrmChecklists();
   });
 }
+
+// Tarefas
+const CRM_TASK_LABELS={task:'Tarefa',meeting:'Reunião',visit:'Visita',call:'Ligação',follow_up:'Follow-up',other:'Outro'};
+async function loadCrmTasks(dealCompanyId){
+  const {data,error}=await db.from('crm_tasks').select('*').eq('deal_company_id',dealCompanyId).order('completed_at',{ascending:true}).order('starts_at',{ascending:true,nullsFirst:false}).order('created_at',{ascending:false});
+  if(error){crmTasksCache=[];toast('Erro ao carregar tarefas: '+error.message,'error');return;}
+  crmTasksCache=data||[]; renderCrmTasks();
+}
+function crmTaskProfileName(id){const p=crmProfiles.find(x=>x.user_id===id);return p?(p.display_name||p.email):'Sem responsável';}
+function renderCrmTasks(){
+  const el=document.getElementById('crmTasksList'); if(!el)return;
+  if(!crmEditingLinkId){el.innerHTML='<p style="font-size:11px;color:var(--text3)">Salve o negócio primeiro pra criar tarefas.</p>';return;}
+  if(!crmTasksCache.length){el.innerHTML='<p style="font-size:11px;color:var(--text3)">Nenhuma tarefa neste negócio.</p>';return;}
+  el.innerHTML=crmTasksCache.map(t=>`<div style="padding:.65rem 0;border-bottom:1px solid var(--border);opacity:${t.completed_at?.65:1}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem">
+      <div><strong style="font-size:12px">${t.completed_at?'✓ ':''}${esc(t.title)}</strong><div style="font-size:10px;color:var(--text3)">${CRM_TASK_LABELS[t.task_type]||'Tarefa'}${t.starts_at?' · '+fmtCrmDate(t.starts_at):''}${t.ends_at?' → '+fmtCrmDate(t.ends_at):''} · ${esc(crmTaskProfileName(t.responsible_user_id))}</div>${t.notes?`<div style="font-size:11px;color:var(--text2);margin-top:3px">${esc(t.notes)}</div>`:''}</div>
+      <div class="btns"><button class="btn btn-ghost btn-sm" onclick="toggleCrmTaskComplete('${t.id}')">${t.completed_at?'↩ Reabrir':'✓ Concluir'}</button><button class="btn btn-ghost btn-sm" onclick="openCrmTaskForm('${t.id}')">✎</button><button class="btn btn-ghost btn-sm btn-icon" onclick="deleteCrmTask('${t.id}')">🗑</button></div>
+    </div></div>`).join('');
+}
+function crmIsoToLocal(v){if(!v)return'';const d=new Date(v),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`;}
+function openCrmTaskForm(id){
+  if(!crmEditingLinkId){toast('Salve o negócio nessa empresa primeiro.','error');return;}
+  const t=id?crmTasksCache.find(x=>x.id===id):null;
+  document.getElementById('crmTaskId').value=t?.id||'';
+  document.getElementById('crmTaskType').value=t?.task_type||'task';
+  document.getElementById('crmTaskTitle').value=t?.title||'';
+  document.getElementById('crmTaskStart').value=crmIsoToLocal(t?.starts_at);
+  document.getElementById('crmTaskEnd').value=crmIsoToLocal(t?.ends_at);
+  document.getElementById('crmTaskNotes').value=t?.notes||'';
+  const eligible=crmEligibleOwnersByCompany[crmSelectedCompanyId]||crmProfiles;
+  document.getElementById('crmTaskResponsible').innerHTML='<option value="">— Sem responsável —</option>'+eligible.map(p=>`<option value="${p.user_id}">${esc(p.display_name||p.email)}</option>`).join('');
+  document.getElementById('crmTaskResponsible').value=t?.responsible_user_id||'';
+  document.getElementById('crmTaskForm').classList.remove('hidden');
+}
+function closeCrmTaskForm(){const el=document.getElementById('crmTaskForm');if(el)el.classList.add('hidden');}
+async function saveCrmTask(){
+  if(!crmEditingLinkId)return;
+  const id=document.getElementById('crmTaskId').value;
+  const title=document.getElementById('crmTaskTitle').value.trim();
+  const starts=document.getElementById('crmTaskStart').value,ends=document.getElementById('crmTaskEnd').value;
+  if(!title){toast('Informe o título da tarefa.','error');return;}
+  if(starts&&ends&&new Date(ends)<=new Date(starts)){toast('O término precisa ser depois do início.','error');return;}
+  const payload={deal_company_id:crmEditingLinkId,title,task_type:document.getElementById('crmTaskType').value,notes:document.getElementById('crmTaskNotes').value.trim()||null,starts_at:starts?new Date(starts).toISOString():null,ends_at:ends?new Date(ends).toISOString():null,responsible_user_id:document.getElementById('crmTaskResponsible').value||null};
+  let error;
+  if(id)({error}=await db.from('crm_tasks').update(payload).eq('id',id));
+  else{const {data:{user}}=await db.auth.getUser();({error}=await db.from('crm_tasks').insert({...payload,created_by:user.id}));}
+  if(error){toast('Erro ao salvar tarefa: '+error.message,'error');return;}
+  toast(id?'Tarefa atualizada.':'Tarefa criada.','success');closeCrmTaskForm();await loadCrmTasks(crmEditingLinkId);
+}
+async function toggleCrmTaskComplete(id){
+  const t=crmTasksCache.find(x=>x.id===id);if(!t)return;
+  const {error}=await db.from('crm_tasks').update({completed_at:t.completed_at?null:new Date().toISOString()}).eq('id',id);
+  if(error){toast('Erro ao atualizar tarefa: '+error.message,'error');return;} await loadCrmTasks(crmEditingLinkId);
+}
+function deleteCrmTask(id){openConfirm('Excluir tarefa','Excluir esta tarefa? Essa ação não pode ser desfeita.',async()=>{const {error}=await db.from('crm_tasks').delete().eq('id',id);if(error){toast('Erro ao excluir tarefa: '+error.message,'error');return;}toast('Tarefa excluída.','info');await loadCrmTasks(crmEditingLinkId);},'🗑 Excluir');}
 
 // Comentários
 function fmtCrmDate(iso) {
