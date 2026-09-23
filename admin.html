@@ -5045,10 +5045,11 @@ function isCrmWonStage(stageId) {
 }
 async function renderCrmStats() {
   const today=new Date(), nearLimit=new Date(Date.now()+24*60*60*1000);
-  const open=crmLinks.filter(l=>!isCrmWonStage(l.stage_id));
+  // Fechamento é etapa do funil, não conclusão. Só delivered_at encerra a negociação.
+  const open=crmLinks.filter(l=>!l.delivered_at);
   let pipelineValue=0,overdue=0,nearDue=0;
   open.forEach(l=>{pipelineValue+=Number(l.value)||0;if(l.due_date){const d=new Date(l.due_date+'T23:59:59');if(d<today)overdue++;else if(d<=nearLimit)nearDue++;}});
-  const won=crmLinks.filter(l=>isCrmWonStage(l.stage_id));
+  const won=crmLinks.filter(l=>!!l.delivered_at);
   const wonValue=won.reduce((a,l)=>a+(Number(l.value)||0),0);
   const dcIds=crmLinks.map(l=>l.id);
   let proposals=[];
