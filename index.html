@@ -579,14 +579,34 @@ async function submitForm() {
       return;
     }
 
-    // 1. Verifica duplicidade: e-mail OU telefone (via função segura no banco, sem expor a tabela)
-    const { data: existing } = await db.rpc('check_existing_user', { p_email: email, p_phone: phone });
+    // 1. Verifica cadastro existente e, se ele estiver sem cupom, recupera-o
+    // atomicamente com um cupom disponível. Assim a campanha não cria usuário
+    // duplicado nem consome um segundo cupom para quem já possui um.
+    const { data: existing, error: existingErr } = await db.rpc('claim_coupon_for_existing_user', {
+      p_email: email,
+      p_phone: phone
+    });
+
+    if (existingErr) {
+      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
+      showErr('Erro ao verificar seu cadastro. Tente novamente.'); return;
+    }
 
     if (existing?.length > 0) {
-      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
       const u = existing[0];
+      if (u.result === 'no_coupon') {
+        btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
+        showState('stateEmpty'); return;
+      }
+
       alreadyLink = u.link || '';
-      document.getElementById('a-msg').textContent = `Olá, ${u.name}! Identificamos que você já recebeu um cupom anteriormente. Utilize o mesmo link abaixo para continuar.`;
+      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
+
+      if (u.result === 'assigned') {
+        document.getElementById('a-msg').textContent = `Olá, ${u.user_name}! Encontramos seu cadastro e liberamos um novo cupom para você. Utilize o link abaixo para continuar.`;
+      } else {
+        document.getElementById('a-msg').textContent = `Olá, ${u.user_name}! Identificamos que você já recebeu um cupom anteriormente. Utilize o mesmo link abaixo para continuar.`;
+      }
       document.getElementById('a-link').textContent = alreadyLink;
       showState('stateAlready'); return;
     }
