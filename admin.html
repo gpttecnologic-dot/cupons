@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin — istrativo</title>
+<title>Admin — Administrativo</title>
 <link rel="icon" type="image/png" href="assets/img/logo-12ia.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -302,8 +302,8 @@ body{overflow-x:hidden}
 <div id="loginScreen">
   <div class="login-card">
     <span class="login-icon">🔐</span>
-    <div class="login-title">istrativo</div>
-    <div class="login-sub">Acesso restrito — istrativo</div>
+    <div class="login-title">Administrativo</div>
+    <div class="login-sub">Acesso restrito — Administrativo</div>
     <div class="login-err" id="loginErr"></div>
     <div class="lf"><label>E-mail</label><input type="email" id="loginUser" placeholder="seu@email.com" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"/></div>
     <div class="lf"><label>Senha</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"/></div>
@@ -1502,6 +1502,14 @@ async function doLogin() {
   const { data, error } = await db.auth.signInWithPassword({ email: u, password: p });
   btn.disabled = false; btn.textContent = 'Entrar';
   if (!error && data?.session) {
+    const { data: masterRow, error: masterErr } = await db.from('system_admins').select('user_id').eq('user_id', data.user.id).maybeSingle();
+    if (masterErr || !masterRow) {
+      await db.auth.signOut();
+      const e = document.getElementById('loginErr');
+      e.textContent = 'Seu login é válido, mas esta conta não possui acesso administrativo.';
+      e.style.display = 'block';
+      return;
+    }
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminScreen').style.display = 'block';
     document.getElementById('sbUser').textContent = u;
