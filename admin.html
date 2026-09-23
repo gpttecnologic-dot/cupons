@@ -5696,7 +5696,7 @@ function deleteCrmDeal() {
 }
 
 // ── Empresas (admin) ─────────────────────────────────────────────────────────
-async async function loadSettingsCompanies(){
+async function loadSettingsCompanies(){
   const {data,error}=await db.from('companies').select('id,name').order('name');
   if(error){toast('Erro ao carregar empresas: '+error.message,'error');return;}
   const el=document.getElementById('settingsCompaniesList'); if(!el)return;
