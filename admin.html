@@ -419,6 +419,10 @@ body{overflow-x:hidden}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 Operadores
               </div>
+              <div class="sb-link" id="nav-products" onclick="goTab('products');closeSettingsMenu()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>
+                Produtos
+              </div>
               <div class="sb-link" id="nav-smtp" onclick="goTab('smtp');closeSettingsMenu()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg>
                 Servidor SMTP
@@ -684,6 +688,34 @@ body{overflow-x:hidden}
           <div id="campLogBody"><div class="empty-state"><div class="empty-icon">📨</div><div class="empty-title">Carregando...</div></div></div>
         </div>
       </div>
+
+      <!-- PRODUTOS -->
+      <div id="tab-products" class="hidden">
+        <div class="page-header"><div class="page-header-left"><div class="page-title">Produtos</div><div class="page-sub">Catálogo comercial usado no CRM, propostas e integrações</div></div><button class="btn btn-primary btn-sm" onclick="newProduct()">+ Novo produto</button></div>
+        <div class="tbl-wrap"><div class="tbl-head"><div><div class="tbl-title">Produtos cadastrados</div><div class="tbl-sub">Configure valores padrão e regras de cada produto</div></div></div><div id="productsList"></div></div>
+      </div>
+
+      <!-- MODAL PRODUTO -->
+      <div class="modal-overlay" id="productModal"><div class="modal" style="max-width:650px">
+        <div class="modal-title" id="productModalTitle">Novo produto</div>
+        <input type="hidden" id="productId">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
+          <div><label class="form-label">Nome</label><input class="swap-modal-input" id="productName"></div>
+          <div><label class="form-label">Categoria</label><input class="swap-modal-input" id="productCategory" placeholder="Software, Consultoria..."></div>
+        </div>
+        <div><label class="form-label">Descrição</label><textarea class="swap-modal-input" id="productDescription" style="height:80px"></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem">
+          <div><label class="form-label">Setup padrão (R$)</label><input class="swap-modal-input" id="productSetup" type="number" min="0" step="0.01"></div>
+          <div><label class="form-label">Recorrência padrão (R$)</label><input class="swap-modal-input" id="productRecurring" type="number" min="0" step="0.01"></div>
+          <div><label class="form-label">Periodicidade</label><select class="filter-sel" id="productPeriod" style="width:100%"><option value="none">Sem recorrência</option><option value="monthly">Mensal</option><option value="quarterly">Trimestral</option><option value="semiannual">Semestral</option><option value="annual">Anual</option></select></div>
+        </div>
+        <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:.8rem">
+          <label><input type="checkbox" id="productActive" checked> Produto ativo</label>
+          <label><input type="checkbox" id="productCoupons"> Utiliza cupons</label>
+          <label><input type="checkbox" id="productPartnerVisibility"> Permitir acompanhamento pelo parceiro</label>
+        </div>
+        <div class="modal-footer" style="margin-top:1rem"><button class="btn btn-secondary" onclick="closeProductModal()">Cancelar</button><button class="btn btn-primary" onclick="saveProduct()">Salvar produto</button></div>
+      </div></div>
 
       <!-- SERVIDOR SMTP -->
       <div id="tab-smtp" class="hidden">
@@ -4802,6 +4834,18 @@ let crmMembersCallerIsSystemAdmin = false;
 let myTabAccess = [];      // tab_ids liberados avulsamente (user_tab_access)
 let myReferralAccess = []; // indicações liberadas pro painel "Meu Desempenho"
 
+let productsCache = [];
+async function loadProducts(){
+  const {data,error}=await db.from('products').select('*').order('name');
+  if(error){toast('Erro ao carregar produtos: '+error.message,'error');return;}
+  productsCache=data||[];
+  document.getElementById('productsList').innerHTML=productsCache.length?productsCache.map(p=>`<div class="ref-item"><div style="flex:1"><div style="font-weight:700">${esc(p.name)} ${p.active?'':'<span class="badge">Inativo</span>'}</div><div style="font-size:11px;color:var(--text3)">${esc(p.category||'Sem categoria')} · Setup R$ ${Number(p.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Recorrência R$ ${Number(p.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · ${p.uses_coupons?'Usa cupons':'Sem cupons'} · ${p.partner_visibility?'Visível ao parceiro':'Interno'}</div></div><button class="btn btn-secondary btn-sm" onclick="editProduct('${p.id}')">Editar</button></div>`).join(''):'<div class="empty-state"><div class="empty-title">Nenhum produto cadastrado</div></div>';
+}
+function newProduct(){document.getElementById('productId').value='';document.getElementById('productName').value='';document.getElementById('productCategory').value='';document.getElementById('productDescription').value='';document.getElementById('productSetup').value='0';document.getElementById('productRecurring').value='0';document.getElementById('productPeriod').value='monthly';document.getElementById('productActive').checked=true;document.getElementById('productCoupons').checked=false;document.getElementById('productPartnerVisibility').checked=false;document.getElementById('productModalTitle').textContent='Novo produto';document.getElementById('productModal').classList.add('show');}
+function editProduct(id){const p=productsCache.find(x=>x.id===id);if(!p)return;document.getElementById('productId').value=p.id;document.getElementById('productName').value=p.name||'';document.getElementById('productCategory').value=p.category||'';document.getElementById('productDescription').value=p.description||'';document.getElementById('productSetup').value=p.default_setup||0;document.getElementById('productRecurring').value=p.default_recurring||0;document.getElementById('productPeriod').value=p.recurring_period||'monthly';document.getElementById('productActive').checked=!!p.active;document.getElementById('productCoupons').checked=!!p.uses_coupons;document.getElementById('productPartnerVisibility').checked=!!p.partner_visibility;document.getElementById('productModalTitle').textContent='Editar produto';document.getElementById('productModal').classList.add('show');}
+function closeProductModal(){document.getElementById('productModal').classList.remove('show');}
+async function saveProduct(){if(!isSystemAdmin){toast('Somente Master pode alterar produtos.','error');return;}const id=document.getElementById('productId').value;const payload={name:document.getElementById('productName').value.trim(),category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}const {error}=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);if(error){toast('Erro ao salvar produto: '+error.message,'error');return;}closeProductModal();toast('Produto salvo.','success');loadProducts();}
+
 // ─── PERMISSÕES ────────────────────────────────────────────────────────────
 // "Administrador" geral (system_admins) enxerga todas as abas do sistema.
 // Quem não é, só enxerga: a aba CRM (se tiver acesso via crm_admins ou
@@ -4818,6 +4862,7 @@ const SYSTEM_TAB_META = [
   { id: 'corporate', label: 'Corporativo' },
   { id: 'campaigns', label: 'Campanhas de E-mail' },
   { id: 'smtp', label: 'Servidor SMTP' },
+  { id: 'products', label: 'Produtos' },
   { id: 'import', label: 'Importar' },
   { id: 'logs', label: 'Logs' },
   { id: 'reports', label: 'Relatórios' },
