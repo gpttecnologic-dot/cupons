@@ -84,6 +84,9 @@ a{color:var(--accent-light);text-decoration:none}
 
 .main{flex:1;min-width:0;margin-left:220px;padding:2rem;min-height:100vh;background:var(--bg);overflow-x:hidden;position:relative}
 .notif-wrap{position:fixed;top:14px;right:22px;z-index:9999;display:block!important}.notif-btn{cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.12)}.notif-btn{width:38px;height:38px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);color:var(--text2);display:flex;align-items:center;justify-content:center;position:relative}.notif-count{position:absolute;top:-6px;right:-6px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}.notif-panel{display:none;position:absolute;right:0;top:46px;width:min(390px,calc(100vw - 28px));max-height:70vh;overflow:auto;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;box-shadow:var(--shadow)}.notif-panel.show{display:block}.notif-head{padding:.85rem 1rem;border-bottom:1px solid var(--border);font-weight:700}.notif-item{padding:.75rem 1rem;border-bottom:1px solid var(--border);cursor:pointer}.notif-item:hover{background:var(--bg3)}.notif-item-title{font-size:12px;font-weight:600}.notif-item-sub{font-size:10px;color:var(--text3);margin-top:2px}.notif-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--warning)}.notif-dot.danger{background:var(--danger)}
+@keyframes notifNudge{0%,100%{transform:rotate(0) scale(1)}20%{transform:rotate(-12deg) scale(1.08)}40%{transform:rotate(12deg) scale(1.08)}60%{transform:rotate(-8deg)}80%{transform:rotate(8deg)}}
+.notif-btn.nudge{animation:notifNudge .9s ease-in-out 2;box-shadow:0 0 0 5px rgba(239,68,68,.10),0 5px 18px rgba(0,0,0,.22)}
+.notif-reminder{position:absolute;right:0;top:48px;width:min(330px,calc(100vw - 28px));padding:.8rem .9rem;background:var(--bg2);border:1px solid var(--border2);border-radius:11px;box-shadow:var(--shadow);font-size:12px;color:var(--text2);opacity:0;transform:translateY(-6px);pointer-events:none;transition:.2s;z-index:10001}.notif-reminder.show{opacity:1;transform:translateY(0);pointer-events:auto}.notif-reminder b{color:var(--text);display:block;margin-bottom:2px}
 .page-header{margin-bottom:1.75rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding-right:64px}.page-header>.btn:last-child{margin-right:0}
 .page-header-left .page-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.4px}
 .page-header-left .page-sub{color:var(--text3);font-size:13px;margin-top:.15rem}
@@ -441,7 +444,7 @@ body{overflow-x:hidden}
     <div class="main">
       <div class="notif-wrap" id="notifWrap">
         <button class="notif-btn" onclick="toggleNotifications(event)" title="Notificações" aria-label="Notificações"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="notif-count hidden" id="notifCount">0</span></button>
-        <div class="notif-panel" id="notifPanel"><div class="notif-head">Notificações</div><div id="notifList"></div></div>
+        <div class="notif-panel" id="notifPanel"><div class="notif-head">Notificações</div><div id="notifList"></div></div><div class="notif-reminder" id="notifReminder" onclick="toggleNotifications(event)"><b id="notifReminderTitle">Você tem pendências</b><span>Clique para revisar o que precisa de atenção.</span></div>
       </div>
 
       <!-- DASHBOARD -->
@@ -1567,10 +1570,14 @@ async function doSetPassword() {
 }
 
 // ─── NOTIFICAÇÕES COM ESCOPO DE PERMISSÃO ────────────────────────────────────
-function toggleNotifications(e){e?.stopPropagation();const p=document.getElementById('notifPanel');p.classList.toggle('show');if(p.classList.contains('show'))loadNotifications();}
+let notificationReminderTimer=null,notificationReminderHideTimer=null;
+const NOTIFICATION_REMINDER_MS=10*60*1000;
+function showNotificationReminder(count,dangerCount){if(!count)return;const btn=document.querySelector('.notif-btn'),box=document.getElementById('notifReminder');if(!btn||!box)return;document.getElementById('notifReminderTitle').textContent=dangerCount?dangerCount+' pendência(s) urgente(s)':'Você tem '+count+' pendência(s)';btn.classList.remove('nudge');void btn.offsetWidth;btn.classList.add('nudge');box.classList.add('show');clearTimeout(notificationReminderHideTimer);notificationReminderHideTimer=setTimeout(()=>box.classList.remove('show'),6500);}
+function scheduleNotificationReminders(){clearInterval(notificationReminderTimer);setTimeout(()=>loadNotifications(true),8000);notificationReminderTimer=setInterval(()=>loadNotifications(true),NOTIFICATION_REMINDER_MS);}
+function toggleNotifications(e){e?.stopPropagation();document.getElementById('notifReminder')?.classList.remove('show');const p=document.getElementById('notifPanel');p.classList.toggle('show');if(p.classList.contains('show'))loadNotifications(false);}
 document.addEventListener('click',e=>{const p=document.getElementById('notifPanel');if(p&&!p.contains(e.target)&&!e.target.closest?.('.notif-btn'))p.classList.remove('show')});
 function openNotification(tab){document.getElementById('notifPanel').classList.remove('show');goTab(tab);}
-async function loadNotifications(){
+async function loadNotifications(proactive=false){
   const wrap=document.getElementById('notifWrap'); if(wrap){wrap.classList.remove('hidden');wrap.style.display='block';}
   if(!crmUserId){const {data:{user}}=await db.auth.getUser();crmUserId=user?.id||null;}
   if(!crmUserId)return;
@@ -1598,6 +1605,7 @@ async function loadNotifications(){
   if(coupons.length)n.push({danger:false,title:'Cupons aguardando validação',sub:coupons.length+' entregue(s) há mais de 72h',tab:'coupons'});
   const badge=document.getElementById('notifCount');badge.textContent=n.length>99?'99+':n.length;badge.classList.toggle('hidden',!n.length);
   document.getElementById('notifList').innerHTML=n.length?n.map(x=>'<div class="notif-item" onclick="openNotification(\''+x.tab+'\')"><div class="notif-item-title"><span class="notif-dot '+(x.danger?'danger':'')+'"></span>'+esc(x.title)+'</div><div class="notif-item-sub">'+esc(x.sub)+'</div></div>').join(''):'<div class="notif-item-sub" style="padding:1rem">Nenhuma pendência dentro das suas permissões.</div>';
+  if(proactive&&n.length)showNotificationReminder(n.length,n.filter(x=>x.danger).length);
 }
 // ─── SLA ──────────────────────────────────────────────────────────────────────
 const SLA_STAGES=[['new','Novo'],['analysis','Em análise'],['in_progress','Em atendimento'],['waiting_client','Aguardando cliente'],['resolved','Resolvido'],['closed','Encerrado']];
@@ -4936,7 +4944,8 @@ async function applyPermissionGating() {
   document.getElementById('nav-partner').classList.toggle('hidden', !myReferralAccess.length);
   document.getElementById('sbSecParceiro').classList.toggle('hidden', !myReferralAccess.length);
   const slaNav=document.getElementById('nav-sla'); if(slaNav) slaNav.classList.toggle('hidden', !(isSystemAdmin||myTabAccess.includes('sla')));
-  await loadNotifications();
+  await loadNotifications(false);
+  scheduleNotificationReminders();
 
   // Seções só aparecem se tiverem pelo menos um link visível dentro delas.
   CRM_ONLY_SECTION_IDS.forEach(secId => {
