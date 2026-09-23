@@ -220,6 +220,9 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
         <button class="btn btn-primary" id="a-open" onclick="openAlreadyLink()">🔗 Abrir cupom</button>
         <button class="btn btn-outline" onclick="copyAlreadyLink()">📋 Copiar link</button>
       </div>
+      <div class="divider"></div>
+      <p style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:.75rem">Está com dificuldade para utilizar este acesso? Fale diretamente com nosso suporte.</p>
+      <a class="btn btn-outline" href="https://wa.me/5531984350030" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;width:100%;text-decoration:none">💬 Falar com o suporte pelo WhatsApp</a>
     </div>
 
     <!-- ESGOTADO -->
@@ -583,7 +586,7 @@ async function submitForm() {
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
       const u = existing[0];
       alreadyLink = u.link || '';
-      document.getElementById('a-msg').textContent = `Olá, ${u.name}! Você já possui um cupom vinculado ao seu cadastro.`;
+      document.getElementById('a-msg').textContent = `Olá, ${u.name}! Identificamos que você já recebeu um cupom anteriormente. Utilize o mesmo link abaixo para continuar.`;
       document.getElementById('a-link').textContent = alreadyLink;
       showState('stateAlready'); return;
     }
