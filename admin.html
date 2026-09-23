@@ -3322,7 +3322,8 @@ async function loadUsers() {
 
   let { data: us, error } = await db
     .from('users')
-    .select('id,name,email,phone,cpf,referral_id,coupons_id,quantidade_licencas,segmento,created_at')
+    .select('id,name,email,phone,cpf,referral_id,coupons_id,quantidade_licencas,segmento,created_at,archived_at')
+    .is('archived_at', null)
     .order('created_at', { ascending: false });
 
   // A coluna quantidade_licencas só existe depois de rodar o SQL
@@ -3506,8 +3507,8 @@ function renderUsers() {
         <button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom vinculados a esta pessoa, trocar/devolver escolhendo qual link, gerar mais, e opcionalmente enviar um e-mail com eles">🔗 Cupons${u.couponsIssued > 0 ? ` (${u.couponsIssued})` : ''}</button>
         <button class="btn btn-ghost btn-sm" onclick="marcarComoCorporativo('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Marcar manualmente como cliente Corporativo — passa a aparecer na aba Corporativo em vez de Usuários">🏢 Corporativo</button>
         <button class="btn btn-ghost btn-sm btn-icon"
-          onclick="deleteUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}','${u.coupons_id||''}')"
-          title="Excluir">🗑</button>
+          onclick="archiveUser('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')"
+          title="Arquivar usuário">📦</button>
       </div>
     </td>
   </tr>`).join('');
@@ -3564,33 +3565,19 @@ async function marcarComoCorporativo(id, name) {
   );
 }
 
-async function deleteUser(id, name, couponId) {
-  openConfirm('Excluir usuário', `Excluir "${name}"?\n\nTodos os cupons vinculados a essa pessoa (o principal e eventuais extras) voltarão ao estoque. Esta ação não pode ser desfeita.`, async () => {
-    // Libera TODOS os cupons vinculados a esse usuário antes de excluir —
-    // não só o "principal" (o couponId recebido aqui, espelhado em
-    // users.coupons_id), mas qualquer cupom extra vinculado só via
-    // coupons.users_id (pedidos corporativos, "➕ Extra"). Antes disso,
-    // quando a pessoa tinha mais de 1 cupom, o(s) extra(s) continuava(m)
-    // apontando pra ela e a exclusão do usuário falhava (violação da
-    // referência entre as tabelas) — por isso não dava pra excluir.
-    const { error: relErr } = await db.from('coupons')
-      .update({ status: 'available', distributed_at: null, users_id: null })
-      .eq('users_id', id);
-    if (relErr) { toast('Erro ao liberar cupons vinculados: ' + relErr.message, 'error', 6000); return; }
-    // Cobre também o caso (raro) de coupons_id apontar pra um cupom cujo
-    // users_id, por algum motivo, já não é mais este usuário.
-    if (couponId) {
-      await db.from('coupons')
-        .update({ status: 'available', distributed_at: null, users_id: null })
-        .eq('id', couponId);
-    }
-    await db.from('events').delete().eq('users_id', id);
-    const { error } = await db.from('users').delete().eq('id', id);
-    if (error) { toast('Erro ao excluir: ' + error.message, 'error', 6000); return; }
-    toast('Usuário excluído. Cupons liberados de volta ao estoque.', 'info');
-    loadUsers();
-    loadDashboard();
-  }, '🗑 Excluir');
+async function archiveUser(id, name) {
+  openConfirm(
+    'Arquivar usuário',
+    `Arquivar "${name}"?\n\nO cadastro continuará preservado no banco, junto com seus vínculos e histórico. Ele apenas deixará de aparecer na lista operacional de Usuários.`,
+    async () => {
+      const { error } = await db.from('users').update({ archived_at: new Date().toISOString() }).eq('id', id);
+      if (error) { toast('Erro ao arquivar: ' + error.message, 'error', 6000); return; }
+      toast('Usuário arquivado. Nenhum dado ou cupom foi excluído.', 'success');
+      loadUsers();
+      loadDashboard();
+    },
+    '📦 Arquivar'
+  );
 }
 
 // Gera/vincula um cupom disponível para um usuário que está "sem cupom"
