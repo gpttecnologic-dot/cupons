@@ -1198,6 +1198,8 @@ body{overflow-x:hidden}
       <input class="swap-modal-input" id="crmClientAddress" placeholder="Endereço completo" style="margin:0">
     </div>
 
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Parceria / Origem</label>
+    <select class="filter-sel" id="crmReferralId" style="width:100%;margin-bottom:.75rem"><option value="">— Sem parceria/origem —</option></select>
     <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Objeto da parceria</label>
     <textarea id="crmPartnershipObject" style="width:100%;height:60px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;outline:none;margin-bottom:.75rem" placeholder="Descreva o objeto da parceria..."></textarea>
     <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Observações</label>
@@ -4921,6 +4923,7 @@ let crmEligibleOwnersByCompany = {};
 let crmMembersCallerIsSystemAdmin = false;
 let myTabAccess = [];      // tab_ids liberados avulsamente (user_tab_access)
 let myReferralAccess = []; // indicações liberadas pro painel "Meu Desempenho"
+let crmAllReferrals = [];
 
 let productsCache = [];
 async function loadProducts(){
@@ -4974,6 +4977,12 @@ async function applyPermissionGating() {
     isSystemAdmin = !!sysRow;
     myTabAccess = (tabRows || []).map(r => r.tab_id);
     myReferralAccess = (refRows || []).map(r => ({ id: r.referral_id, name: r.referrals?.name || '?' }));
+    // Master tem visão global de parceiros. Perfis com visão global do CRM
+    // recebem os parceiros via Edge Function/list_members e não dependem de vínculos manuais.
+    if (isSystemAdmin) {
+      const { data: allRefs } = await db.from('referrals').select('id,name').order('name');
+      myReferralAccess = allRefs || [];
+    }
   }
 
   SYSTEM_TAB_META.forEach(t => {
@@ -4982,8 +4991,8 @@ async function applyPermissionGating() {
   });
   document.getElementById('nav-permissoes').classList.toggle('hidden', !isSystemAdmin);
   const companiesNav=document.getElementById('nav-companies'); if(companiesNav) companiesNav.classList.toggle('hidden', !isSystemAdmin);
-  document.getElementById('nav-partner').classList.toggle('hidden', !myReferralAccess.length);
-  document.getElementById('sbSecParceiro').classList.toggle('hidden', !myReferralAccess.length);
+  document.getElementById('nav-partner').classList.toggle('hidden', !(isSystemAdmin || myReferralAccess.length));
+  document.getElementById('sbSecParceiro').classList.toggle('hidden', !(isSystemAdmin || myReferralAccess.length));
   const slaNav=document.getElementById('nav-sla'); if(slaNav) slaNav.classList.toggle('hidden', !(isSystemAdmin||myTabAccess.includes('sla')));
   await loadNotifications(false);
   scheduleNotificationReminders();
@@ -5281,6 +5290,10 @@ async function openCrmDealModal(dealId, initialStageId) {
   document.getElementById('crmContactEmail').value = '';
   document.getElementById('crmContactRole').value = '';
   document.getElementById('crmPartnershipObject').value = '';
+  const { data: referralOptions } = await db.from('referrals').select('id,name').order('name');
+  crmAllReferrals = referralOptions || [];
+  document.getElementById('crmReferralId').innerHTML = '<option value="">— Sem parceria/origem —</option>' + crmAllReferrals.map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+  document.getElementById('crmReferralId').value = '';
   crmContactsCache = [];
   renderCrmContacts();
   document.getElementById('crmClientCompanyName').value = '';
@@ -5311,6 +5324,7 @@ async function openCrmDealModal(dealId, initialStageId) {
     document.getElementById('crmContactEmail').value = deal.contact_email || '';
     document.getElementById('crmContactRole').value = deal.contact_role || '';
     document.getElementById('crmPartnershipObject').value = deal.partnership_object || '';
+    document.getElementById('crmReferralId').value = deal.referral_id || '';
     const { data: dealContacts } = await db.from('crm_deal_contacts').select('id,name,role,phone,email').eq('deal_id', dealId).order('created_at');
     crmContactsCache = dealContacts || [];
     renderCrmContacts();
@@ -5707,6 +5721,7 @@ async function saveCrmDeal() {
     contact_email: document.getElementById('crmContactEmail').value.trim() || null,
     contact_role: document.getElementById('crmContactRole').value.trim() || null,
     partnership_object: document.getElementById('crmPartnershipObject').value.trim() || null,
+    referral_id: document.getElementById('crmReferralId').value || null,
     client_company_name: document.getElementById('crmClientCompanyName').value.trim() || null,
     client_cnpj: document.getElementById('crmClientCnpj').value.trim() || null,
     client_segment: document.getElementById('crmClientSegment').value.trim() || null,
