@@ -1206,6 +1206,21 @@ body{overflow-x:hidden}
       <div id="crmAddCompanyRow" style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap"></div>
     </div>
 
+    <div class="crm-modal-section" id="crmProposalSection">
+      <div class="crm-modal-section-title"><span>✉️ Proposta por e-mail</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div><label class="form-label">Tipo</label><select class="filter-sel" id="crmProposalType" style="width:100%"><option value="client">Cliente / Corporação</option><option value="partnership">Parceria</option></select></div>
+        <div><label class="form-label">Produto</label><select class="filter-sel" id="crmProposalProduct" style="width:100%" onchange="fillProposalProductDefaults()"></select></div>
+        <div><label class="form-label">Setup (R$)</label><input class="swap-modal-input" id="crmProposalSetup" type="number" min="0" step=".01"></div>
+        <div><label class="form-label">Recorrência (R$)</label><input class="swap-modal-input" id="crmProposalRecurring" type="number" min="0" step=".01"></div>
+      </div>
+      <label class="form-label">Modelo</label><select class="filter-sel" id="crmProposalTemplate" style="width:100%;margin-bottom:.65rem"></select>
+      <label class="form-label">Destinatário</label><input class="swap-modal-input" id="crmProposalRecipient" type="email" placeholder="contato@empresa.com">
+      <div style="display:flex;gap:.5rem;margin-top:.6rem"><button type="button" class="btn btn-secondary btn-sm" onclick="previewCrmProposal()">Visualizar</button><button type="button" class="btn btn-primary btn-sm" onclick="sendCrmProposal()">Enviar proposta</button></div>
+      <div id="crmProposalPreview" class="hidden" style="margin-top:.7rem;padding:.75rem;background:var(--bg3);border:1px solid var(--border);border-radius:8px;white-space:pre-wrap;font-size:12px"></div>
+      <div id="crmProposalHistory" style="margin-top:.7rem"></div>
+    </div>
+
     <div class="crm-modal-section">
       <div class="crm-modal-section-title"><span>📎 Anexos</span></div>
       <div id="crmAttachmentsList"></div>
@@ -4919,6 +4934,23 @@ async function applyPermissionGating() {
   goTab('crm');
 }
 
+let crmProposalProducts=[],crmProposalTemplates=[];
+async function loadCrmProposalData(){
+ const [{data:p},{data:t}]=await Promise.all([db.from('products').select('*').eq('active',true).order('name'),db.from('email_templates').select('id,key,name,subject,body,active').eq('active',true).like('key','crm_proposal%').order('name')]);
+ crmProposalProducts=p||[];crmProposalTemplates=t||[];
+ const ps=document.getElementById('crmProposalProduct'),ts=document.getElementById('crmProposalTemplate');
+ if(ps)ps.innerHTML=crmProposalProducts.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+ if(ts)ts.innerHTML=crmProposalTemplates.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+ fillProposalProductDefaults();
+ const email=document.getElementById('crmContactEmail')?.value||'';if(document.getElementById('crmProposalRecipient'))document.getElementById('crmProposalRecipient').value=email;
+ if(crmEditingDealId)loadCrmProposalHistory();
+}
+function fillProposalProductDefaults(){const p=crmProposalProducts.find(x=>x.id===document.getElementById('crmProposalProduct')?.value);if(!p)return;document.getElementById('crmProposalSetup').value=p.default_setup||0;document.getElementById('crmProposalRecurring').value=p.default_recurring||0;}
+function proposalVars(){const p=crmProposalProducts.find(x=>x.id===document.getElementById('crmProposalProduct').value),owner=crmProfiles.find(x=>x.user_id===(crmDealCompaniesCache?.[0]?.owner_user_id));const money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});return{empresa:document.getElementById('crmClientCompanyName').value||document.getElementById('crmTitle').value,contato:document.getElementById('crmContactName').value,produto:p?.name||'',setup:money(document.getElementById('crmProposalSetup').value),recorrencia:money(document.getElementById('crmProposalRecurring').value),responsavel_nome:owner?.display_name||'',responsavel_email:owner?.email||''};}
+function renderProposalText(s,v){return Object.entries(v).reduce((o,[k,x])=>o.split('{{'+k+'}}').join(x||''),s||'');}
+function previewCrmProposal(){const t=crmProposalTemplates.find(x=>x.id===document.getElementById('crmProposalTemplate').value);if(!t)return;const v=proposalVars(),el=document.getElementById('crmProposalPreview');el.textContent='Assunto: '+renderProposalText(t.subject,v)+'\n\n'+renderProposalText(t.body,v);el.classList.remove('hidden');}
+async function sendCrmProposal(){if(!crmEditingDealId){toast('Salve o negócio antes de enviar a proposta.','error');return;}const dc=crmDealCompaniesCache?.[0];if(!dc){toast('Negócio sem empresa vinculada.','error');return;}const body={deal_company_id:dc.id,product_id:document.getElementById('crmProposalProduct').value,proposal_type:document.getElementById('crmProposalType').value,setup_value:Number(document.getElementById('crmProposalSetup').value||0),recurring_value:Number(document.getElementById('crmProposalRecurring').value||0),template_id:document.getElementById('crmProposalTemplate').value,recipient_email:document.getElementById('crmProposalRecipient').value.trim()};if(!body.recipient_email){toast('Informe o e-mail do destinatário.','error');return;}previewCrmProposal();if(!confirm('Enviar esta proposta para '+body.recipient_email+'?'))return;const {data,error}=await db.functions.invoke('send-crm-proposal',{body});if(error||!data?.success){toast('Erro ao enviar proposta: '+(data?.error||error?.message||'falha no envio'),'error');await loadCrmProposalHistory();return;}toast('Proposta enviada por e-mail.','success');await loadCrmProposalHistory();}
+async function loadCrmProposalHistory(){const dc=crmDealCompaniesCache?.[0],el=document.getElementById('crmProposalHistory');if(!dc||!el)return;const {data}=await db.from('crm_proposals').select('id,recipient_email,status,sent_at,created_at,setup_value,recurring_value,products(name)').eq('deal_company_id',dc.id).order('created_at',{ascending:false}).limit(10);el.innerHTML=(data||[]).length?'<div class="form-label">Histórico de propostas</div>'+(data||[]).map(x=>`<div style="font-size:11px;padding:.4rem 0;border-top:1px solid var(--border)">${x.status==='sent'?'✓':'⚠'} ${esc(x.products?.name||'Produto')} · ${esc(x.recipient_email)} · ${new Date(x.sent_at||x.created_at).toLocaleString('pt-BR')}</div>`).join(''):'';}
 async function loadCrmProfiles() {
   const { data, error } = await db.from('crm_profiles').select('user_id,email,display_name').order('email');
   if (error) { crmProfiles = []; return; }
@@ -5215,6 +5247,7 @@ async function openCrmDealModal(dealId, initialStageId) {
   await renderCrmDealCompaniesSection();
   renderCrmDealExtrasSections(!!crmEditingLinkId);
   document.getElementById('crmDealModal').classList.add('show');
+  setTimeout(loadCrmProposalData,0);
 }
 function closeCrmDealModal() {
   document.getElementById('crmDealModal').classList.remove('show');
