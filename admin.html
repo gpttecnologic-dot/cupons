@@ -5716,7 +5716,7 @@ async function renameSettingsCompany(id,currentName){
   toast('Empresa renomeada.','success');await loadSettingsCompanies();
 }
 
-function openCrmCompaniesModal() {
+async function openCrmCompaniesModal() {
   await renderCrmCompaniesModalList();
   document.getElementById('crmCompaniesModal').classList.add('show');
 }
