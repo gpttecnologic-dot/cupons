@@ -419,6 +419,10 @@ body{overflow-x:hidden}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                 Operadores
               </div>
+              <div class="sb-link" id="nav-companies" onclick="goTab('companies');closeSettingsMenu()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M6 21V5h9v16"/><path d="M15 9h3v12"/><path d="M9 9h2M9 13h2M9 17h2"/></svg>
+                Empresas
+              </div>
               <div class="sb-link" id="nav-products" onclick="goTab('products');closeSettingsMenu()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>
                 Produtos
@@ -863,13 +867,25 @@ body{overflow-x:hidden}
         </div>
       </div>
 
+      <!-- EMPRESAS (CONFIGURAÇÕES) -->
+      <div id="tab-companies" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Empresas</div><div class="page-sub">Cadastro das empresas utilizadas no CRM</div></div>
+        </div>
+        <div class="tbl-wrap" style="padding:1rem 1.25rem">
+          <div class="ref-add-row" style="margin-bottom:1rem">
+            <input class="ref-add-input" id="settingsNewCompanyName" placeholder="Nome da nova empresa">
+            <button class="btn btn-primary btn-sm" onclick="addSettingsCompany()">+ Adicionar empresa</button>
+          </div>
+          <div id="settingsCompaniesList"></div>
+        </div>
+      </div>
+
       <!-- CRM -->
       <div id="tab-crm" class="hidden">
         <div class="page-header">
           <div class="page-header-left"><div class="page-title">Negócios</div><div class="page-sub">Quadro por empresa — cada cliente pode estar em mais de uma ao mesmo tempo</div></div>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-            <button class="btn btn-secondary btn-sm hidden" id="crmCompaniesBtn" onclick="openCrmCompaniesModal()">🏢 Empresas</button>
-            <button class="btn btn-secondary btn-sm hidden" id="crmMembersBtn" onclick="openCrmMembersModal()">🔑 Acesso ao CRM</button>
             <button class="btn btn-secondary btn-sm" onclick="loadCrm()">↺ Atualizar</button>
           </div>
         </div>
@@ -1651,6 +1667,7 @@ function goTab(id) {
   if (id === 'campaigns') loadCampaigns();
   if (id === 'smtp')      loadSmtpSettings();
   if (id === 'products')  loadProducts();
+  if (id === 'companies') loadSettingsCompanies();
   if (id === 'crm')       loadCrm();
   if (id === 'sla')       loadSla();
   if (id === 'permissions') loadPermissionsTab();
@@ -4885,6 +4902,7 @@ const SYSTEM_TAB_META = [
   { id: 'campaigns', label: 'Campanhas de E-mail' },
   { id: 'smtp', label: 'Servidor SMTP' },
   { id: 'products', label: 'Produtos' },
+  { id: 'companies', label: 'Empresas' },
   { id: 'import', label: 'Importar' },
   { id: 'logs', label: 'Logs' },
   { id: 'reports', label: 'Relatórios' },
@@ -4914,6 +4932,7 @@ async function applyPermissionGating() {
     if (el) el.classList.toggle('hidden', !(isSystemAdmin || myTabAccess.includes(t.id)));
   });
   document.getElementById('nav-permissoes').classList.toggle('hidden', !isSystemAdmin);
+  const companiesNav=document.getElementById('nav-companies'); if(companiesNav) companiesNav.classList.toggle('hidden', !isSystemAdmin);
   document.getElementById('nav-partner').classList.toggle('hidden', !myReferralAccess.length);
   document.getElementById('sbSecParceiro').classList.toggle('hidden', !myReferralAccess.length);
   const slaNav=document.getElementById('nav-sla'); if(slaNav) slaNav.classList.toggle('hidden', !(isSystemAdmin||myTabAccess.includes('sla')));
@@ -4982,8 +5001,6 @@ async function loadCrm() {
   }
   const { data: adminRow } = await db.from('crm_admins').select('user_id').eq('user_id', crmUserId).maybeSingle();
   crmIsAdmin = !!adminRow || isSystemAdmin;
-  document.getElementById('crmCompaniesBtn').classList.toggle('hidden', !crmIsAdmin);
-  document.getElementById('crmMembersBtn').classList.toggle('hidden', !crmIsAdmin);
 
   await loadCrmProfiles();
 
@@ -5655,7 +5672,27 @@ function deleteCrmDeal() {
 }
 
 // ── Empresas (admin) ─────────────────────────────────────────────────────────
-async function openCrmCompaniesModal() {
+async async function loadSettingsCompanies(){
+  const {data,error}=await db.from('companies').select('id,name').order('name');
+  if(error){toast('Erro ao carregar empresas: '+error.message,'error');return;}
+  const el=document.getElementById('settingsCompaniesList'); if(!el)return;
+  el.innerHTML=(data||[]).map(x=>`<div class="ref-item"><div class="ref-item-top"><div class="ref-item-left"><span class="ref-label">${esc(x.name)}</span></div><div class="ref-item-right"><button class="btn btn-ghost btn-sm" onclick="renameSettingsCompany('${x.id}','${esc(x.name).replace(/'/g,"\\'")}')">✎ Renomear</button></div></div></div>`).join('')||'<div class="ref-empty">Nenhuma empresa cadastrada.</div>';
+}
+async function addSettingsCompany(){
+  const input=document.getElementById('settingsNewCompanyName'),name=input.value.trim();if(!name)return;
+  const {data,error}=await db.from('companies').insert({name}).select().single();if(error){toast('Erro: '+error.message,'error');return;}
+  const stages=['Novo lead','Em contato','Proposta enviada','Negociação','Fechado - Ganho','Fechado - Perdido'];
+  const {error:stageError}=await db.from('crm_stages').insert(stages.map((n,i)=>({company_id:data.id,name:n,position:i})));
+  if(stageError){toast('Empresa criada, mas houve erro ao criar o funil padrão.','error');}else toast('Empresa criada com funil padrão.','success');
+  input.value='';await loadSettingsCompanies();
+}
+async function renameSettingsCompany(id,currentName){
+  const name=prompt('Novo nome da empresa:',currentName);if(!name||!name.trim()||name.trim()===currentName)return;
+  const {error}=await db.from('companies').update({name:name.trim()}).eq('id',id);if(error){toast('Erro: '+error.message,'error');return;}
+  toast('Empresa renomeada.','success');await loadSettingsCompanies();
+}
+
+function openCrmCompaniesModal() {
   await renderCrmCompaniesModalList();
   document.getElementById('crmCompaniesModal').classList.add('show');
 }
