@@ -1519,10 +1519,17 @@ async function doLogin() {
     loginAttempts++;
     const rem = MAX_ATTEMPTS - loginAttempts;
     const e = document.getElementById('loginErr');
-    e.textContent = `Credenciais inválidas. ${rem > 0 ? `${rem} tentativa(s) restante(s).` : 'Acesso bloqueado.'}`;
+    const msg = error?.message || 'Falha de autenticação';
+    const status = error?.status ? ` (código ${error.status})` : '';
+    e.textContent = `Não foi possível entrar: ${msg}${status}.`;
     e.style.display = 'block';
-    if (loginAttempts >= MAX_ATTEMPTS) document.getElementById('loginBtn').disabled = true;
-    document.getElementById('loginAttempts').textContent = rem > 0 ? '' : 'Recarregue a página para tentar novamente.';
+    console.error('Falha no login Supabase:', error);
+    if (loginAttempts >= MAX_ATTEMPTS) {
+      document.getElementById('loginBtn').disabled = true;
+      document.getElementById('loginAttempts').textContent = 'Limite local de tentativas atingido. Recarregue a página para tentar novamente.';
+    } else {
+      document.getElementById('loginAttempts').textContent = `${rem} tentativa(s) restante(s).`;
+    }
   }
 }
 async function doLogout() {
