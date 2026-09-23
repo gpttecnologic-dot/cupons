@@ -877,11 +877,16 @@ body{overflow-x:hidden}
           <div class="crm-company-tabs" id="crmCompanyTabs"><span style="font-size:12px;color:var(--text3)">Carregando empresas...</span></div>
         </div>
         <!-- Dashboard específico do CRM — separado do Dashboard de cupons -->
-        <div class="stats-grid" id="crmStatsGrid" style="margin-bottom:1rem">
-          <div class="stat-card"><div class="stat-label">Negócios</div><div class="stat-val white" id="crmStatTotal">—</div></div>
-          <div class="stat-card"><div class="stat-label">Em aberto (R$)</div><div class="stat-val purple" id="crmStatPipeline">—</div></div>
-          <div class="stat-card"><div class="stat-label">Atrasados</div><div class="stat-val red" id="crmStatOverdue">—</div></div>
-          <div class="stat-card"><div class="stat-label">✅ Entregues</div><div class="stat-val green" id="crmStatDelivered">—</div></div>
+        <div class="stats-grid" id="crmStatsGrid" style="margin-bottom:.65rem">
+          <div class="stat-card"><div class="stat-label">Negociações abertas</div><div class="stat-val white" id="crmStatTotal">—</div></div>
+          <div class="stat-card"><div class="stat-label">Pipeline</div><div class="stat-val purple" id="crmStatPipeline">—</div></div>
+          <div class="stat-card"><div class="stat-label">Propostas enviadas</div><div class="stat-val white" id="crmStatProposals">—</div></div>
+          <div class="stat-card"><div class="stat-label">Fechados / Ganhos</div><div class="stat-val green" id="crmStatWon">—</div><div class="stat-sub" id="crmStatWonValue"></div></div>
+          <div class="stat-card"><div class="stat-label">Setup fechado</div><div class="stat-val green" id="crmStatSetup">—</div></div>
+          <div class="stat-card"><div class="stat-label">Recorrência conquistada</div><div class="stat-val green" id="crmStatRecurring">—</div></div>
+        </div>
+        <div class="tbl-wrap" style="padding:.6rem 1rem;margin-bottom:1rem;display:flex;gap:1.4rem;flex-wrap:wrap;font-size:12px;color:var(--text2)">
+          <span>Vencidas: <b id="crmStatOverdue">—</b></span><span>Próximas do prazo: <b id="crmStatNearDue">—</b></span><span>Tempo médio fechamento: <b id="crmStatAvgClose">—</b></span>
         </div>
         <div id="crmBoardWrap">
           <div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Carregando...</div></div>
@@ -5015,7 +5020,7 @@ async function loadCrmBoard() {
   document.getElementById('crmBoardWrap').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   const [{ data: stages, error: sErr }, { data: links, error: lErr }] = await Promise.all([
     db.from('crm_stages').select('id,name,position').eq('company_id', crmSelectedCompanyId).order('position'),
-    db.from('crm_deal_companies').select('id,company_id,stage_id,value,position,due_date,delivered_at,crm_deals(id,title,contact_name,contact_email,contact_phone,notes),crm_deal_company_labels(crm_labels(id,name,color))').eq('company_id', crmSelectedCompanyId).order('position'),
+    db.from('crm_deal_companies').select('id,company_id,stage_id,value,position,due_date,delivered_at,updated_at,crm_deals(id,title,contact_name,contact_email,contact_phone,notes,created_at),crm_deal_company_labels(crm_labels(id,name,color))').eq('company_id', crmSelectedCompanyId).order('position'),
   ]);
   if (sErr || lErr) { toast('Erro ao carregar quadro: ' + (sErr || lErr).message, 'error'); return; }
   crmStages = stages || [];
@@ -5029,27 +5034,40 @@ async function loadCrmBoard() {
     (allLinks || []).forEach(r => { dealCompanyCount[r.deal_id] = (dealCompanyCount[r.deal_id] || 0) + 1; });
   }
   renderCrmBoard(dealCompanyCount);
-  renderCrmStats();
+  await renderCrmStats();
 }
 
 // Dashboard específico do CRM (negócios/conversão) — propositalmente separado
 // do Dashboard de cupons, cada um com seus próprios números.
-function renderCrmStats() {
-  const total = crmLinks.length;
-  let pipelineValue = 0, overdue = 0, delivered = 0;
-  const today = new Date();
-  crmLinks.forEach(l => {
-    if (l.delivered_at) {
-      delivered++;
-    } else {
-      if (l.value) pipelineValue += Number(l.value) || 0;
-      if (l.due_date && new Date(l.due_date + 'T23:59:59') < today) overdue++;
-    }
-  });
-  document.getElementById('crmStatTotal').textContent = total;
-  document.getElementById('crmStatPipeline').textContent = fmtMoney(pipelineValue) || 'R$ 0,00';
-  document.getElementById('crmStatOverdue').textContent = overdue;
-  document.getElementById('crmStatDelivered').textContent = delivered;
+function isCrmWonStage(stageId) {
+  const s=crmStages.find(x=>x.id===stageId); const n=normalizeUserSearch(s?.name||'');
+  return n.includes('fechamento') || n.includes('fechado ganho') || n==='ganho' || n.includes('ganho');
+}
+async function renderCrmStats() {
+  const today=new Date(), nearLimit=new Date(Date.now()+24*60*60*1000);
+  const open=crmLinks.filter(l=>!isCrmWonStage(l.stage_id));
+  let pipelineValue=0,overdue=0,nearDue=0;
+  open.forEach(l=>{pipelineValue+=Number(l.value)||0;if(l.due_date){const d=new Date(l.due_date+'T23:59:59');if(d<today)overdue++;else if(d<=nearLimit)nearDue++;}});
+  const won=crmLinks.filter(l=>isCrmWonStage(l.stage_id));
+  const wonValue=won.reduce((a,l)=>a+(Number(l.value)||0),0);
+  const dcIds=crmLinks.map(l=>l.id);
+  let proposals=[];
+  if(dcIds.length){const {data}=await db.from('crm_proposals').select('id,deal_company_id,setup_value,recurring_value,status,sent_at,created_at').in('deal_company_id',dcIds).eq('status','sent');proposals=data||[];}
+  const wonIds=new Set(won.map(x=>x.id)), latestWonProposal={};
+  proposals.filter(p=>wonIds.has(p.deal_company_id)).forEach(p=>{const prev=latestWonProposal[p.deal_company_id];if(!prev||new Date(p.sent_at||p.created_at)>new Date(prev.sent_at||prev.created_at))latestWonProposal[p.deal_company_id]=p;});
+  const wonProps=Object.values(latestWonProposal);
+  const setup=wonProps.reduce((a,p)=>a+(Number(p.setup_value)||0),0),recurring=wonProps.reduce((a,p)=>a+(Number(p.recurring_value)||0),0);
+  const closeDays=won.map(l=>{const created=l.crm_deals?.created_at;const closed=l.delivered_at||l.updated_at;return created&&closed?Math.max(0,(new Date(closed)-new Date(created))/86400000):null;}).filter(x=>x!==null);
+  document.getElementById('crmStatTotal').textContent=open.length;
+  document.getElementById('crmStatPipeline').textContent=fmtMoney(pipelineValue)||'R$ 0,00';
+  document.getElementById('crmStatProposals').textContent=proposals.length;
+  document.getElementById('crmStatWon').textContent=won.length;
+  document.getElementById('crmStatWonValue').textContent=fmtMoney(wonValue)||'R$ 0,00';
+  document.getElementById('crmStatSetup').textContent=fmtMoney(setup)||'R$ 0,00';
+  document.getElementById('crmStatRecurring').textContent=fmtMoney(recurring)||'R$ 0,00';
+  document.getElementById('crmStatOverdue').textContent=overdue;
+  document.getElementById('crmStatNearDue').textContent=nearDue;
+  document.getElementById('crmStatAvgClose').textContent=closeDays.length?(closeDays.reduce((a,b)=>a+b,0)/closeDays.length).toFixed(1)+' dias':'—';
 }
 
 function fmtMoney(v) {
