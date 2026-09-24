@@ -393,9 +393,13 @@ function validateProtectedOrigin(referral) {
     }
   } catch (_) {}
 
-  // Fail closed: parceiro protegido sem domínio, sem Referer, origem diferente
-  // ou navegação sem HTTPS nunca libera o formulário.
-  return !!allowedHost && !!referrerHost && referrerProtocol === 'https:' && referrerHost === allowedHost;
+  // Fail closed: parceiro protegido sem domínio, sem Referer ou navegação
+  // sem HTTPS nunca libera o formulário. O host pode ser o domínio cadastrado
+  // OU um subdomínio legítimo dele. O ponto antes de allowedHost é importante:
+  // "site.dynamus.com.br" passa, mas "dynamus.com.br.sitefalso.com" não.
+  const hostAllowed = !!allowedHost && !!referrerHost &&
+    (referrerHost === allowedHost || referrerHost.endsWith('.' + allowedHost));
+  return hostAllowed && referrerProtocol === 'https:';
 }
 
 function showProtectedOrigin(referral) {
