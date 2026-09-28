@@ -379,7 +379,10 @@ function normalizeHostFromUrl(value) {
 function validateProtectedOrigin(referral) {
   if (referral.protected_origin !== true) return true;
 
-  const allowedHost = normalizeHostFromUrl(referral.allowed_origin);
+  const configuredOrigins = (Array.isArray(referral.allowed_origins) && referral.allowed_origins.length)
+    ? referral.allowed_origins
+    : (referral.allowed_origin ? [referral.allowed_origin] : []);
+  const allowedHosts = configuredOrigins.map(normalizeHostFromUrl).filter(Boolean);
   let referrerHost = '';
   let referrerProtocol = '';
   try {
@@ -393,13 +396,17 @@ function validateProtectedOrigin(referral) {
   // Fail closed: parceiro protegido sem domínio, sem Referer ou navegação
   // sem HTTPS nunca libera o formulário. Aceita o domínio cadastrado e seus
   // subdomínios legítimos, sem aceitar domínios apenas parecidos.
-  const hostAllowed = !!allowedHost && !!referrerHost &&
-    (referrerHost === allowedHost || referrerHost.endsWith('.' + allowedHost));
+  const hostAllowed = !!referrerHost && allowedHosts.some(allowedHost =>
+    referrerHost === allowedHost || referrerHost.endsWith('.' + allowedHost)
+  );
   return hostAllowed && referrerProtocol === 'https:';
 }
 
 function showProtectedOrigin(referral) {
-  const url = String(referral.allowed_origin || '').trim();
+  const configuredOrigins = (Array.isArray(referral.allowed_origins) && referral.allowed_origins.length)
+    ? referral.allowed_origins
+    : (referral.allowed_origin ? [referral.allowed_origin] : []);
+  const url = String(configuredOrigins[0] || '').trim();
   const link = document.getElementById('protectedOriginLink');
   const msg = document.getElementById('protectedOriginMsg');
   const partnerName = referral.name || 'parceiro';
@@ -422,7 +429,7 @@ async function initReferral() {
   try {
     let { data, error } = await db
       .from('referrals')
-      .select('id, name, logo_url, protected_origin, allowed_origin')
+      .select('id, name, logo_url, protected_origin, allowed_origin, allowed_origins')
       .eq('active', true)
       .order('created_at', { ascending: true });
 
@@ -432,7 +439,7 @@ async function initReferral() {
     if (error && /logo_url/i.test(error.message || '')) {
       const retry = await db
         .from('referrals')
-        .select('id, name, protected_origin, allowed_origin')
+        .select('id, name, protected_origin, allowed_origin, allowed_origins')
         .eq('active', true)
         .order('created_at', { ascending: true });
       data = retry.data; error = retry.error;
