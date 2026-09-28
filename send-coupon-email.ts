@@ -131,7 +131,7 @@ serve(async (req) => {
 
     // Busca o usuário e o(s) cupom(ns)
     const { data: user } = await supabase
-      .from('users').select('name, email').eq('id', user_id).single()
+      .from('users').select('name, email, referral_id').eq('id', user_id).single()
 
     const { data: coupons } = await supabase
       .from('coupons').select('id, link').in('id', ids)
@@ -153,12 +153,29 @@ serve(async (req) => {
     let resolvedKey: string | null = template_key || null
 
     if (template_key) {
-      const { data: tpl } = await supabase
-        .from('email_templates')
-        .select('key, subject, body, pdf_url, pdf_filename, active')
-        .eq('key', template_key)
-        .eq('active', true)
-        .maybeSingle()
+      // Primeiro procura o modelo específico do parceiro do usuário.
+      // Se não existir, usa um modelo geral (referral_id nulo) como fallback.
+      let tpl: any = null
+      if (user.referral_id) {
+        const { data } = await supabase
+          .from('email_templates')
+          .select('key, subject, body, pdf_url, pdf_filename, active, referral_id')
+          .eq('key', template_key)
+          .eq('referral_id', user.referral_id)
+          .eq('active', true)
+          .maybeSingle()
+        tpl = data
+      }
+      if (!tpl) {
+        const { data } = await supabase
+          .from('email_templates')
+          .select('key, subject, body, pdf_url, pdf_filename, active, referral_id')
+          .eq('key', template_key)
+          .is('referral_id', null)
+          .eq('active', true)
+          .maybeSingle()
+        tpl = data
+      }
       if (tpl) {
         subjectTpl  = tpl.subject
         bodyTpl     = tpl.body
