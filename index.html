@@ -670,9 +670,10 @@ async function submitForm() {
 
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
     currentLink = '';
-    document.getElementById('s-msg').textContent = qtd > 1
-      ? `${name}, seu primeiro link exclusivo será enviado para o e-mail informado. Aguarde cerca de 1 minuto. Como você pediu ${qtd} licenças, nosso time vai entrar em contato para providenciar as demais.`
-      : `${name}, seu link exclusivo será enviado para o e-mail informado. Aguarde cerca de 1 minuto para recebê-lo.`;
+    // Para pedidos de 2 a 10 licenças, o fluxo automático sempre entrega
+    // apenas 1 link. Não há contato comercial nessa faixa.
+    document.getElementById('s-msg').textContent =
+      `${name}, seu link exclusivo será enviado para o e-mail informado. Aguarde cerca de 1 minuto para recebê-lo.`;
     showState('stateSuccess');
 
   } catch(e) {
