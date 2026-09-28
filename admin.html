@@ -3580,11 +3580,11 @@ async function marcarComoCorporativo(id, name) {
 async function archiveUser(id, name) {
   openConfirm(
     'Arquivar usuário',
-    `Arquivar "${name}"?\n\nO cadastro continuará preservado no banco, junto com seus vínculos e histórico. Ele apenas deixará de aparecer na lista operacional de Usuários.`,
+    `Arquivar "${name}"?\n\nO cadastro continuará preservado no banco e deixará de aparecer na lista operacional. Qualquer cupom ainda vinculado a este usuário será devolvido automaticamente ao estoque.`,
     async () => {
       const { error } = await db.from('users').update({ archived_at: new Date().toISOString() }).eq('id', id);
       if (error) { toast('Erro ao arquivar: ' + error.message, 'error', 6000); return; }
-      toast('Usuário arquivado. Nenhum dado ou cupom foi excluído.', 'success');
+      toast('Usuário arquivado. Cupom devolvido ao estoque, quando aplicável.', 'success');
       loadUsers();
       loadDashboard();
     },
