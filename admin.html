@@ -4434,17 +4434,17 @@ function renderRefList() {
             onclick="event.stopPropagation();toggleProtectedOrigin('${o.id}',${!!o.protected_origin})">
             ${o.protected_origin ? '● Bloquear por origem' : '○ Bloquear por origem'}
           </button>
-          <span style="font-size:11px;color:var(--text3)">${o.protected_origin ? 'Acesso restrito ao domínio cadastrado · CPF obrigatório no formulário' : 'Acesso público pelo link do parceiro'}</span>
+          <span style="font-size:11px;color:var(--text3)">${o.protected_origin ? 'Acesso restrito aos domínios cadastrados · CPF obrigatório no formulário' : 'Acesso público pelo link do parceiro'}</span>
         </div>
         ${(o.protected_origin || originConfigOpen.has(String(o.id))) ? `
           <div style="display:flex;gap:.5rem;width:100%;flex-wrap:wrap;align-items:center">
-            <input class="ref-add-input" id="origin-${o.id}" value="${esc(o.allowed_origin || '')}" placeholder="https://dynamus.com.br/" style="min-width:240px;flex:1" draggable="false" onmousedown="event.stopPropagation()">
+            <textarea class="ref-add-input" id="origin-${o.id}" placeholder="https://dynamus.com.br/&#10;https://membros.dynamus.com.br/" style="min-width:240px;flex:1;min-height:74px;resize:vertical" draggable="false" onmousedown="event.stopPropagation()">${esc(((o.allowed_origins && o.allowed_origins.length) ? o.allowed_origins : (o.allowed_origin ? [o.allowed_origin] : [])).join('\n'))}</textarea>
             ${o.protected_origin
-              ? `<button type="button" draggable="false" class="btn btn-secondary btn-sm" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();saveAllowedOrigin('${o.id}')">💾 Salvar domínio</button>`
+              ? `<button type="button" draggable="false" class="btn btn-secondary btn-sm" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();saveAllowedOrigin('${o.id}')">💾 Salvar domínios</button>`
               : `<button type="button" draggable="false" class="btn btn-primary btn-sm" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();activateProtectedOrigin('${o.id}')">🔒 Ativar bloqueio</button>
                  <button type="button" draggable="false" class="btn btn-ghost btn-sm" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();cancelProtectedOriginConfig('${o.id}')">Cancelar</button>`}
           </div>
-          <div style="font-size:10.5px;color:var(--text3)">${o.protected_origin ? 'Digite a URL principal, por exemplo' : 'Informe o domínio permitido e clique em Ativar bloqueio. Exemplo:'} <span class="mono">https://dynamus.com.br/</span>. O formulário também aceitará a variação com/sem <span class="mono">www.</span>.</div>
+          <div style="font-size:10.5px;color:var(--text3)">${o.protected_origin ? 'Digite uma ou mais URLs, uma por linha. Exemplo:' : 'Informe um ou mais domínios permitidos (um por linha) e clique em Ativar bloqueio. Exemplo:'} <span class="mono">https://dynamus.com.br/</span>. O formulário também aceitará a variação com/sem <span class="mono">www.</span>.</div>
         ` : ''}
       </div>
     </div>`; }).join('');
@@ -4474,6 +4474,13 @@ function normalizeAllowedOriginUrl(raw) {
   try { url = new URL(value); } catch (e) { return null; }
   if (url.protocol !== 'https:' || !url.hostname) return null;
   return `https://${url.hostname.toLowerCase()}/`;
+}
+function normalizeAllowedOrigins(raw) {
+  const parts = String(raw || '').split(/[\n,;]+/).map(v => v.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  const normalized = parts.map(normalizeAllowedOriginUrl);
+  if (normalized.some(v => !v)) return null;
+  return [...new Set(normalized)];
 }
 
 function openProtectedOriginConfig(id) {
@@ -4509,21 +4516,18 @@ async function toggleProtectedOrigin(id, curr) {
 
 async function activateProtectedOrigin(id) {
   const input = document.getElementById(`origin-${id}`);
-  const normalized = normalizeAllowedOriginUrl(input?.value || '');
+  const normalized = normalizeAllowedOrigins(input?.value || '');
   if (!normalized) {
-    toast('Informe uma URL HTTPS válida, por exemplo https://dynamus.com.br/', 'error', 6000);
+    toast('Informe uma ou mais URLs HTTPS válidas, uma por linha.', 'error', 6000);
     input?.focus();
     return;
   }
-
   const { error } = await db.from('referrals')
-    .update({ protected_origin: true, allowed_origin: normalized })
+    .update({ protected_origin: true, allowed_origins: normalized, allowed_origin: normalized[0] })
     .eq('id', id);
-
   if (error) { toast('Erro ao ligar bloqueio por origem: ' + error.message, 'error', 6000); return; }
-
   allRefOpts = allRefOpts.map(o => String(o.id) === String(id)
-    ? { ...o, protected_origin: true, allowed_origin: normalized }
+    ? { ...o, protected_origin: true, allowed_origins: normalized, allowed_origin: normalized[0] }
     : o);
   originConfigOpen.delete(String(id));
   renderRefList();
@@ -4532,17 +4536,21 @@ async function activateProtectedOrigin(id) {
 
 async function saveAllowedOrigin(id) {
   const input = document.getElementById(`origin-${id}`);
-  const normalized = normalizeAllowedOriginUrl(input?.value || '');
+  const normalized = normalizeAllowedOrigins(input?.value || '');
   if (!normalized) {
-    toast('Informe uma URL HTTPS válida, por exemplo https://dynamus.com.br/', 'error', 6000);
+    toast('Informe uma ou mais URLs HTTPS válidas, uma por linha.', 'error', 6000);
     input?.focus();
     return;
   }
-  const { error } = await db.from('referrals').update({ allowed_origin: normalized, protected_origin: true }).eq('id', id);
-  if (error) { toast('Erro ao salvar domínio: ' + error.message, 'error', 6000); return; }
-  allRefOpts = allRefOpts.map(o => String(o.id) === String(id) ? { ...o, allowed_origin: normalized, protected_origin: true } : o);
+  const { error } = await db.from('referrals')
+    .update({ allowed_origins: normalized, allowed_origin: normalized[0], protected_origin: true })
+    .eq('id', id);
+  if (error) { toast('Erro ao salvar domínios: ' + error.message, 'error', 6000); return; }
+  allRefOpts = allRefOpts.map(o => String(o.id) === String(id)
+    ? { ...o, allowed_origins: normalized, allowed_origin: normalized[0], protected_origin: true }
+    : o);
   renderRefList();
-  toast('Domínio permitido salvo.', 'success');
+  toast('Domínios permitidos salvos.', 'success');
 }
 
 async function addRefOption() {
