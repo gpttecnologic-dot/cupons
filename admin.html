@@ -5062,7 +5062,9 @@ async function loadCrmProposalData(){
   db.from('products').select('*').eq('active',true).order('name'),
   db.from('email_templates').select('id,key,name,subject,body,active,purpose').eq('active',true).or('purpose.eq.proposal,key.like.crm_proposal%').order('name')
  ]);
- crmProposalProducts=p||[];crmProposalTemplates=t||[];
+ const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);
+ const currentCompanyId=dc?.company_id||crmSelectedCompanyId;
+ crmProposalProducts=(p||[]).filter(x=>!x.company_id||x.company_id===currentCompanyId);crmProposalTemplates=t||[];
  const ts=document.getElementById('crmProposalTemplate');
  if(ts)ts.innerHTML=crmProposalTemplates.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
  await loadCrmCompanyProducts();
