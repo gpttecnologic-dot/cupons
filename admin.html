@@ -1101,6 +1101,7 @@ body{overflow-x:hidden}
         <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">Uso</label>
         <select class="filter-sel" id="tplPurpose" style="width:100%">
           <option value="campaign">Campanha (disparo segmentado)</option>
+          <option value="proposal">Proposta comercial (CRM)</option>
           <option value="signup">Cadastro (automático ao preencher o formulário)</option>
           <option value="reminder">Lembrete (disparo manual pelo admin)</option>
         </select>
@@ -5056,7 +5057,7 @@ async function applyPermissionGating() {
 
 let crmProposalProducts=[],crmProposalTemplates=[];
 async function loadCrmProposalData(){
- const [{data:p},{data:t}]=await Promise.all([db.from('products').select('*').eq('active',true).order('name'),db.from('email_templates').select('id,key,name,subject,body,active').eq('active',true).like('key','crm_proposal%').order('name')]);
+ const [{data:p},{data:t}]=await Promise.all([db.from('products').select('*').eq('active',true).order('name'),db.from('email_templates').select('id,key,name,subject,body,active,purpose').eq('active',true).or('purpose.eq.proposal,key.like.crm_proposal%').order('name')]);
  crmProposalProducts=p||[];crmProposalTemplates=t||[];
  const ps=document.getElementById('crmProposalProduct'),ts=document.getElementById('crmProposalTemplate');
  if(ps)ps.innerHTML=crmProposalProducts.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
