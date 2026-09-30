@@ -5949,24 +5949,44 @@ async function loadPermissionsTab() {
   const listEl = document.getElementById('permPeopleList');
   listEl.innerHTML = '<div style="font-size:12px;color:var(--text3)">Carregando...</div>';
   try {
-    const invokePromise = db.functions.invoke('crm-manage-access', { body: { action: 'list_members' } });
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Tempo limite ao carregar operadores.')), 15000));
-    const [memberResult, refResult, compResult] = await Promise.all([
-      Promise.race([invokePromise, timeoutPromise]),
+    // A lista visível usa crm_profiles + tabelas de permissão diretamente.
+    // Isso evita travar toda a tela caso a Edge Function administrativa esteja lenta.
+    const [profilesR, adminsR, sysR, tabsR, accessR, refsR, compsR] = await Promise.all([
+      db.from('crm_profiles').select('user_id,email').order('email'),
+      db.from('crm_admins').select('user_id'),
+      db.from('system_admins').select('user_id'),
+      db.from('user_tab_access').select('user_id,tab_id'),
+      db.from('user_company_access').select('user_id,company_id,companies(id,name)'),
       db.from('referrals').select('id,name').order('name'),
       db.from('companies').select('id,name').order('name'),
     ]);
-    const { data, error } = memberResult;
-    permAllReferrals = refResult.data || [];
-    crmCompanies = compResult.data || [];
+    const firstErr=[profilesR,adminsR,sysR,tabsR,accessR,refsR,compsR].find(x=>x.error)?.error;
+    if(firstErr) throw firstErr;
+    permAllReferrals=refsR.data||[];
+    crmCompanies=compsR.data||[];
     renderNewOperatorCompanies();
-    if (error) { listEl.innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro ao carregar operadores: ${esc(error.message || String(error))}</div>`; return; }
-    if (data?.error) { listEl.innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro ao carregar operadores: ${esc(data.error)}</div>`; return; }
-    permMembersCache = data?.members || [];
-    crmMembersCallerIsSystemAdmin = !!data?.caller_is_system_admin;
+    const adminIds=new Set((adminsR.data||[]).map(x=>x.user_id));
+    const sysIds=new Set((sysR.data||[]).map(x=>x.user_id));
+    const ids=new Set([
+      ...(profilesR.data||[]).map(x=>x.user_id),
+      ...adminIds,...sysIds,
+      ...(tabsR.data||[]).map(x=>x.user_id),
+      ...(accessR.data||[]).map(x=>x.user_id)
+    ]);
+    const profileMap=new Map((profilesR.data||[]).map(x=>[x.user_id,x.email]));
+    permMembersCache=[...ids].map(id=>({
+      user_id:id,
+      email:profileMap.get(id)||'(login cadastrado)',
+      is_admin:adminIds.has(id),
+      is_system_admin:sysIds.has(id),
+      companies:(accessR.data||[]).filter(x=>x.user_id===id).map(x=>({id:x.company_id,name:x.companies?.name||'?'})),
+      tab_ids:(tabsR.data||[]).filter(x=>x.user_id===id).map(x=>x.tab_id),
+      referrals:[]
+    })).sort((a,b)=>a.email.localeCompare(b.email));
+    crmMembersCallerIsSystemAdmin=isSystemAdmin;
     renderPermPeopleList();
-  } catch (err) {
-    listEl.innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro ao carregar operadores: ${esc(err?.message || String(err))}</div><button class="btn btn-secondary btn-sm" style="margin-top:.6rem" onclick="loadPermissionsTab()">↺ Tentar novamente</button>`;
+  } catch(err) {
+    listEl.innerHTML=`<div style="font-size:12px;color:var(--danger)">Erro ao carregar operadores: ${esc(err?.message||String(err))}</div><button class="btn btn-secondary btn-sm" style="margin-top:.6rem" onclick="loadPermissionsTab()">↺ Tentar novamente</button>`;
   }
 }
 
