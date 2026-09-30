@@ -589,7 +589,7 @@ body{overflow-x:hidden}
       <div id="tab-waitlist" class="hidden">
         <div class="page-header">
           <div class="page-header-left"><div class="page-title">Lista de Espera</div><div class="page-sub">Usuários aguardando cupom disponível</div></div>
-          <button class="btn btn-ghost btn-sm" onclick="exportWaitlistCSV()">⬇ CSV</button>
+          <div class="btns"><button id="waitlistSendSelectedBtn" class="btn btn-primary btn-sm" onclick="sendSelectedWaitlistEmails()" disabled>✉ Enviar selecionados</button><button class="btn btn-ghost btn-sm" onclick="exportWaitlistCSV()">⬇ CSV</button></div>
         </div>
         <div class="tbl-wrap">
           <div id="waitlistBody"><div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Carregando...</div></div></div>
@@ -3958,70 +3958,82 @@ function runExportUsersCSV() {
 // Schema waitlist: id, name, email, phone, referral_id, created_at, notified, notified_at
 async function loadWaitlist() {
   document.getElementById('waitlistBody').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
-
-  if (!allRefOpts.length) {
-    const { data } = await db.from('referrals').select('id,name');
-    allRefOpts = data || [];
-  }
-
-  const { data, error } = await db
-    .from('waitlist')
-    .select('id,name,email,phone,referral_id,created_at,notified,notified_at')
-    .order('created_at', { ascending: false });
-
+  if (!allRefOpts.length) { const { data } = await db.from('referrals').select('id,name'); allRefOpts = data || []; }
+  const { data, error } = await db.from('waitlist').select('id,name,email,phone,referral_id,created_at,notified,notified_at').order('created_at', { ascending: false });
   const body = document.getElementById('waitlistBody');
+  if (error) { body.innerHTML = '<div class="empty-state"><div class="empty-title">Erro: '+esc(error.message)+'</div></div>'; return; }
   allWaitlist = data || [];
   const pending = allWaitlist.filter(w => !w.notified).length;
   document.getElementById('waitlistCount').textContent = pending || '0';
-
-  if (!allWaitlist.length) {
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Nenhum usuário na lista de espera</div></div>';
-    return;
-  }
+  if (!allWaitlist.length) { body.innerHTML = '<div class="empty-state"><div class="empty-icon">⏳</div><div class="empty-title">Nenhum usuário na lista de espera</div></div>'; updateWaitlistSelection(); return; }
 
   const rows = allWaitlist.map(w => `<tr>
+    <td data-label="Selecionar">${!w.notified ? `<input type="checkbox" class="waitlist-select" value="${w.id}" onchange="updateWaitlistSelection()">` : ''}</td>
     <td class="primary" data-label="Nome">${esc(w.name)}</td>
     <td data-label="E-mail">${esc(w.email)}</td>
     <td data-label="Telefone">${esc(w.phone || '—')}</td>
     <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(w.referral_id))}</span></td>
     <td data-label="Cadastrado em">${fmtDate(w.created_at)}</td>
     <td data-label="Status"><span class="badge ${w.notified ? 'b-distributed' : 'b-available'}">${w.notified ? 'Notificado' : 'Aguardando'}</span></td>
-    <td class="sticky-actions">
-      <div class="btns">
-        ${!w.notified ? `<button class="btn btn-success btn-sm" onclick="markNotified('${w.id}')">✓ Notificado</button>` : ''}
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteWaitlist('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">🗑</button>
-      </div>
-    </td>
+    <td class="sticky-actions"><div class="btns">
+      ${!w.notified ? `<button class="btn btn-success btn-sm" onclick="sendWaitlistEmails(['${w.id}'])">✉ Disparar</button>` : ''}
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteWaitlist('${w.id}','${(w.name||'').replace(/'/g,"\\'")}')">🗑</button>
+    </div></td>
   </tr>`).join('');
-
-  body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Parceiro</th><th>Cadastrado em</th><th>Status</th><th class="sticky-actions">Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr><th><input id="waitlistSelectAll" type="checkbox" onchange="toggleWaitlistSelectAll(this.checked)" title="Selecionar todos os aguardando"></th><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Parceiro</th><th>Cadastrado em</th><th>Status</th><th class="sticky-actions">Ações</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  updateWaitlistSelection();
 }
-
+function selectedWaitlistIds(){ return [...document.querySelectorAll('.waitlist-select:checked')].map(x=>x.value); }
+function updateWaitlistSelection(){
+  const ids=selectedWaitlistIds(), btn=document.getElementById('waitlistSendSelectedBtn');
+  if(btn){ btn.disabled=!ids.length; btn.textContent=ids.length ? `✉ Enviar selecionados (${ids.length})` : '✉ Enviar selecionados'; }
+  const all=[...document.querySelectorAll('.waitlist-select')], master=document.getElementById('waitlistSelectAll');
+  if(master){ master.checked=!!all.length && all.every(x=>x.checked); master.indeterminate=ids.length>0 && ids.length<all.length; }
+}
+function toggleWaitlistSelectAll(checked){ document.querySelectorAll('.waitlist-select').forEach(x=>x.checked=checked); updateWaitlistSelection(); }
+function sendSelectedWaitlistEmails(){ const ids=selectedWaitlistIds(); if(!ids.length){toast('Selecione pelo menos um usuário.','error');return;} openConfirm('Enviar e-mails',`Disparar o e-mail para ${ids.length} usuário(s) selecionado(s)? Somente envios confirmados serão marcados como notificados.`,()=>sendWaitlistEmails(ids),'✉ Enviar'); }
+async function sendWaitlistEmails(ids){
+  const btn=document.getElementById('waitlistSendSelectedBtn'); if(btn) btn.disabled=true;
+  let sent=0, failed=0, skipped=0;
+  for(const id of ids){
+    const w=allWaitlist.find(x=>x.id===id);
+    if(!w || w.notified){skipped++;continue;}
+    const {data:users,error:uerr}=await db.from('users').select('id,email,coupons_id').ilike('email',w.email.trim()).limit(1);
+    const u=users && users[0];
+    if(uerr || !u){failed++;continue;}
+    const {data:coupons,error:cerr}=await db.from('coupons').select('id,status').eq('users_id',u.id).eq('status','delivered').order('distributed_at',{ascending:false}).limit(1);
+    const coupon=coupons && coupons[0];
+    if(cerr || !coupon){failed++;continue;}
+    const {data:prior}=await db.from('events').select('id').eq('event_type','email_sent').eq('users_id',u.id).eq('coupons_id',coupon.id).limit(1);
+    if(prior && prior.length){
+      await db.from('waitlist').update({notified:true,notified_at:new Date().toISOString()}).eq('id',id);
+      skipped++; continue;
+    }
+    const {data,error}=await db.functions.invoke('send-coupon-email',{body:{user_id:u.id,coupon_id:coupon.id,template_key:'signup_thank_you'}});
+    if(error || data?.error){failed++;continue;}
+    const {error:markErr}=await db.from('waitlist').update({notified:true,notified_at:new Date().toISOString()}).eq('id',id);
+    if(markErr){failed++;continue;}
+    sent++;
+  }
+  await loadWaitlist();
+  if(sent) toast(`${sent} e-mail(s) enviado(s) e marcado(s) como notificado(s).`,'success',6000);
+  if(skipped) toast(`${skipped} registro(s) já enviado(s)/processado(s) foram ignorados.`,'info',6000);
+  if(failed) toast(`${failed} envio(s) falharam e continuam aguardando.`,'error',7000);
+}
 async function markNotified(id) {
   await db.from('waitlist').update({ notified: true, notified_at: new Date().toISOString() }).eq('id', id);
-  toast('Marcado como notificado.', 'success');
-  loadWaitlist();
+  toast('Marcado como notificado.', 'success'); loadWaitlist();
 }
 async function deleteWaitlist(id, name) {
   openConfirm('Remover da lista', `Remover "${name}" da lista de espera?`, async () => {
-    await db.from('waitlist').delete().eq('id', id);
-    toast('Removido da lista.', 'info');
-    loadWaitlist();
+    await db.from('waitlist').delete().eq('id', id); toast('Removido da lista.', 'info'); loadWaitlist();
   }, '🗑 Remover');
 }
-async function exportWaitlistCSV() {
-  await loadWaitlist();
-  exportWaitlistCSVDirect();
-}
+async function exportWaitlistCSV() { await loadWaitlist(); exportWaitlistCSVDirect(); }
 function exportWaitlistCSVDirect() {
   if (!allWaitlist.length) { toast('Lista de espera vazia.', 'error'); return; }
-  const h = 'Nome,E-mail,Telefone,Indicação,Cadastrado em,Status\n';
-  const r = allWaitlist.map(w => [
-    w.name, w.email, w.phone || '',
-    refLabelById(w.referral_id),
-    fmtDate(w.created_at),
-    w.notified ? 'Notificado' : 'Aguardando'
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const h = 'Nome,E-mail,Telefone,Indicação,Cadastrado em,Status\\n';
+  const r = allWaitlist.map(w => [w.name,w.email,w.phone||'',refLabelById(w.referral_id),fmtDate(w.created_at),w.notified?'Notificado':'Aguardando'].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\\n');
   dl('lista-espera.csv', h + r);
 }
 
