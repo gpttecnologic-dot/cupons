@@ -5946,20 +5946,28 @@ let permAllReferrals = [];
 let permEditingUserId = null;
 
 async function loadPermissionsTab() {
-  document.getElementById('permPeopleList').innerHTML = '<div style="font-size:12px;color:var(--text3)">Carregando...</div>';
-  const [{ data, error }, { data: refs }, { data: comps }] = await Promise.all([
-    db.functions.invoke('crm-manage-access', { body: { action: 'list_members' } }),
-    db.from('referrals').select('id,name').order('name'),
-    db.from('companies').select('id,name').order('name'),
-  ]);
-  permAllReferrals = refs || [];
-  crmCompanies = comps || [];
-  renderNewOperatorCompanies();
-  if (error) { document.getElementById('permPeopleList').innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro: ${esc(error.message || String(error))}</div>`; return; }
-  if (data?.error) { document.getElementById('permPeopleList').innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro: ${esc(data.error)}</div>`; return; }
-  permMembersCache = data.members || [];
-  crmMembersCallerIsSystemAdmin = !!data.caller_is_system_admin;
-  renderPermPeopleList();
+  const listEl = document.getElementById('permPeopleList');
+  listEl.innerHTML = '<div style="font-size:12px;color:var(--text3)">Carregando...</div>';
+  try {
+    const invokePromise = db.functions.invoke('crm-manage-access', { body: { action: 'list_members' } });
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Tempo limite ao carregar operadores.')), 15000));
+    const [memberResult, refResult, compResult] = await Promise.all([
+      Promise.race([invokePromise, timeoutPromise]),
+      db.from('referrals').select('id,name').order('name'),
+      db.from('companies').select('id,name').order('name'),
+    ]);
+    const { data, error } = memberResult;
+    permAllReferrals = refResult.data || [];
+    crmCompanies = compResult.data || [];
+    renderNewOperatorCompanies();
+    if (error) { listEl.innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro ao carregar operadores: ${esc(error.message || String(error))}</div>`; return; }
+    if (data?.error) { listEl.innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro ao carregar operadores: ${esc(data.error)}</div>`; return; }
+    permMembersCache = data?.members || [];
+    crmMembersCallerIsSystemAdmin = !!data?.caller_is_system_admin;
+    renderPermPeopleList();
+  } catch (err) {
+    listEl.innerHTML = `<div style="font-size:12px;color:var(--danger)">Erro ao carregar operadores: ${esc(err?.message || String(err))}</div><button class="btn btn-secondary btn-sm" style="margin-top:.6rem" onclick="loadPermissionsTab()">↺ Tentar novamente</button>`;
+  }
 }
 
 function renderPermPeopleList() {
