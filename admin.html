@@ -1880,7 +1880,7 @@ function renderEmailTemplates() {
     <tr>
       <td data-label="Nome">${esc(t.name)}</td>
       <td data-label="Chave"><span class="mono" style="font-size:11px">${esc(t.key)}</span></td>
-      <td data-label="Uso">${purposeLabel(t.purpose)}</td>
+      <td data-label="Uso">${String(t.key||"").startsWith("crm_proposal") ? "Proposta comercial (CRM)" : purposeLabel(t.purpose)}</td>
       <td data-label="Parceiro">${t.referral_id ? `<span class="ref-badge">${esc(refLabelById(t.referral_id))}</span>` : '<span style="color:var(--text3)">Geral</span>'}</td>
       <td data-label="Assunto">${esc(t.subject)}</td>
       <td data-label="PDF">${t.pdf_url ? '📎 sim' : '—'}</td>
