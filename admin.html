@@ -4006,17 +4006,25 @@ async function sendWaitlistEmails(ids){
     if(cerr || !coupon){failed++;continue;}
     const {data:prior}=await db.from('events').select('id').eq('event_type','email_sent').eq('users_id',u.id).eq('coupons_id',coupon.id).limit(1);
     if(prior && prior.length){
-      await db.from('waitlist').update({notified:true,notified_at:new Date().toISOString()}).eq('id',id);
+      // Já existe confirmação de envio: limpa a entrada sem disparar de novo.
+      await db.from('waitlist').delete().eq('id',id);
       skipped++; continue;
     }
     const {data,error}=await db.functions.invoke('send-coupon-email',{body:{user_id:u.id,coupon_id:coupon.id,template_key:'signup_thank_you'}});
     if(error || data?.error){failed++;continue;}
-    const {error:markErr}=await db.from('waitlist').update({notified:true,notified_at:new Date().toISOString()}).eq('id',id);
-    if(markErr){failed++;continue;}
+    // Envio confirmado: remove da lista de espera. Assim a fila mostra
+    // somente quem ainda precisa ser processado.
+    const {error:removeErr}=await db.from('waitlist').delete().eq('id',id);
+    if(removeErr){
+      // O e-mail já saiu; não conta como falha de envio. Mantém o registro
+      // marcado como notificado para evitar um novo disparo acidental.
+      await db.from('waitlist').update({notified:true,notified_at:new Date().toISOString()}).eq('id',id);
+      skipped++; continue;
+    }
     sent++;
   }
   await loadWaitlist();
-  if(sent) toast(`${sent} e-mail(s) enviado(s) e marcado(s) como notificado(s).`,'success',6000);
+  if(sent) toast(`${sent} e-mail(s) enviado(s). Registro(s) removido(s) da lista de espera.`,'success',6000);
   if(skipped) toast(`${skipped} registro(s) já enviado(s)/processado(s) foram ignorados.`,'info',6000);
   if(failed) toast(`${failed} envio(s) falharam e continuam aguardando.`,'error',7000);
 }
