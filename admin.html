@@ -964,7 +964,7 @@ body{overflow-x:hidden}
             <div id="permNewCompanies" style="display:flex;flex-wrap:wrap;gap:.5rem"></div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="createOperator()" style="margin-top:.8rem">Criar operador</button>
-          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 0">O operador recebe um e-mail para ativar o primeiro acesso e cadastrar a própria senha. Master acessa todo o sistema; Perfil Executivo tem visão global e operação em Dashboard, Usuários, Corporativo e CRM Negócios; ADM Empresa fica restrito às empresas selecionadas.</p>
+          <p style="font-size:11px;color:var(--text3);margin:.5rem 0 0">Senha inicial: 123456. No primeiro login, o operador será obrigado a cadastrar uma nova senha antes de acessar o sistema. Master acessa todo o sistema; Perfil Executivo tem visão global e operação em Dashboard, Usuários, Corporativo e CRM Negócios; ADM Empresa fica restrito às empresas selecionadas.</p>
         </div>
 
         <div class="tbl-wrap" style="padding:1rem 1.25rem">
@@ -6025,7 +6025,7 @@ async function createOperator() {
   if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error', 6000); return; }
   document.getElementById('permNewName').value = '';
   document.getElementById('permNewEmail').value = '';
-  toast('Operador cadastrado. O convite para criar a senha foi enviado por e-mail.', 'success', 5000);
+  toast('Operador cadastrado. Senha inicial: 123456. No primeiro login será obrigatório criar uma nova senha.', 'success', 6000);
   await loadPermissionsTab();
   renderNewOperatorCompanies();
 }
