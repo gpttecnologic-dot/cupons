@@ -1822,7 +1822,10 @@ let allEmailTemplates = [];
 let editingTemplateId = null;
 
 function purposeLabel(p) {
-  return p === 'signup' ? 'Cadastro (automático)' : p === 'reminder' ? 'Lembrete (manual)' : 'Campanha';
+  return p === 'signup' ? 'Cadastro (automático)' :
+    p === 'reminder' ? 'Lembrete (manual)' :
+    p === 'proposal' ? 'Proposta comercial (CRM)' :
+    'Campanha';
 }
 
 async function loadCampaigns() {
