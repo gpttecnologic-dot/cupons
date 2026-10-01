@@ -595,15 +595,29 @@ async function submitForm() {
       alreadyLink = u.link || '';
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
 
-      // O link nunca é exibido na página. Para cadastro existente, reenvia
-      // o cupom para o e-mail já informado e orienta a pessoa a aguardar.
-      if (u.coupon_id) {
-        db.functions.invoke('send-coupon-email', {
-          body: { user_id: u.user_id, coupon_id: u.coupon_id, template_key: 'signup_thank_you' }
-        }).catch(() => {});
+      // Cadastro existente: se estava sem cupom, a RPC acima acabou de
+      // reservar e vincular um novo cupom. Se já tinha cupom, reaproveitamos
+      // o vínculo existente. Nos dois casos o link é entregue somente por e-mail.
+      // Este mesmo fluxo vale para formulário normal e para parceiro com
+      // domínio protegido, pois a validação de origem acontece antes do submit.
+      if (!u.coupon_id) {
+        showErr('Não foi possível reservar um cupom. Tente novamente.');
+        return;
       }
+
+      const { error: emailErr } = await db.functions.invoke('send-coupon-email', {
+        body: { user_id: u.user_id, coupon_id: u.coupon_id, template_key: 'signup_thank_you' }
+      });
+
+      if (emailErr) {
+        document.getElementById('a-msg').textContent =
+          `Olá, ${u.user_name}! Seu cupom foi reservado, mas houve uma falha no envio do e-mail. Fale com o suporte para reenviarmos o link.`;
+        showState('stateAlready');
+        return;
+      }
+
       document.getElementById('a-msg').textContent =
-        `Olá, ${u.user_name}! Seu link exclusivo será enviado para o seu e-mail. Aguarde cerca de 1 minuto para recebê-lo.`;
+        `Olá, ${u.user_name}! Seu link exclusivo foi enviado para o seu e-mail. Aguarde cerca de 1 minuto para recebê-lo.`;
       showState('stateAlready'); return;
     }
 
@@ -671,16 +685,17 @@ async function submitForm() {
     // o e-mail é o único canal de entrega ao usuário. Erros ficam registrados
     // dentro da própria função
     // (tabela events, event_type='email_error').
-    db.functions.invoke('send-coupon-email', {
+    const { error: newUserEmailErr } = await db.functions.invoke('send-coupon-email', {
       body: { user_id: newUser[0].id, coupon_id: coupon.id, template_key: 'signup_thank_you' }
-    }).catch(() => {});
+    });
 
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
     currentLink = '';
     // Para pedidos de 2 a 10 licenças, o fluxo automático sempre entrega
     // apenas 1 link. Não há contato comercial nessa faixa.
-    document.getElementById('s-msg').textContent =
-      `${name}, seu link exclusivo será enviado para o e-mail informado. Aguarde cerca de 1 minuto para recebê-lo.`;
+    document.getElementById('s-msg').textContent = newUserEmailErr
+      ? `${name}, seu cupom foi reservado, mas houve uma falha no envio do e-mail. Fale com o suporte para reenviarmos o link.`
+      : `${name}, seu link exclusivo foi enviado para o e-mail informado. Aguarde cerca de 1 minuto para recebê-lo.`;
     showState('stateSuccess');
 
   } catch(e) {
