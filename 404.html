@@ -189,37 +189,22 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
     <!-- SUCESSO -->
     <div id="stateSuccess" class="hidden">
       <div class="success-box">
-        <div class="success-icon">🎉</div>
-        <div class="success-title">Cupom recebido!</div>
+        <div class="success-icon">✉️</div>
+        <div class="success-title">Cadastro realizado!</div>
         <div class="success-msg" id="s-msg"></div>
       </div>
-      <div class="link-box">
-        <div class="link-label">Seu link exclusivo</div>
-        <div class="link-url" id="s-link"></div>
-      </div>
-      <div class="actions">
-        <button class="btn btn-primary" id="s-open" onclick="openLink()">🔗 Abrir cupom</button>
-        <button class="btn btn-outline" onclick="copyLink()">📋 Copiar link</button>
-      </div>
-      <div class="divider"></div>
-      <p style="font-size:11px;color:var(--text3);text-align:center;line-height:1.5">⚠️ Guarde este link. Ele é pessoal e intransferível.</p>
+      <p style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6">Caso não encontre o e-mail, verifique também as pastas de spam ou lixo eletrônico.</p>
     </div>
 
     <!-- JÁ CADASTRADO -->
     <div id="stateAlready" class="hidden">
       <div class="success-box" style="background:var(--warning-bg);border-color:rgba(245,158,11,.2)">
-        <div class="success-icon">👋</div>
-        <div class="success-title" style="color:var(--warning)">Bem-vindo de volta!</div>
+        <div class="success-icon">✉️</div>
+        <div class="success-title" style="color:var(--warning)">Cadastro já localizado</div>
         <div class="success-msg" id="a-msg"></div>
       </div>
-      <div class="link-box">
-        <div class="link-label">Seu link exclusivo</div>
-        <div class="link-url" id="a-link"></div>
-      </div>
-      <div class="actions">
-        <button class="btn btn-primary" id="a-open" onclick="openAlreadyLink()">🔗 Abrir cupom</button>
-        <button class="btn btn-outline" onclick="copyAlreadyLink()">📋 Copiar link</button>
-      </div>
+      <p style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6;margin-bottom:.75rem">Caso não encontre o e-mail, verifique também as pastas de spam ou lixo eletrônico.</p>
+      <a class="btn btn-outline" href="https://wa.me/5531984350030" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;justify-content:center;width:100%;text-decoration:none">💬 Falar com o suporte pelo WhatsApp</a>
     </div>
 
     <!-- ESGOTADO -->
@@ -394,8 +379,9 @@ function validateProtectedOrigin(referral) {
   } catch (_) {}
 
   // Fail closed: parceiro protegido sem domínio, sem Referer ou navegação
-  // sem HTTPS nunca libera o formulário. Aceita o domínio cadastrado e seus
-  // subdomínios legítimos, sem aceitar domínios apenas parecidos.
+  // sem HTTPS nunca libera o formulário. O host pode ser o domínio cadastrado
+  // OU um subdomínio legítimo dele. O ponto antes de allowedHost é importante:
+  // "site.dynamus.com.br" passa, mas "dynamus.com.br.sitefalso.com" não.
   const hostAllowed = !!referrerHost && allowedHosts.some(allowedHost =>
     referrerHost === allowedHost || referrerHost.endsWith('.' + allowedHost)
   );
@@ -586,15 +572,52 @@ async function submitForm() {
       return;
     }
 
-    // 1. Verifica duplicidade: e-mail OU telefone (via função segura no banco, sem expor a tabela)
-    const { data: existing } = await db.rpc('check_existing_user', { p_email: email, p_phone: phone });
+    // 1. Verifica cadastro existente e, se ele estiver sem cupom, recupera-o
+    // atomicamente com um cupom disponível. Assim a campanha não cria usuário
+    // duplicado nem consome um segundo cupom para quem já possui um.
+    const { data: existing, error: existingErr } = await db.rpc('claim_coupon_for_existing_user', {
+      p_email: email,
+      p_phone: phone
+    });
+
+    if (existingErr) {
+      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
+      showErr('Erro ao verificar seu cadastro. Tente novamente.'); return;
+    }
 
     if (existing?.length > 0) {
-      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
       const u = existing[0];
+      if (u.result === 'no_coupon') {
+        btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
+        showState('stateEmpty'); return;
+      }
+
       alreadyLink = u.link || '';
-      document.getElementById('a-msg').textContent = `Olá, ${u.name}! Você já possui um cupom vinculado ao seu cadastro.`;
-      document.getElementById('a-link').textContent = alreadyLink;
+      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
+
+      // Cadastro existente: se estava sem cupom, a RPC acima acabou de
+      // reservar e vincular um novo cupom. Se já tinha cupom, reaproveitamos
+      // o vínculo existente. Nos dois casos o link é entregue somente por e-mail.
+      // Este mesmo fluxo vale para formulário normal e para parceiro com
+      // domínio protegido, pois a validação de origem acontece antes do submit.
+      if (!u.coupon_id) {
+        showErr('Não foi possível reservar um cupom. Tente novamente.');
+        return;
+      }
+
+      const { error: emailErr } = await db.functions.invoke('send-coupon-email', {
+        body: { user_id: u.user_id, coupon_id: u.coupon_id, template_key: 'signup_thank_you' }
+      });
+
+      if (emailErr) {
+        document.getElementById('a-msg').textContent =
+          `Olá, ${u.user_name}! Seu cupom foi reservado, mas houve uma falha no envio do e-mail. Fale com o suporte para reenviarmos o link.`;
+        showState('stateAlready');
+        return;
+      }
+
+      document.getElementById('a-msg').textContent =
+        `Olá, ${u.user_name}! Seu link exclusivo foi enviado para o seu e-mail. Aguarde cerca de 1 minuto para recebê-lo.`;
       showState('stateAlready'); return;
     }
 
@@ -658,20 +681,21 @@ async function submitForm() {
     // modelo cadastrado em email_templates (editável na aba "Campanhas de
     // E-mail" do admin) — se a migração ainda não rodou ou o modelo não
     // existir, a function cai automaticamente no texto padrão antigo. Não
-    // bloqueia nem quebra o cadastro se falhar — o usuário já vê o link na
-    // tela de qualquer forma; o e-mail é um reforço, não o único jeito de
-    // receber o link. Erros ficam registrados dentro da própria função
+    // bloqueia nem quebra o cadastro se falhar. O link não é exibido na página:
+    // o e-mail é o único canal de entrega ao usuário. Erros ficam registrados
+    // dentro da própria função
     // (tabela events, event_type='email_error').
-    db.functions.invoke('send-coupon-email', {
+    const { error: newUserEmailErr } = await db.functions.invoke('send-coupon-email', {
       body: { user_id: newUser[0].id, coupon_id: coupon.id, template_key: 'signup_thank_you' }
-    }).catch(() => {});
+    });
 
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
-    currentLink = coupon.link;
-    document.getElementById('s-msg').textContent = qtd > 1
-      ? `Parabéns, ${name}! Seu primeiro link exclusivo foi gerado. Como você pediu ${qtd} licenças, nosso time vai entrar em contato para providenciar as demais.`
-      : `Parabéns, ${name}! Seu link exclusivo foi gerado.`;
-    document.getElementById('s-link').textContent = coupon.link;
+    currentLink = '';
+    // Para pedidos de 2 a 10 licenças, o fluxo automático sempre entrega
+    // apenas 1 link. Não há contato comercial nessa faixa.
+    document.getElementById('s-msg').textContent = newUserEmailErr
+      ? `${name}, seu cupom foi reservado, mas houve uma falha no envio do e-mail. Fale com o suporte para reenviarmos o link.`
+      : `${name}, seu link exclusivo foi enviado para o e-mail informado. Aguarde cerca de 1 minuto para recebê-lo.`;
     showState('stateSuccess');
 
   } catch(e) {
