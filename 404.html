@@ -186,6 +186,22 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
       </button>
     </div>
 
+    <!-- VALIDAÇÃO DE E-MAIL -->
+    <div id="stateVerify" class="hidden">
+      <div class="success-box" style="background:var(--bg3);border-color:var(--border2)">
+        <div class="success-icon">✉️</div>
+        <div class="success-title" style="color:var(--text)">Confirme seu e-mail</div>
+        <div class="success-msg" id="verify-msg">Enviamos um código de 6 dígitos para o seu e-mail. Digite-o abaixo para liberar o cupom.</div>
+      </div>
+      <div class="fg">
+        <label>Código de confirmação <span>*</span></label>
+        <input type="text" id="f-code" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" />
+      </div>
+      <div id="verifyAlert" class="alert alert-danger hidden"></div>
+      <button class="btn btn-primary" id="verifyBtn" onclick="verifyEmailCode()">Confirmar e liberar cupom</button>
+      <p style="font-size:12px;color:var(--text3);text-align:center;line-height:1.5;margin-top:1rem">O código expira em 10 minutos. O cupom só é reservado depois da confirmação.</p>
+    </div>
+
     <!-- SUCESSO -->
     <div id="stateSuccess" class="hidden">
       <div class="success-box">
@@ -339,6 +355,8 @@ let lastSubmit = 0;
 let currentLink = '';
 let alreadyLink = '';
 let currentReferralProtected = false;
+let pendingVerificationId = '';
+let pendingVerificationEmail = '';
 
 // A indicação não é mais escolhida no formulário — ela é sempre resolvida
 // a partir do link usado pra chegar aqui (?ref=NomeDaIndicação, gerado na
@@ -485,7 +503,7 @@ async function initReferral() {
 }
 
 function showState(id) {
-  ['stateLoading','stateForm','stateSuccess','stateAlready','stateEmpty','stateCorporate','stateInvalidRef','stateProtectedOrigin'].forEach(s =>
+  ['stateLoading','stateForm','stateVerify','stateSuccess','stateAlready','stateEmpty','stateCorporate','stateInvalidRef','stateProtectedOrigin'].forEach(s =>
     document.getElementById(s).classList.toggle('hidden', s !== id)
   );
 }
@@ -572,135 +590,87 @@ async function submitForm() {
       return;
     }
 
-    // 1. Verifica cadastro existente e, se ele estiver sem cupom, recupera-o
-    // atomicamente com um cupom disponível. Assim a campanha não cria usuário
-    // duplicado nem consome um segundo cupom para quem já possui um.
-    const { data: existing, error: existingErr } = await db.rpc('claim_coupon_for_existing_user', {
-      p_email: email,
-      p_phone: phone
+    // 1. Antes de qualquer reserva de cupom, valida a posse do e-mail.
+    // O backend apenas cria/vincula o cupom depois que o código de 6 dígitos
+    // enviado para esse endereço for confirmado.
+    const { data: verification, error: verificationErr } = await db.functions.invoke('verify-coupon-email', {
+      body: {
+        action: 'request',
+        name,
+        email,
+        phone,
+        cpf: currentReferralProtected ? cpf : null,
+        referral_id: referral,
+        quantidade_licencas: qtd
+      }
     });
 
-    if (existingErr) {
-      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
-      showErr('Erro ao verificar seu cadastro. Tente novamente.'); return;
-    }
+    btn.disabled = false;
+    btn.innerHTML = '🎫 Resgatar meu cupom';
 
-    if (existing?.length > 0) {
-      const u = existing[0];
-      if (u.result === 'no_coupon') {
-        btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
-        showState('stateEmpty'); return;
-      }
-
-      alreadyLink = u.link || '';
-      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
-
-      // Cadastro existente: se estava sem cupom, a RPC acima acabou de
-      // reservar e vincular um novo cupom. Se já tinha cupom, reaproveitamos
-      // o vínculo existente. Nos dois casos o link é entregue somente por e-mail.
-      // Este mesmo fluxo vale para formulário normal e para parceiro com
-      // domínio protegido, pois a validação de origem acontece antes do submit.
-      if (!u.coupon_id) {
-        showErr('Não foi possível reservar um cupom. Tente novamente.');
-        return;
-      }
-
-      const { error: emailErr } = await db.functions.invoke('send-coupon-email', {
-        body: { user_id: u.user_id, coupon_id: u.coupon_id, template_key: 'signup_thank_you' }
-      });
-
-      if (emailErr) {
-        document.getElementById('a-msg').textContent =
-          `Olá, ${u.user_name}! Seu cupom foi reservado, mas houve uma falha no envio do e-mail. Fale com o suporte para reenviarmos o link.`;
-        showState('stateAlready');
-        return;
-      }
-
-      document.getElementById('a-msg').textContent =
-        `Olá, ${u.user_name}! Seu link exclusivo foi enviado para o seu e-mail. Aguarde cerca de 1 minuto para recebê-lo.`;
-      showState('stateAlready'); return;
-    }
-
-    // 2. Busca cupom disponível
-    const { data: avail } = await db
-      .from('coupons')
-      .select('id, link')
-      .eq('status', 'available')
-      .limit(1);
-
-    if (!avail?.length) {
-      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
-      showState('stateEmpty'); return;
-    }
-
-    const coupon = avail[0];
-
-    // 3. Marca cupom como distributed (guard race condition)
-    const { data: locked } = await db
-      .from('coupons')
-      .update({ status: 'delivered', distributed_at: new Date().toISOString() })
-      .eq('id', coupon.id)
-      .eq('status', 'available')
-      .select();
-
-    if (!locked?.length) {
-      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
-      showErr('Conflito ao reservar cupom. Tente novamente.'); return;
-    }
-
-    // 4. Cria usuário
-    // Observação: mesmo pedidos de 2-10 licenças recebem só 1 cupom aqui —
-    // guardamos "quantidade_licencas" pra equipe saber, pelo admin, que
-    // ainda faltam licenças a emitir manualmente pra essa pessoa.
-    const { data: newUser, error: uErr } = await db
-      .from('users')
-      .insert({ name, email, phone, cpf: currentReferralProtected ? cpf : null, referral_id: referral, coupons_id: coupon.id, quantidade_licencas: qtd })
-      .select();
-
-    if (uErr) {
-      await db.from('coupons').update({ status: 'available', distributed_at: null }).eq('id', coupon.id);
-      btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
-      if (uErr.code === '23505') showErr('Já existe um cadastro com esse e-mail ou telefone.');
-      else showErr('Erro ao salvar. Tente novamente.');
+    if (verificationErr || !verification?.verification_id) {
+      showErr(verification?.error || 'Não foi possível enviar o código de confirmação. Tente novamente.');
       return;
     }
 
-    // 4.1 Espelha o vínculo do lado do cupom (evita ficar dessincronizado)
-    await db.from('coupons').update({ users_id: newUser[0].id }).eq('id', coupon.id);
-
-    // 5. Log
-    await db.from('events').insert({
-      coupons_id: coupon.id,
-      users_id: newUser[0].id,
-      event_type: 'delivered',
-      metadata: JSON.stringify({ email, phone, referral_id: referral, cpf_required: currentReferralProtected })
-    });
-
-    // 6. Dispara o e-mail de agradecimento + link (Edge Function
-    // send-coupon-email, via Resend). template_key='signup_thank_you' usa o
-    // modelo cadastrado em email_templates (editável na aba "Campanhas de
-    // E-mail" do admin) — se a migração ainda não rodou ou o modelo não
-    // existir, a function cai automaticamente no texto padrão antigo. Não
-    // bloqueia nem quebra o cadastro se falhar. O link não é exibido na página:
-    // o e-mail é o único canal de entrega ao usuário. Erros ficam registrados
-    // dentro da própria função
-    // (tabela events, event_type='email_error').
-    const { error: newUserEmailErr } = await db.functions.invoke('send-coupon-email', {
-      body: { user_id: newUser[0].id, coupon_id: coupon.id, template_key: 'signup_thank_you' }
-    });
-
-    btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
-    currentLink = '';
-    // Para pedidos de 2 a 10 licenças, o fluxo automático sempre entrega
-    // apenas 1 link. Não há contato comercial nessa faixa.
-    document.getElementById('s-msg').textContent = newUserEmailErr
-      ? `${name}, seu cupom foi reservado, mas houve uma falha no envio do e-mail. Fale com o suporte para reenviarmos o link.`
-      : `${name}, seu link exclusivo foi enviado para o e-mail informado. Aguarde cerca de 1 minuto para recebê-lo.`;
-    showState('stateSuccess');
+    pendingVerificationId = verification.verification_id;
+    pendingVerificationEmail = email;
+    document.getElementById('f-code').value = '';
+    document.getElementById('verifyAlert').classList.add('hidden');
+    document.getElementById('verify-msg').textContent =
+      `Enviamos um código de 6 dígitos para ${email}. Digite-o abaixo para liberar o cupom.`;
+    showState('stateVerify');
+    return;
 
   } catch(e) {
     btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
     showErr('Erro inesperado. Tente novamente.');
+  }
+}
+
+async function verifyEmailCode() {
+  const code = (document.getElementById('f-code').value || '').replace(/\D/g, '').slice(0,6);
+  const alert = document.getElementById('verifyAlert');
+  const btn = document.getElementById('verifyBtn');
+
+  alert.classList.add('hidden');
+  if (!pendingVerificationId) {
+    alert.textContent = '⚠ Validação expirada. Volte ao formulário e solicite um novo código.';
+    alert.classList.remove('hidden');
+    return;
+  }
+  if (!/^\d{6}$/.test(code)) {
+    alert.textContent = '⚠ Digite o código de 6 dígitos enviado para o seu e-mail.';
+    alert.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Confirmando...';
+
+  try {
+    const { data, error } = await db.functions.invoke('verify-coupon-email', {
+      body: { action: 'verify', verification_id: pendingVerificationId, code }
+    });
+
+    btn.disabled = false;
+    btn.innerHTML = 'Confirmar e liberar cupom';
+
+    if (error || !data?.success) {
+      alert.textContent = '⚠ ' + (data?.error || 'Não foi possível confirmar o código. Tente novamente.');
+      alert.classList.remove('hidden');
+      return;
+    }
+
+    pendingVerificationId = '';
+    document.getElementById('s-msg').textContent =
+      `E-mail confirmado. Seu link exclusivo foi enviado para ${pendingVerificationEmail}. Aguarde cerca de 1 minuto para recebê-lo.`;
+    showState('stateSuccess');
+  } catch (_) {
+    btn.disabled = false;
+    btn.innerHTML = 'Confirmar e liberar cupom';
+    alert.textContent = '⚠ Erro inesperado ao confirmar o código. Tente novamente.';
+    alert.classList.remove('hidden');
   }
 }
 
