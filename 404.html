@@ -516,6 +516,16 @@ function showErr(msg) {
 }
 function hideErr() { document.getElementById('alertBox').classList.add('hidden'); }
 
+function getCouponDeviceId() {
+  const key = 'coupon_device_id_v1';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(36).slice(2));
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
 
 function normalizeCpf(v) { return (v || '').replace(/\D/g, ''); }
 function isValidCpf(v) {
@@ -593,7 +603,7 @@ async function submitForm() {
     // 1. Antes de qualquer reserva de cupom, valida a posse do e-mail.
     // O backend apenas cria/vincula o cupom depois que o código de 6 dígitos
     // enviado para esse endereço for confirmado.
-    const { data: verification, error: verificationErr } = await db.functions.invoke('verify-coupon-email', {
+    const { data: verification, error: verificationErr } = await db.functions.invoke('coupon-gateway', {
       body: {
         action: 'request',
         name,
@@ -601,7 +611,8 @@ async function submitForm() {
         phone,
         cpf: currentReferralProtected ? cpf : null,
         referral_id: referral,
-        quantidade_licencas: qtd
+        quantidade_licencas: qtd,
+        device_id: getCouponDeviceId()
       }
     });
 
@@ -649,7 +660,7 @@ async function verifyEmailCode() {
   btn.innerHTML = '<span class="spinner"></span> Confirmando...';
 
   try {
-    const { data, error } = await db.functions.invoke('verify-coupon-email', {
+    const { data, error } = await db.functions.invoke('coupon-gateway', {
       body: { action: 'verify', verification_id: pendingVerificationId, code }
     });
 
