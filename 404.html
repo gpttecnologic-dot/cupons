@@ -431,41 +431,19 @@ function showProtectedOrigin(referral) {
 
 async function initReferral() {
   try {
-    let { data, error } = await db
-      .from('referrals')
-      .select('id, name, logo_url, protected_origin, allowed_origin, allowed_origins')
-      .eq('active', true)
-      .order('created_at', { ascending: true });
-
-    // A coluna logo_url só existe depois de rodar o SQL
-    // "logo_parceiro_setup.sql" no Supabase. Sem ela, tenta de novo sem
-    // essa coluna em vez de quebrar o formulário inteiro pra todo mundo.
-    if (error && /logo_url/i.test(error.message || '')) {
-      const retry = await db
-        .from('referrals')
-        .select('id, name, protected_origin, allowed_origin, allowed_origins')
-        .eq('active', true)
-        .order('created_at', { ascending: true });
-      data = retry.data; error = retry.error;
-    }
-
-    if (error || !data) { showState('stateInvalidRef'); return; }
-
-    // A indicação agora vem do CAMINHO da URL (ex: 12ia.ia.br/OAB-MG),
-    // não de query string. A raiz do site (nada depois da barra) é a
-    // indicação "12IA" — a marca própria, não um caso "sem indicação".
-    // Mantém suporte a ?ref=... só como fallback, pra não quebrar links
-    // antigos gerados no formato anterior.
-    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    // Resolve somente a indicação pedida pela URL através do gateway.
+    // O navegador não lista mais a tabela pública de referrals.
+    const path = window.location.pathname.replace(/^\\/+|\\/+$/g, '');
     const qsRef = new URLSearchParams(window.location.search).get('ref');
     const slug = path ? decodeURIComponent(path.split('/')[0]) : (qsRef || '12IA');
 
-    const match = data.find(o => normalizeRef(o.name) === normalizeRef(slug));
+    const { data: cfg, error } = await db.functions.invoke('coupon-gateway', {
+      body: { action: 'referral_config', slug }
+    });
+    const match = cfg?.referral;
 
-    if (!match) { showState('stateInvalidRef'); return; }
+    if (error || !match) { showState('stateInvalidRef'); return; }
 
-    // Mostra a logo do parceiro assim que a indicação é identificada,
-    // inclusive na tela de acesso bloqueado por origem.
     if (match.logo_url) {
       const img = document.getElementById('partnerLogoImg');
       const wrap = document.getElementById('partnerLogoWrap');
@@ -492,10 +470,6 @@ async function initReferral() {
     }
 
     document.getElementById('f-referral').value = match.id;
-
-    // O formulário só aparece DEPOIS de toda a validação de origem terminar.
-    // Isso evita que um parceiro protegido veja/interaja com o formulário
-    // durante a consulta assíncrona ao banco.
     showState('stateForm');
   } catch (e) {
     showState('stateInvalidRef');
