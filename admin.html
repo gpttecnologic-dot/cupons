@@ -355,6 +355,11 @@ body{overflow-x:hidden}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0-6h20a3 3 0 0 1 0 6v2a3 3 0 0 1 0 6H2a3 3 0 0 1 0-6z"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
         Cupons
       </div>
+      <div class="sb-link" id="nav-releasequeue" onclick="goTab('releasequeue')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Fila de Liberação
+        <span class="sb-badge" id="releaseQueueCount">0</span>
+      </div>
       <div class="sb-link" id="nav-users" onclick="goTab('users')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Usuários
@@ -543,13 +548,28 @@ body{overflow-x:hidden}
                 <option value="redeemed">Resgatados</option>
                 <option value="blocked">Bloqueados</option>
                 <option value="invalid">Inválidos</option>
-                <option value="release">🧑‍💼 Aguardando liberação humana</option>
                 <option value="validate">⏳ Aguardando validação 72h</option>
               </select>
               <input class="search-input" id="couponSearch" placeholder="Buscar link, nome, e-mail ou telefone..." oninput="couponPage=0;renderCoupons()"/>
             </div>
           </div>
           <div id="couponBody"><div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Carregando...</div></div></div>
+        </div>
+      </div>
+
+      <!-- FILA DE LIBERAÇÃO -->
+      <div id="tab-releasequeue" class="hidden">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-title">Fila de Liberação</div>
+            <div class="page-sub">Solicitações confirmadas por e-mail aguardando decisão humana. Nenhum cupom é reservado antes da sua aprovação.</div>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <div class="tbl-head">
+            <input class="search-input" id="releaseQueueSearch" placeholder="Buscar nome, e-mail, telefone, CPF ou parceiro..." oninput="releasePage=0;renderReleaseQueue()" style="width:320px"/>
+          </div>
+          <div id="releaseQueueBody"><div class="empty-state"><div class="empty-icon">🧑‍💼</div><div class="empty-title">Carregando...</div></div></div>
         </div>
       </div>
 
@@ -1425,6 +1445,7 @@ const _inviteFlow = /type=invite|type=recovery/.test(window.location.hash);
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let allCoupons = [], allReleaseRequests = [], allUsers = [], allRefOpts = [], allWaitlist = [];
 let couponPage = 0, couponPageSize = 20;
+let releasePage = 0, releasePageSize = 20;
 let userPage = 0, userPageSize = 20;
 let loginAttempts = 0, currentTab = 'dashboard';
 // Ordenação das tabelas de Cupons e Usuários (clicando no cabeçalho da
@@ -1659,11 +1680,13 @@ async function loadNotifications(proactive=false){
     ]);
     coupons=oldDelivered||[];
     manualPending=pendingRelease||[];
+    const releaseBadge=document.getElementById('releaseQueueCount');
+    if(releaseBadge) releaseBadge.textContent=String(manualPending.length);
   }
   const n=[];
   deals.forEach(x=>{const d=new Date(x.due_date+'T23:59:59');if(d<now)n.push({danger:true,title:'Negociação atrasada',sub:(x.crm_deals?.title||'Negociação')+' · prazo '+d.toLocaleDateString('pt-BR'),tab:'crm'});else if(d<=soon)n.push({danger:false,title:'Negociação no limite',sub:(x.crm_deals?.title||'Negociação')+' · vence '+d.toLocaleDateString('pt-BR'),tab:'crm'});});
   sla.forEach(x=>{if(x.resolution_due_at&&new Date(x.resolution_due_at)<now)n.push({danger:true,title:'SLA atrasado',sub:'#'+x.ticket_number+' · '+x.title,tab:'sla'});});
-  if(manualPending.length)n.push({danger:true,title:'Cupons aguardando liberação humana',sub:manualPending.length+' solicitação(ões) aguardando decisão',tab:'coupons'});
+  if(manualPending.length)n.push({danger:true,title:'Cupons aguardando liberação humana',sub:manualPending.length+' solicitação(ões) aguardando decisão',tab:'releasequeue'});
   if(coupons.length)n.push({danger:false,title:'Cupons aguardando validação',sub:coupons.length+' entregue(s) há mais de 72h',tab:'coupons'});
   const badge=document.getElementById('notifCount');badge.textContent=n.length>99?'99+':n.length;badge.classList.toggle('hidden',!n.length);
   document.getElementById('notifList').innerHTML=n.length?n.map(x=>'<div class="notif-item" onclick="openNotification(\''+x.tab+'\')"><div class="notif-item-title"><span class="notif-dot '+(x.danger?'danger':'')+'"></span>'+esc(x.title)+'</div><div class="notif-item-sub">'+esc(x.sub)+'</div></div>').join(''):'<div class="notif-item-sub" style="padding:1rem">Nenhuma pendência dentro das suas permissões.</div>';
@@ -1729,6 +1752,7 @@ function goTab(id) {
   currentTab = id;
   if (id === 'dashboard') loadDashboard();
   if (id === 'coupons')   loadCoupons();
+  if (id === 'releasequeue') loadReleaseQueue();
   if (id === 'users')     loadUsers();
   if (id === 'logs')      loadLogs();
   if (id === 'waitlist')  loadWaitlist();
@@ -2974,15 +2998,6 @@ async function loadCoupons() {
     user: c.users || null
   }));
 
-  const { data: releaseRows, error: releaseErr } = await db.from('coupon_release_requests')
-    .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,status,created_at,decided_at,decided_by,user_id,coupon_id')
-    .order('created_at',{ascending:true});
-  if(releaseErr){
-    console.error('load release requests error:', releaseErr);
-    allReleaseRequests = [];
-  } else {
-    allReleaseRequests = releaseRows || [];
-  }
 
   couponPage = 0;
   renderCoupons();
@@ -2998,60 +3013,6 @@ function renderCoupons() {
 
   const body = document.getElementById('couponBody');
 
-  if(f === 'release'){
-    let requests = allReleaseRequests.filter(r => r.status === 'pending');
-    if(q) requests = requests.filter(r =>
-      normalizeUserSearch(r.name).includes(q) ||
-      normalizeUserSearch(r.email).includes(q) ||
-      normalizeUserSearch(r.phone).includes(q) ||
-      normalizeUserSearch(refLabelById(r.referral_id)).includes(q) ||
-      (qDigits && normalizeUserDigits(r.phone).includes(qDigits)) ||
-      (qDigits && normalizeUserDigits(r.cpf).includes(qDigits))
-    );
-    requests.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-
-    if(!requests.length){
-      body.innerHTML = '<div class="empty-state"><div class="empty-icon">🧑‍💼</div><div class="empty-title">Nenhuma solicitação aguardando liberação</div><div class="empty-sub">Nenhum cupom está reservado enquanto a solicitação aguarda sua decisão.</div></div>';
-      return;
-    }
-
-    const total = requests.length;
-    const totalPages = Math.ceil(total / couponPageSize);
-    const page = requests.slice(couponPage * couponPageSize, (couponPage + 1) * couponPageSize);
-    const rows = page.map(r => `<tr style="background:rgba(124,106,247,.05)">
-      <td data-label="Status"><span class="badge" style="background:rgba(124,106,247,.15);color:#a78bfa">🧑‍💼 Aguardando liberação</span></td>
-      <td class="primary" data-label="Nome">${esc(r.name)}</td>
-      <td data-label="E-mail">${esc(r.email)}</td>
-      <td data-label="Telefone">${esc(r.phone)}</td>
-      <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(r.referral_id))}</span></td>
-      <td data-label="Licenças">${esc(r.quantidade_licencas)}</td>
-      <td data-label="Solicitado em">${fmtDate(r.created_at)}</td>
-      <td class="sticky-actions">
-        <div class="btns">
-          <button class="btn btn-success btn-sm" onclick="approveManualRelease('${r.id}')">Liberar</button>
-          <button class="btn btn-danger btn-sm" onclick="rejectManualRelease('${r.id}')">Não liberar</button>
-        </div>
-      </td>
-    </tr>`).join('');
-
-    const pager = totalPages > 1 ? `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
-        <span>Exibindo ${couponPage*couponPageSize+1}–${Math.min((couponPage+1)*couponPageSize,total)} de ${total}</span>
-        <div style="display:flex;gap:.5rem">
-          <button class="btn btn-ghost btn-sm" onclick="couponPage--;renderCoupons()" ${couponPage===0?'disabled':''}>← Anterior</button>
-          <span style="padding:.35rem .75rem">${couponPage+1} / ${totalPages}</span>
-          <button class="btn btn-ghost btn-sm" onclick="couponPage++;renderCoupons()" ${couponPage>=totalPages-1?'disabled':''}>Próximo →</button>
-        </div>
-      </div>` : '';
-
-    body.innerHTML = `<div style="padding:.875rem 1.25rem;background:rgba(124,106,247,.08);border-bottom:1px solid rgba(124,106,247,.15);font-size:13px;color:#a78bfa">
-      <strong>${total}</strong> solicitação(ões) aguardando decisão humana. Nenhum cupom está reservado nesta etapa.
-    </div>
-    <div style="overflow-x:auto"><table class="data-table"><thead><tr>
-      <th>Status</th><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Licenças</th><th>Solicitado em</th><th class="sticky-actions">Ações</th>
-    </tr></thead><tbody>${rows}</tbody></table></div>${pager}`;
-    return;
-  }
 
   let list;
   if(f === 'validate'){
@@ -3189,6 +3150,87 @@ function renderCoupons() {
   </tr></thead><tbody>${rows}</tbody></table></div>${pager}`;
 }
 
+async function loadReleaseQueue() {
+  const body = document.getElementById('releaseQueueBody');
+  if (body) body.innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
+  if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
+
+  const { data, error } = await db.from('coupon_release_requests')
+    .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,status,created_at,decided_at,decided_by,user_id,coupon_id')
+    .eq('status','pending')
+    .order('created_at',{ascending:true});
+  if(error){
+    console.error('load release queue error:', error);
+    allReleaseRequests = [];
+    if(body) body.innerHTML = '<div class="empty-state"><div class="empty-title">Erro ao carregar fila</div></div>';
+    return;
+  }
+  allReleaseRequests = data || [];
+  releasePage = 0;
+  renderReleaseQueue();
+  const badge=document.getElementById('releaseQueueCount');
+  if(badge) badge.textContent=String(allReleaseRequests.length);
+}
+
+function renderReleaseQueue() {
+  const body = document.getElementById('releaseQueueBody');
+  if(!body) return;
+  const rawQ = document.getElementById('releaseQueueSearch')?.value || '';
+  const q = normalizeUserSearch(rawQ);
+  const qDigits = normalizeUserDigits(rawQ);
+
+  let requests = allReleaseRequests.filter(r => r.status === 'pending');
+  if(q) requests = requests.filter(r =>
+    normalizeUserSearch(r.name).includes(q) ||
+    normalizeUserSearch(r.email).includes(q) ||
+    normalizeUserSearch(r.phone).includes(q) ||
+    normalizeUserSearch(refLabelById(r.referral_id)).includes(q) ||
+    (qDigits && normalizeUserDigits(r.phone).includes(qDigits)) ||
+    (qDigits && normalizeUserDigits(r.cpf).includes(qDigits))
+  );
+  requests.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+
+  if(!requests.length){
+    body.innerHTML = '<div class="empty-state"><div class="empty-icon">🧑‍💼</div><div class="empty-title">Nenhuma solicitação aguardando liberação</div><div class="empty-sub">Nenhum cupom está reservado enquanto a fila está vazia.</div></div>';
+    return;
+  }
+
+  const total=requests.length;
+  const totalPages=Math.ceil(total/releasePageSize);
+  if(releasePage>=totalPages) releasePage=Math.max(0,totalPages-1);
+  const page=requests.slice(releasePage*releasePageSize,(releasePage+1)*releasePageSize);
+  const rows=page.map(r=>`<tr style="background:rgba(124,106,247,.05)">
+    <td data-label="Status"><span class="badge" style="background:rgba(124,106,247,.15);color:#a78bfa">🧑‍💼 Aguardando decisão</span></td>
+    <td class="primary" data-label="Nome">${esc(r.name)}</td>
+    <td data-label="E-mail">${esc(r.email)}</td>
+    <td data-label="Telefone">${esc(r.phone)}</td>
+    <td data-label="CPF">${esc(r.cpf || '—')}</td>
+    <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(r.referral_id))}</span></td>
+    <td data-label="Licenças">${esc(r.quantidade_licencas)}</td>
+    <td data-label="Solicitado em">${fmtDate(r.created_at)}</td>
+    <td class="sticky-actions"><div class="btns">
+      <button class="btn btn-success btn-sm" onclick="approveManualRelease('${r.id}')">Liberar</button>
+      <button class="btn btn-danger btn-sm" onclick="rejectManualRelease('${r.id}')">Não liberar</button>
+    </div></td>
+  </tr>`).join('');
+
+  const pager=totalPages>1?`<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+    <span>Exibindo ${releasePage*releasePageSize+1}–${Math.min((releasePage+1)*releasePageSize,total)} de ${total}</span>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-ghost btn-sm" onclick="releasePage--;renderReleaseQueue()" ${releasePage===0?'disabled':''}>← Anterior</button>
+      <span style="padding:.35rem .75rem">${releasePage+1} / ${totalPages}</span>
+      <button class="btn btn-ghost btn-sm" onclick="releasePage++;renderReleaseQueue()" ${releasePage>=totalPages-1?'disabled':''}>Próximo →</button>
+    </div>
+  </div>`:'';
+
+  body.innerHTML=`<div style="padding:.875rem 1.25rem;background:rgba(124,106,247,.08);border-bottom:1px solid rgba(124,106,247,.15);font-size:13px;color:#a78bfa">
+    <strong>${total}</strong> solicitação(ões) aguardando sua decisão. Nenhum cupom está reservado nesta etapa.
+  </div>
+  <div style="overflow-x:auto"><table class="data-table"><thead><tr>
+    <th>Status</th><th>Nome</th><th>E-mail</th><th>Telefone</th><th>CPF</th><th>Indicação</th><th>Licenças</th><th>Solicitado em</th><th class="sticky-actions">Ações</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>${pager}`;
+}
+
 async function approveManualRelease(id) {
   openConfirm(
     'Liberar cupom',
@@ -3202,7 +3244,7 @@ async function approveManualRelease(id) {
         return;
       }
       toast('Cupom liberado e enviado ao usuário.', 'success');
-      await loadCoupons();
+      await loadReleaseQueue();
       loadNotifications(false);
     },
     'Liberar'
@@ -3212,7 +3254,7 @@ async function approveManualRelease(id) {
 async function rejectManualRelease(id) {
   openConfirm(
     'Não liberar cupom',
-    'Confirma que este cupom não deve ser liberado?\n\nSe ele estiver apenas reservado, será bloqueado e não será enviado ao usuário.',
+    'Confirma que esta solicitação não deve ser liberada?\n\nNenhum cupom foi reservado para ela e nenhum link será enviado ao usuário.',
     async () => {
       const { data, error } = await db.functions.invoke('coupon-manual-release', {
         body: { action:'reject', request_id:id }
@@ -3222,7 +3264,7 @@ async function rejectManualRelease(id) {
         return;
       }
       toast('Liberação recusada. O cupom não foi enviado.', 'success');
-      await loadCoupons();
+      await loadReleaseQueue();
       loadNotifications(false);
     },
     'Não liberar'
@@ -5146,6 +5188,8 @@ async function applyPermissionGating() {
     const el = document.getElementById('nav-' + t.id);
     if (el) el.classList.toggle('hidden', !(isSystemAdmin || myTabAccess.includes(t.id)));
   });
+  const releaseQueueNav=document.getElementById('nav-releasequeue');
+  if(releaseQueueNav) releaseQueueNav.classList.toggle('hidden', !(isSystemAdmin || myTabAccess.includes('coupons')));
   document.getElementById('nav-permissoes').classList.toggle('hidden', !isSystemAdmin);
   const companiesNav=document.getElementById('nav-companies'); if(companiesNav) companiesNav.classList.toggle('hidden', !isSystemAdmin);
   document.getElementById('nav-partner').classList.toggle('hidden', !(isSystemAdmin || myReferralAccess.length));
