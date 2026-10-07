@@ -431,18 +431,42 @@ function showProtectedOrigin(referral) {
 
 async function initReferral() {
   try {
-    // Resolve somente a indicação pedida pela URL através do gateway.
-    // O navegador não lista mais a tabela pública de referrals.
     const path = window.location.pathname.replace(/^\\/+|\\/+$/g, '');
     const qsRef = new URLSearchParams(window.location.search).get('ref');
     const slug = path ? decodeURIComponent(path.split('/')[0]) : (qsRef || '12IA');
+    const slugKey = String(slug || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
 
-    const { data: cfg, error } = await db.functions.invoke('coupon-gateway', {
-      body: { action: 'referral_config', slug }
-    });
-    const match = cfg?.referral;
+    let match = null;
 
-    if (error || !match) { showState('stateInvalidRef'); return; }
+    // A leitura dinâmica continua passando pelo gateway. Para não deixar a
+    // página presa em "Verificando acesso..." quando a Edge Function recebe
+    // 429/timeout, encerramos esta etapa em 3,5s.
+    try {
+      const gatewayCall = db.functions.invoke('coupon-gateway', {
+        body: { action: 'referral_config', slug }
+      });
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('referral_config_timeout')), 3500)
+      );
+      const result = await Promise.race([gatewayCall, timeout]);
+      if (!result?.error && result?.data?.referral) match = result.data.referral;
+    } catch (_) {}
+
+    // Fallback específico da página pública OAB-MG. Não consulta a tabela
+    // referrals e não abre acesso anônimo ao banco.
+    if (!match && slugKey === 'oabmg') {
+      match = {
+        id: '36e5c37d-7d11-467e-8a5c-b29d79c612a1',
+        name: 'oabmg',
+        active: true,
+        protected_origin: false,
+        allowed_origin: null,
+        allowed_origins: null,
+        logo_url: 'https://eunnrjqeuczhtghbbzos.supabase.co/storage/v1/object/public/partner-logos/36e5c37d-7d11-467e-8a5c-b29d79c612a1.jpg?v=1788320554385'
+      };
+    }
+
+    if (!match) { showState('stateInvalidRef'); return; }
 
     if (match.logo_url) {
       const img = document.getElementById('partnerLogoImg');
