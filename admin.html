@@ -1551,15 +1551,24 @@ async function doLogin() {
   const { data, error } = await db.auth.signInWithPassword({ email: u, password: p });
   btn.disabled = false; btn.textContent = 'Entrar';
   if (!error && data?.session) {
-    const [{ data: masterRow, error: masterErr }, { data: crmAdminRow }, { data: profile }] = await Promise.all([
+    const [
+      { data: masterRow, error: masterErr },
+      { data: tabRows, error: tabErr },
+      { data: refRows, error: refErr },
+      { data: companyRows, error: companyErr },
+      { data: profile }
+    ] = await Promise.all([
       db.from('system_admins').select('user_id').eq('user_id', data.user.id).maybeSingle(),
-      db.from('crm_admins').select('user_id').eq('user_id', data.user.id).maybeSingle(),
+      db.from('user_tab_access').select('tab_id').eq('user_id', data.user.id).limit(1),
+      db.from('user_referral_access').select('referral_id').eq('user_id', data.user.id).limit(1),
+      db.from('user_company_access').select('company_id').eq('user_id', data.user.id).limit(1),
       db.from('crm_profiles').select('must_change_password').eq('user_id', data.user.id).maybeSingle()
     ]);
-    if (masterErr || (!masterRow && !crmAdminRow)) {
+    const hasAssignedAccess = !!masterRow || !!tabRows?.length || !!refRows?.length || !!companyRows?.length;
+    if (masterErr || tabErr || refErr || companyErr || !hasAssignedAccess) {
       await db.auth.signOut();
       const e = document.getElementById('loginErr');
-      e.textContent = 'Seu login é válido, mas esta conta não possui acesso administrativo.';
+      e.textContent = 'Seu login é válido, mas esta conta não possui acesso ao sistema.';
       e.style.display = 'block';
       return;
     }
