@@ -674,8 +674,13 @@ async function verifyEmailCode() {
     }
 
     pendingVerificationId = '';
-    document.getElementById('s-msg').textContent =
-      `E-mail confirmado. Seu link exclusivo foi enviado para ${pendingVerificationEmail}. Aguarde cerca de 1 minuto para recebê-lo.`;
+    if (data?.status === 'pending_manual_approval') {
+      document.getElementById('s-msg').textContent =
+        `E-mail confirmado. Seu pedido foi recebido e está aguardando liberação manual pela equipe. O cupom só será enviado após essa aprovação.`;
+    } else {
+      document.getElementById('s-msg').textContent =
+        `E-mail confirmado. Seu link exclusivo foi enviado para ${pendingVerificationEmail}. Aguarde cerca de 1 minuto para recebê-lo.`;
+    }
     showState('stateSuccess');
   } catch (_) {
     btn.disabled = false;
