@@ -431,16 +431,13 @@ function showProtectedOrigin(referral) {
 
 async function initReferral() {
   try {
-    const path = window.location.pathname.replace(/^\\/+|\\/+$/g, '');
+    const segments = window.location.pathname.split('/').filter(Boolean);
     const qsRef = new URLSearchParams(window.location.search).get('ref');
-    const slug = path ? decodeURIComponent(path.split('/')[0]) : (qsRef || '12IA');
-    const slugKey = String(slug || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const slug = segments.length ? decodeURIComponent(segments[0]) : (qsRef || '12IA');
+    const slugKey = String(slug || '').trim().toLowerCase();
 
     let match = null;
 
-    // A leitura dinâmica continua passando pelo gateway. Para não deixar a
-    // página presa em "Verificando acesso..." quando a Edge Function recebe
-    // 429/timeout, encerramos esta etapa em 3,5s.
     try {
       const gatewayCall = db.functions.invoke('coupon-gateway', {
         body: { action: 'referral_config', slug }
@@ -452,8 +449,6 @@ async function initReferral() {
       if (!result?.error && result?.data?.referral) match = result.data.referral;
     } catch (_) {}
 
-    // Fallback específico da página pública OAB-MG. Não consulta a tabela
-    // referrals e não abre acesso anônimo ao banco.
     if (!match && slugKey === 'oabmg') {
       match = {
         id: '36e5c37d-7d11-467e-8a5c-b29d79c612a1',
@@ -496,6 +491,7 @@ async function initReferral() {
     document.getElementById('f-referral').value = match.id;
     showState('stateForm');
   } catch (e) {
+    console.error('initReferral:', e);
     showState('stateInvalidRef');
   }
 }
