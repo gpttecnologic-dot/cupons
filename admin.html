@@ -1089,6 +1089,32 @@ body{overflow-x:hidden}
   </div>
 </div>
 
+<!-- MODAL VALIDAR NOVO CUPOM ANTES DA TROCA -->
+<div class="modal-overlay" id="swapPreviewModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">🔎 Validar novo cupom</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:1rem;line-height:1.5">
+      O novo link está reservado temporariamente. Abra-o em uma nova aba e confirme que funciona antes de concluir a troca.
+    </p>
+    <div class="swap-modal-info">
+      <div>👤 <strong id="swapPreviewUser">—</strong></div>
+      <div style="margin-top:.65rem;font-size:11px;color:var(--text3)">Novo link reservado:</div>
+      <div class="mono" id="swapPreviewLink" style="font-size:12px;word-break:break-all;margin-top:.25rem">—</div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem">
+      <button class="btn btn-secondary" onclick="testarCupomReservado()">↗ Abrir link para testar</button>
+      <button class="btn btn-danger" onclick="rejeitarCupomReservado()">✕ Este link não funciona</button>
+    </div>
+    <div id="swapPreviewStatus" style="font-size:12px;color:var(--text3);margin-top:.75rem">
+      Abra o link antes de confirmar.
+    </div>
+    <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+      <button class="btn btn-secondary" onclick="cancelarTrocaReservada()">Cancelar</button>
+      <button class="btn btn-primary" id="swapPreviewConfirmBtn" onclick="confirmarTrocaReservada()" disabled>✓ Confirmar troca e enviar e-mail</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL VER CUPONS VINCULADOS -->
 <div class="modal-overlay" id="viewCouponsModal">
   <div class="modal" style="max-width:520px">
@@ -3821,56 +3847,143 @@ async function gerarCupomUsuario(userId, userName) {
 // permanentemente o cupom antigo — não devolve ao estoque, pra não
 // circular de novo pra outra pessoa (mesma regra já usada na troca manual
 // da aba Cupons).
+let swapPreviewState = { userId: null, oldCouponId: null, userName: '', newCouponId: null, newLink: '', tested: false, eraPrincipal: false };
+
+async function reservarProximoCupomTroca() {
+  const { data: avail, error: availErr } = await db
+    .from('coupons').select('id,link').eq('status', 'available').order('created_at', { ascending: true }).limit(1);
+  if (availErr) { toast('Erro ao buscar cupom disponível: ' + availErr.message, 'error', 6000); return false; }
+  if (!avail?.length) { toast('Não há cupons disponíveis em estoque.', 'error', 5000); return false; }
+
+  const coupon = avail[0];
+  const { data: reserved, error: reserveErr } = await db.from('coupons')
+    .update({ status: 'reserved' })
+    .eq('id', coupon.id).eq('status', 'available')
+    .select('id,link');
+  if (reserveErr) { toast('Erro ao reservar cupom: ' + reserveErr.message, 'error', 6000); return false; }
+  if (!reserved?.length) return reservarProximoCupomTroca();
+
+  swapPreviewState.newCouponId = coupon.id;
+  swapPreviewState.newLink = coupon.link;
+  swapPreviewState.tested = false;
+  document.getElementById('swapPreviewLink').textContent = coupon.link;
+  document.getElementById('swapPreviewStatus').textContent = 'Abra o link antes de confirmar.';
+  document.getElementById('swapPreviewConfirmBtn').disabled = true;
+  return true;
+}
+
 async function trocarCupomUsuario(userId, oldCouponId, userName) {
-  openConfirm(
-    'Trocar cupom do usuário',
-    `Vincular um novo cupom disponível do estoque a "${userName}"?\n\nO cupom escolhido será bloqueado permanentemente (não volta ao estoque) e o novo será marcado como "Entregue".`,
-    async () => {
-      // Confere se o cupom escolhido é o "principal" (users.coupons_id) ou
-      // um extra — só atualiza o principal se for de fato ele; senão, o
-      // novo cupom vira só mais um extra e o principal continua o mesmo.
-      const { data: userRow } = await db.from('users').select('coupons_id').eq('id', userId).single();
-      const eraPrincipal = !!oldCouponId && userRow?.coupons_id === oldCouponId;
+  const { data: userRow, error: userErr } = await db.from('users').select('coupons_id').eq('id', userId).single();
+  if (userErr) { toast('Erro ao carregar usuário: ' + userErr.message, 'error', 6000); return; }
 
-      const { data: avail, error: availErr } = await db
-        .from('coupons').select('id,link').eq('status', 'available').limit(1);
-      if (availErr) { toast('Erro ao buscar cupom disponível: ' + availErr.message, 'error', 6000); return; }
-      if (!avail?.length) { toast('Não há cupons disponíveis em estoque.', 'error', 5000); return; }
-      const coupon = avail[0];
-      const now = new Date().toISOString();
+  swapPreviewState = {
+    userId, oldCouponId, userName: userName || '', newCouponId: null, newLink: '',
+    tested: false, eraPrincipal: !!oldCouponId && userRow?.coupons_id === oldCouponId
+  };
 
-      const { data: locked, error: lockErr } = await db.from('coupons')
-        .update({ status: 'delivered', distributed_at: now, users_id: userId })
-        .eq('id', coupon.id).eq('status', 'available')
-        .select();
-      if (lockErr) { toast('Erro ao reservar cupom: ' + lockErr.message, 'error', 6000); return; }
-      if (!locked?.length) { toast('Conflito ao reservar cupom — tente novamente.', 'error'); return; }
+  document.getElementById('swapPreviewUser').textContent = userName || '—';
+  document.getElementById('swapPreviewLink').textContent = 'Reservando...';
+  document.getElementById('swapPreviewStatus').textContent = 'Buscando um cupom disponível...';
+  document.getElementById('swapPreviewConfirmBtn').disabled = true;
+  document.getElementById('swapPreviewModal').classList.add('show');
 
-      if (oldCouponId) {
-        await db.from('coupons')
-          .update({ status: 'blocked', users_id: null, distributed_at: null })
-          .eq('id', oldCouponId);
-      }
+  if (!(await reservarProximoCupomTroca())) {
+    document.getElementById('swapPreviewModal').classList.remove('show');
+    swapPreviewState = { userId: null, oldCouponId: null, userName: '', newCouponId: null, newLink: '', tested: false, eraPrincipal: false };
+  }
+}
 
-      if (eraPrincipal) {
-        const { error: uErr } = await db.from('users').update({ coupons_id: coupon.id }).eq('id', userId);
-        if (uErr) { toast('Erro ao vincular novo cupom: ' + uErr.message, 'error', 6000); return; }
-      }
+function testarCupomReservado() {
+  if (!swapPreviewState.newLink) return;
+  const opened = window.open(swapPreviewState.newLink, '_blank', 'noopener');
+  if (!opened) toast('O navegador bloqueou a nova aba. Permita pop-ups e tente novamente.', 'error', 6000);
+  swapPreviewState.tested = true;
+  document.getElementById('swapPreviewStatus').textContent = '✓ Link aberto para teste. Se estiver correto, volte aqui e confirme a troca.';
+  document.getElementById('swapPreviewConfirmBtn').disabled = false;
+}
 
-      await db.from('events').insert({
-        coupons_id: coupon.id, users_id: userId,
-        event_type: 'swap',
-        metadata: JSON.stringify({ old_coupon_id: oldCouponId, origin: 'admin_trocar_cupom_usuario' })
-      });
+async function rejeitarCupomReservado() {
+  if (!swapPreviewState.newCouponId) return;
+  const badId = swapPreviewState.newCouponId;
+  await db.from('coupons').update({ status: 'invalid', users_id: null, distributed_at: null }).eq('id', badId).eq('status', 'reserved');
+  await db.from('events').insert({
+    coupons_id: badId, users_id: swapPreviewState.userId, event_type: 'swap_candidate_rejected',
+    metadata: JSON.stringify({ origin: 'admin_swap_preview', reason: 'operator_link_test_failed' })
+  });
+  swapPreviewState.newCouponId = null;
+  swapPreviewState.newLink = '';
+  document.getElementById('swapPreviewLink').textContent = 'Buscando outro...';
+  document.getElementById('swapPreviewStatus').textContent = 'O link anterior foi marcado como inválido. Reservando outro...';
+  if (!(await reservarProximoCupomTroca())) await cancelarTrocaReservada();
+}
 
-      toast('Cupom trocado! O antigo foi bloqueado permanentemente.', 'success', 4000);
-      loadUsers();
-      loadCorporateLeads();
-      loadDashboard();
-      if (viewCouponsUserId === userId) verCuponsUsuario(userId, userName);
-    },
-    '🔄 Trocar cupom'
-  );
+async function cancelarTrocaReservada() {
+  if (swapPreviewState.newCouponId) {
+    await db.from('coupons')
+      .update({ status: 'available', users_id: null, distributed_at: null })
+      .eq('id', swapPreviewState.newCouponId).eq('status', 'reserved');
+  }
+  document.getElementById('swapPreviewModal').classList.remove('show');
+  swapPreviewState = { userId: null, oldCouponId: null, userName: '', newCouponId: null, newLink: '', tested: false, eraPrincipal: false };
+}
+
+async function confirmarTrocaReservada() {
+  if (!swapPreviewState.tested || !swapPreviewState.newCouponId) {
+    toast('Abra e teste o novo link antes de confirmar.', 'error', 5000); return;
+  }
+  const btn = document.getElementById('swapPreviewConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Confirmando...';
+  const now = new Date().toISOString();
+  const newCouponId = swapPreviewState.newCouponId;
+  const userId = swapPreviewState.userId;
+  const oldCouponId = swapPreviewState.oldCouponId;
+  const userName = swapPreviewState.userName;
+  const eraPrincipal = swapPreviewState.eraPrincipal;
+
+  const { data: delivered, error: deliverErr } = await db.from('coupons')
+    .update({ status: 'delivered', distributed_at: now, users_id: userId })
+    .eq('id', newCouponId).eq('status', 'reserved').select('id');
+  if (deliverErr || !delivered?.length) {
+    toast('Não foi possível confirmar a reserva do novo cupom.', 'error', 6000);
+    btn.disabled = false; btn.textContent = '✓ Confirmar troca e enviar e-mail'; return;
+  }
+
+  if (oldCouponId) {
+    const { error: oldErr } = await db.from('coupons')
+      .update({ status: 'blocked', users_id: null, distributed_at: null }).eq('id', oldCouponId);
+    if (oldErr) {
+      await db.from('coupons').update({ status: 'available', users_id: null, distributed_at: null }).eq('id', newCouponId);
+      toast('Erro ao bloquear cupom antigo: ' + oldErr.message, 'error', 6000);
+      btn.disabled = false; btn.textContent = '✓ Confirmar troca e enviar e-mail'; return;
+    }
+  }
+
+  if (eraPrincipal) {
+    const { error: uErr } = await db.from('users').update({ coupons_id: newCouponId }).eq('id', userId);
+    if (uErr) { toast('Cupom trocado, mas houve erro ao atualizar o vínculo principal: ' + uErr.message, 'error', 7000); }
+  }
+
+  await db.from('events').insert({
+    coupons_id: newCouponId, users_id: userId, event_type: 'swap',
+    metadata: JSON.stringify({ old_coupon_id: oldCouponId, origin: 'admin_swap_preview', tested_before_send: true })
+  });
+
+  const { error: emailErr } = await db.functions.invoke('send-coupon-email', {
+    body: { user_id: userId, coupon_id: newCouponId, template_key: 'coupon_reminder' }
+  });
+
+  document.getElementById('swapPreviewModal').classList.remove('show');
+  swapPreviewState = { userId: null, oldCouponId: null, userName: '', newCouponId: null, newLink: '', tested: false, eraPrincipal: false };
+  btn.textContent = '✓ Confirmar troca e enviar e-mail';
+
+  if (emailErr) toast('Cupom trocado e validado, mas o e-mail não foi enviado: ' + (emailErr.message || emailErr), 'error', 8000);
+  else toast('Cupom testado, trocado e enviado por e-mail!', 'success', 5000);
+
+  loadUsers();
+  loadCorporateLeads();
+  loadDashboard();
+  loadCoupons();
+  if (viewCouponsUserId === userId) verCuponsUsuario(userId, userName);
 }
 
 // Modal de exportação: escolhe quais colunas vão pro CSV, a ordenação, e
