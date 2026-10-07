@@ -542,7 +542,8 @@ body{overflow-x:hidden}
                 <option value="redeemed">Resgatados</option>
                 <option value="blocked">Bloqueados</option>
                 <option value="invalid">Inválidos</option>
-                <option value="validate">⏳ Aguardando validação</option>
+                <option value="release">🧑‍💼 Aguardando liberação humana</option>
+                <option value="validate">⏳ Aguardando validação 72h</option>
               </select>
               <input class="search-input" id="couponSearch" placeholder="Buscar link, nome, e-mail ou telefone..." oninput="couponPage=0;renderCoupons()"/>
             </div>
@@ -1649,10 +1650,19 @@ async function loadNotifications(proactive=false){
     const {data}=await q;deals=data||[];
   }
   if(canSla){const {data}=await db.from('sla_tickets').select('id,ticket_number,title,resolution_due_at,status').not('status','in','("resolved","closed")');sla=data||[];}
-  if(canCoupons){const {data}=await db.from('coupons').select('id,distributed_at').eq('status','delivered').eq('ativado',false).lt('distributed_at',couponLimit.toISOString());coupons=data||[];}
+  let manualPending=[];
+  if(canCoupons){
+    const [{data:oldDelivered},{data:pendingRelease}]=await Promise.all([
+      db.from('coupons').select('id,distributed_at').eq('status','delivered').eq('ativado',false).lt('distributed_at',couponLimit.toISOString()),
+      db.from('coupons').select('id,manual_release_requested_at').eq('manual_release_status','pending')
+    ]);
+    coupons=oldDelivered||[];
+    manualPending=pendingRelease||[];
+  }
   const n=[];
   deals.forEach(x=>{const d=new Date(x.due_date+'T23:59:59');if(d<now)n.push({danger:true,title:'Negociação atrasada',sub:(x.crm_deals?.title||'Negociação')+' · prazo '+d.toLocaleDateString('pt-BR'),tab:'crm'});else if(d<=soon)n.push({danger:false,title:'Negociação no limite',sub:(x.crm_deals?.title||'Negociação')+' · vence '+d.toLocaleDateString('pt-BR'),tab:'crm'});});
   sla.forEach(x=>{if(x.resolution_due_at&&new Date(x.resolution_due_at)<now)n.push({danger:true,title:'SLA atrasado',sub:'#'+x.ticket_number+' · '+x.title,tab:'sla'});});
+  if(manualPending.length)n.push({danger:true,title:'Cupons aguardando liberação humana',sub:manualPending.length+' cupom(ns) aguardando decisão',tab:'coupons'});
   if(coupons.length)n.push({danger:false,title:'Cupons aguardando validação',sub:coupons.length+' entregue(s) há mais de 72h',tab:'coupons'});
   const badge=document.getElementById('notifCount');badge.textContent=n.length>99?'99+':n.length;badge.classList.toggle('hidden',!n.length);
   document.getElementById('notifList').innerHTML=n.length?n.map(x=>'<div class="notif-item" onclick="openNotification(\''+x.tab+'\')"><div class="notif-item-title"><span class="notif-dot '+(x.danger?'danger':'')+'"></span>'+esc(x.title)+'</div><div class="notif-item-sub">'+esc(x.sub)+'</div></div>').join(''):'<div class="notif-item-sub" style="padding:1rem">Nenhuma pendência dentro das suas permissões.</div>';
@@ -2946,7 +2956,7 @@ async function loadCoupons() {
   let from = 0;
   while(true){
     const{data:batch,error}=await db.from('coupons')
-      .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at,users!coupons_users_id_fkey(id,name,email,phone,cpf,referral_id,coupons_id)')
+      .select('id,link,status,created_at,distributed_at,users_id,ativado,ativado_at,manual_release_status,manual_release_requested_at,manual_release_at,manual_release_by,users!coupons_users_id_fkey(id,name,email,phone,cpf,referral_id,coupons_id)')
       .order('created_at',{ascending:false})
       .range(from, from+999);
     if(error){console.error('loadCoupons error:',error);break;}
@@ -2975,7 +2985,10 @@ function renderCoupons() {
   const HOURS_72 = 72 * 60 * 60 * 1000;
 
   let list;
-  if(f === 'validate'){
+  if(f === 'release'){
+    list = allCoupons.filter(c => c.manual_release_status === 'pending');
+    list.sort((a,b) => new Date(a.manual_release_requested_at || a.distributed_at || a.created_at) - new Date(b.manual_release_requested_at || b.distributed_at || b.created_at));
+  } else if(f === 'validate'){
     // Fila de validação: aqui a ordem certa é o oposto de "mais recente" —
     // mostra primeiro quem está esperando validação há MAIS tempo, pra não
     // esquecer ninguém na fila.
@@ -3051,12 +3064,14 @@ function renderCoupons() {
     const aguardando = c.status === 'delivered' &&
       c.distributed_at &&
       (now - new Date(c.distributed_at).getTime()) > HOURS_72;
+    const releasePending = c.manual_release_status === 'pending';
 
-    return `<tr ${aguardando ? 'style="background:rgba(245,158,11,.04)"' : ''}>
+    return `<tr ${releasePending ? 'style="background:rgba(124,106,247,.07)"' : (aguardando ? 'style="background:rgba(245,158,11,.04)"' : '')}>
     <td class="truncate mono" style="max-width:260px" data-label="Link"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
     <td data-label="Status">
       <span class="badge b-${c.status}">${statusLabel(c.status)}</span>
-      ${aguardando ? `<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;margin-left:4px">⏳ Validar</span>` : ''}
+      ${releasePending ? `<span class="badge" style="background:rgba(124,106,247,.15);color:#a78bfa;margin-left:4px">🧑‍💼 Liberação humana</span>` : ''}
+      ${!releasePending && aguardando ? `<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;margin-left:4px">⏳ Validar</span>` : ''}
     </td>
     <td class="primary" data-label="Usuário">${esc(c.user?.name || '—')}</td>
     <td data-label="E-mail">${esc(c.user?.email || '—')}</td>
@@ -3064,7 +3079,10 @@ function renderCoupons() {
     <td data-label="Entregue em">${fmtDate(c.distributed_at)}</td>
     <td class="sticky-actions">
       <div class="btns">
-        ${aguardando ? `
+        ${releasePending ? `
+          <button class="btn btn-success btn-sm" onclick="approveManualRelease('${c.id}')">Liberar</button>
+          <button class="btn btn-danger btn-sm" onclick="rejectManualRelease('${c.id}')">Não liberar</button>
+        ` : aguardando ? `
           <button class="btn btn-success btn-sm btn-icon" onclick="confirmActivated('${c.id}')" title="Marcar como resgatado">✅</button>
           <button class="btn btn-secondary btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom">🔄</button>
@@ -3110,6 +3128,46 @@ function renderCoupons() {
     ${sortableTh('Entregue em','date')}
     <th class="sticky-actions">Ações</th>
   </tr></thead><tbody>${rows}</tbody></table></div>${pager}`;
+}
+
+async function approveManualRelease(id) {
+  openConfirm(
+    'Liberar cupom',
+    'Confirma a liberação deste cupom?\n\nSomente após esta ação o sistema enviará o link de cupom ao usuário.',
+    async () => {
+      const { data, error } = await db.functions.invoke('coupon-manual-release', {
+        body: { action:'approve', coupon_id:id }
+      });
+      if (error || data?.error) {
+        toast('Erro ao liberar cupom: ' + (data?.error || error?.message || 'falha desconhecida'), 'error', 6000);
+        return;
+      }
+      toast('Cupom liberado e enviado ao usuário.', 'success');
+      await loadCoupons();
+      loadNotifications(false);
+    },
+    'Liberar'
+  );
+}
+
+async function rejectManualRelease(id) {
+  openConfirm(
+    'Não liberar cupom',
+    'Confirma que este cupom não deve ser liberado?\n\nSe ele estiver apenas reservado, será bloqueado e não será enviado ao usuário.',
+    async () => {
+      const { data, error } = await db.functions.invoke('coupon-manual-release', {
+        body: { action:'reject', coupon_id:id }
+      });
+      if (error || data?.error) {
+        toast('Erro ao rejeitar liberação: ' + (data?.error || error?.message || 'falha desconhecida'), 'error', 6000);
+        return;
+      }
+      toast('Liberação recusada. O cupom não foi enviado.', 'success');
+      await loadCoupons();
+      loadNotifications(false);
+    },
+    'Não liberar'
+  );
 }
 
 function statusLabel(s) {
