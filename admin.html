@@ -1423,7 +1423,7 @@ const db = createClient(SUPA_URL, SUPA_KEY);
 const _inviteFlow = /type=invite|type=recovery/.test(window.location.hash);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
-let allCoupons = [], allUsers = [], allRefOpts = [], allWaitlist = [];
+let allCoupons = [], allReleaseRequests = [], allUsers = [], allRefOpts = [], allWaitlist = [];
 let couponPage = 0, couponPageSize = 20;
 let userPage = 0, userPageSize = 20;
 let loginAttempts = 0, currentTab = 'dashboard';
@@ -1655,7 +1655,7 @@ async function loadNotifications(proactive=false){
   if(canCoupons){
     const [{data:oldDelivered},{data:pendingRelease}]=await Promise.all([
       db.from('coupons').select('id,distributed_at').eq('status','delivered').eq('ativado',false).lt('distributed_at',couponLimit.toISOString()),
-      db.from('coupons').select('id,manual_release_requested_at').eq('manual_release_status','pending')
+      db.from('coupon_release_requests').select('id,created_at').eq('status','pending')
     ]);
     coupons=oldDelivered||[];
     manualPending=pendingRelease||[];
@@ -1663,7 +1663,7 @@ async function loadNotifications(proactive=false){
   const n=[];
   deals.forEach(x=>{const d=new Date(x.due_date+'T23:59:59');if(d<now)n.push({danger:true,title:'Negociação atrasada',sub:(x.crm_deals?.title||'Negociação')+' · prazo '+d.toLocaleDateString('pt-BR'),tab:'crm'});else if(d<=soon)n.push({danger:false,title:'Negociação no limite',sub:(x.crm_deals?.title||'Negociação')+' · vence '+d.toLocaleDateString('pt-BR'),tab:'crm'});});
   sla.forEach(x=>{if(x.resolution_due_at&&new Date(x.resolution_due_at)<now)n.push({danger:true,title:'SLA atrasado',sub:'#'+x.ticket_number+' · '+x.title,tab:'sla'});});
-  if(manualPending.length)n.push({danger:true,title:'Cupons aguardando liberação humana',sub:manualPending.length+' cupom(ns) aguardando decisão',tab:'coupons'});
+  if(manualPending.length)n.push({danger:true,title:'Cupons aguardando liberação humana',sub:manualPending.length+' solicitação(ões) aguardando decisão',tab:'coupons'});
   if(coupons.length)n.push({danger:false,title:'Cupons aguardando validação',sub:coupons.length+' entregue(s) há mais de 72h',tab:'coupons'});
   const badge=document.getElementById('notifCount');badge.textContent=n.length>99?'99+':n.length;badge.classList.toggle('hidden',!n.length);
   document.getElementById('notifList').innerHTML=n.length?n.map(x=>'<div class="notif-item" onclick="openNotification(\''+x.tab+'\')"><div class="notif-item-title"><span class="notif-dot '+(x.danger?'danger':'')+'"></span>'+esc(x.title)+'</div><div class="notif-item-sub">'+esc(x.sub)+'</div></div>').join(''):'<div class="notif-item-sub" style="padding:1rem">Nenhuma pendência dentro das suas permissões.</div>';
@@ -2973,6 +2973,17 @@ async function loadCoupons() {
     ativado_at: c.ativado_at || null,
     user: c.users || null
   }));
+
+  const { data: releaseRows, error: releaseErr } = await db.from('coupon_release_requests')
+    .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,status,created_at,decided_at,decided_by,user_id,coupon_id')
+    .order('created_at',{ascending:true});
+  if(releaseErr){
+    console.error('load release requests error:', releaseErr);
+    allReleaseRequests = [];
+  } else {
+    allReleaseRequests = releaseRows || [];
+  }
+
   couponPage = 0;
   renderCoupons();
 }
@@ -2985,11 +2996,65 @@ function renderCoupons() {
   const now = Date.now();
   const HOURS_72 = 72 * 60 * 60 * 1000;
 
-  let list;
+  const body = document.getElementById('couponBody');
+
   if(f === 'release'){
-    list = allCoupons.filter(c => c.manual_release_status === 'pending');
-    list.sort((a,b) => new Date(a.manual_release_requested_at || a.distributed_at || a.created_at) - new Date(b.manual_release_requested_at || b.distributed_at || b.created_at));
-  } else if(f === 'validate'){
+    let requests = allReleaseRequests.filter(r => r.status === 'pending');
+    if(q) requests = requests.filter(r =>
+      normalizeUserSearch(r.name).includes(q) ||
+      normalizeUserSearch(r.email).includes(q) ||
+      normalizeUserSearch(r.phone).includes(q) ||
+      normalizeUserSearch(refLabelById(r.referral_id)).includes(q) ||
+      (qDigits && normalizeUserDigits(r.phone).includes(qDigits)) ||
+      (qDigits && normalizeUserDigits(r.cpf).includes(qDigits))
+    );
+    requests.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+
+    if(!requests.length){
+      body.innerHTML = '<div class="empty-state"><div class="empty-icon">🧑‍💼</div><div class="empty-title">Nenhuma solicitação aguardando liberação</div><div class="empty-sub">Nenhum cupom está reservado enquanto a solicitação aguarda sua decisão.</div></div>';
+      return;
+    }
+
+    const total = requests.length;
+    const totalPages = Math.ceil(total / couponPageSize);
+    const page = requests.slice(couponPage * couponPageSize, (couponPage + 1) * couponPageSize);
+    const rows = page.map(r => `<tr style="background:rgba(124,106,247,.05)">
+      <td data-label="Status"><span class="badge" style="background:rgba(124,106,247,.15);color:#a78bfa">🧑‍💼 Aguardando liberação</span></td>
+      <td class="primary" data-label="Nome">${esc(r.name)}</td>
+      <td data-label="E-mail">${esc(r.email)}</td>
+      <td data-label="Telefone">${esc(r.phone)}</td>
+      <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(r.referral_id))}</span></td>
+      <td data-label="Licenças">${esc(r.quantidade_licencas)}</td>
+      <td data-label="Solicitado em">${fmtDate(r.created_at)}</td>
+      <td class="sticky-actions">
+        <div class="btns">
+          <button class="btn btn-success btn-sm" onclick="approveManualRelease('${r.id}')">Liberar</button>
+          <button class="btn btn-danger btn-sm" onclick="rejectManualRelease('${r.id}')">Não liberar</button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+    const pager = totalPages > 1 ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-top:1px solid var(--border);font-size:12px;color:var(--text3)">
+        <span>Exibindo ${couponPage*couponPageSize+1}–${Math.min((couponPage+1)*couponPageSize,total)} de ${total}</span>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn btn-ghost btn-sm" onclick="couponPage--;renderCoupons()" ${couponPage===0?'disabled':''}>← Anterior</button>
+          <span style="padding:.35rem .75rem">${couponPage+1} / ${totalPages}</span>
+          <button class="btn btn-ghost btn-sm" onclick="couponPage++;renderCoupons()" ${couponPage>=totalPages-1?'disabled':''}>Próximo →</button>
+        </div>
+      </div>` : '';
+
+    body.innerHTML = `<div style="padding:.875rem 1.25rem;background:rgba(124,106,247,.08);border-bottom:1px solid rgba(124,106,247,.15);font-size:13px;color:#a78bfa">
+      <strong>${total}</strong> solicitação(ões) aguardando decisão humana. Nenhum cupom está reservado nesta etapa.
+    </div>
+    <div style="overflow-x:auto"><table class="data-table"><thead><tr>
+      <th>Status</th><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Indicação</th><th>Licenças</th><th>Solicitado em</th><th class="sticky-actions">Ações</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>${pager}`;
+    return;
+  }
+
+  let list;
+  if(f === 'validate'){
     // Fila de validação: aqui a ordem certa é o oposto de "mais recente" —
     // mostra primeiro quem está esperando validação há MAIS tempo, pra não
     // esquecer ninguém na fila.
@@ -3033,7 +3098,6 @@ function renderCoupons() {
     if (get) list = [...list].sort((a,b) => cmpSortValues(get(a), get(b)) * dir);
   }
 
-  const body = document.getElementById('couponBody');
   if(!list.length){
     body.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">Nenhum cupom encontrado</div></div>';
     return;
@@ -3065,14 +3129,11 @@ function renderCoupons() {
     const aguardando = c.status === 'delivered' &&
       c.distributed_at &&
       (now - new Date(c.distributed_at).getTime()) > HOURS_72;
-    const releasePending = c.manual_release_status === 'pending';
-
-    return `<tr ${releasePending ? 'style="background:rgba(124,106,247,.07)"' : (aguardando ? 'style="background:rgba(245,158,11,.04)"' : '')}>
+    return `<tr ${aguardando ? 'style="background:rgba(245,158,11,.04)"' : ''}>
     <td class="truncate mono" style="max-width:260px" data-label="Link"><a href="${esc(c.link)}" target="_blank" rel="noopener">${esc(c.link)}</a></td>
     <td data-label="Status">
       <span class="badge b-${c.status}">${statusLabel(c.status)}</span>
-      ${releasePending ? `<span class="badge" style="background:rgba(124,106,247,.15);color:#a78bfa;margin-left:4px">🧑‍💼 Liberação humana</span>` : ''}
-      ${!releasePending && aguardando ? `<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;margin-left:4px">⏳ Validar</span>` : ''}
+      ${aguardando ? `<span class="badge" style="background:rgba(245,158,11,.15);color:#fbbf24;margin-left:4px">⏳ Validar</span>` : ''}
     </td>
     <td class="primary" data-label="Usuário">${esc(c.user?.name || '—')}</td>
     <td data-label="E-mail">${esc(c.user?.email || '—')}</td>
@@ -3080,10 +3141,7 @@ function renderCoupons() {
     <td data-label="Entregue em">${fmtDate(c.distributed_at)}</td>
     <td class="sticky-actions">
       <div class="btns">
-        ${releasePending ? `
-          <button class="btn btn-success btn-sm" onclick="approveManualRelease('${c.id}')">Liberar</button>
-          <button class="btn btn-danger btn-sm" onclick="rejectManualRelease('${c.id}')">Não liberar</button>
-        ` : aguardando ? `
+        ${aguardando ? `
           <button class="btn btn-success btn-sm btn-icon" onclick="confirmActivated('${c.id}')" title="Marcar como resgatado">✅</button>
           <button class="btn btn-secondary btn-sm btn-icon" onclick="returnCoupon('${c.id}')" title="Devolver ao estoque">↩</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="openSwap('${c.id}','${lnk}','${uid}','${unm}','${uem}')" title="Trocar cupom">🔄</button>
@@ -3137,7 +3195,7 @@ async function approveManualRelease(id) {
     'Confirma a liberação deste cupom?\n\nSomente após esta ação o sistema enviará o link de cupom ao usuário.',
     async () => {
       const { data, error } = await db.functions.invoke('coupon-manual-release', {
-        body: { action:'approve', coupon_id:id }
+        body: { action:'approve', request_id:id }
       });
       if (error || data?.error) {
         toast('Erro ao liberar cupom: ' + (data?.error || error?.message || 'falha desconhecida'), 'error', 6000);
@@ -3157,7 +3215,7 @@ async function rejectManualRelease(id) {
     'Confirma que este cupom não deve ser liberado?\n\nSe ele estiver apenas reservado, será bloqueado e não será enviado ao usuário.',
     async () => {
       const { data, error } = await db.functions.invoke('coupon-manual-release', {
-        body: { action:'reject', coupon_id:id }
+        body: { action:'reject', request_id:id }
       });
       if (error || data?.error) {
         toast('Erro ao rejeitar liberação: ' + (data?.error || error?.message || 'falha desconhecida'), 'error', 6000);
