@@ -578,20 +578,28 @@ async function submitForm() {
     // pela checagem de duplicidade, porque a intenção aqui é "fale comigo",
     // não "resgatar 1 cupom pra mim").
     if (qtd > 10) {
-      const { data: lead, error: leadErr } = await db
-        .from('corporate_leads')
-        .insert({ name, email, phone, cpf: currentReferralProtected ? cpf : null, referral_id: referral, quantidade_licencas: qtd })
-        .select();
+      const { data: lead, error: leadErr } = await db.functions.invoke('submit-corporate-lead', {
+        body: {
+          name,
+          email,
+          phone,
+          cpf: currentReferralProtected ? cpf : null,
+          referral_id: referral,
+          quantidade_licencas: qtd
+        }
+      });
 
       btn.disabled = false; btn.innerHTML = '🎫 Resgatar meu cupom';
 
-      if (leadErr) { showErr('Erro ao registrar seu pedido. Tente novamente.'); return; }
+      if (leadErr || !lead?.lead_id) {
+        showErr(lead?.error || 'Erro ao registrar seu pedido. Tente novamente.');
+        return;
+      }
 
-      // Avisa o time comercial por e-mail (Edge Function notify-corporate-lead,
-      // via Resend). Não bloqueia a tela de sucesso se falhar — o pedido já
-      // está salvo no banco e visível no admin de qualquer forma.
+      // Avisa o time comercial por e-mail. Não bloqueia a tela de sucesso
+      // se falhar — o pedido já foi registrado com segurança no backend.
       db.functions.invoke('notify-corporate-lead', {
-        body: { lead_id: lead[0].id }
+        body: { lead_id: lead.lead_id }
       }).catch(() => {});
 
       document.getElementById('corp-msg').textContent =
