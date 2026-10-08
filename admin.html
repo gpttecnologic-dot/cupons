@@ -461,6 +461,7 @@ body{overflow-x:hidden}
         <div class="stats-grid">
           <div class="stat-card"><div class="stat-label">Disponíveis</div><div class="stat-val green" id="s-avail">—</div></div>
           <div class="stat-card"><div class="stat-label">Entregues</div><div class="stat-val purple" id="s-dist">—</div></div>
+          <div class="stat-card"><div class="stat-label">Reservados</div><div class="stat-val amber" id="s-reserved">—</div></div>
           <div class="stat-card"><div class="stat-label">✅ Resgatados</div><div class="stat-val green" id="s-activated">—</div></div>
           <div class="stat-card"><div class="stat-label">Bloqueados</div><div class="stat-val red" id="s-block">—</div></div>
           <div class="stat-card"><div class="stat-label">Inválidos</div><div class="stat-val red" id="s-invalid">—</div></div>
@@ -2927,6 +2928,7 @@ async function loadDashboard(force = true) {
   const [
     {count:availCount},
     {count:distCount},
+    {count:reservedCount},
     {count:redeemedCount},
     {count:blockCount},
     {count:invalidCount},
@@ -2936,6 +2938,7 @@ async function loadDashboard(force = true) {
   ] = await Promise.all([
     db.from('coupons').select('*',{count:'exact',head:true}).eq('status','available'),
     db.from('coupons').select('*',{count:'exact',head:true}).eq('status','delivered'),
+    db.from('coupons').select('*',{count:'exact',head:true}).eq('status','reserved'),
     db.from('coupons').select('*',{count:'exact',head:true}).eq('status','redeemed'),
     db.from('coupons').select('*',{count:'exact',head:true}).eq('status','blocked'),
     db.from('coupons').select('*',{count:'exact',head:true}).eq('status','invalid'),
@@ -2947,6 +2950,7 @@ async function loadDashboard(force = true) {
   document.getElementById('waitlistCount').textContent = wl?.length||0;
   document.getElementById('s-avail').textContent     = availCount||0;
   document.getElementById('s-dist').textContent      = distCount||0;
+  document.getElementById('s-reserved').textContent  = reservedCount||0;
   document.getElementById('s-activated').textContent = redeemedCount||0;
   document.getElementById('s-block').textContent     = blockCount||0;
   document.getElementById('s-invalid').textContent   = invalidCount||0;
