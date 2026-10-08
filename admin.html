@@ -2025,13 +2025,27 @@ function closeTemplateForm() {
 // em tplPdfUrl — é essa URL que a Edge Function baixa e anexa ao e-mail.
 const PDF_BUCKET = 'email-attachments';
 
-function renderTplPdfStatus() {
+async function validateTemplatePdfUrl(url) {
+  if (!url) return false;
+  const path = pdfStoragePathFromUrl(url);
+  if (!path) return false;
+  const { data, error } = await db.storage.from(PDF_BUCKET).download(path);
+  return !error && !!data && data.size >= 5 && (await data.slice(0, 5).text()) === '%PDF-';
+}
+
+async function renderTplPdfStatus() {
   const url = document.getElementById('tplPdfUrl').value;
   const name = document.getElementById('tplPdfFilename').value;
   const el = document.getElementById('tplPdfStatus');
-  el.innerHTML = url
-    ? `📎 <a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(name || 'arquivo.pdf')}</a> · <button type="button" class="btn btn-ghost btn-sm" onclick="removeTemplatePdf()">🗑 Remover</button>`
-    : `<span style="color:var(--text3)">Nenhum PDF anexado a este modelo.</span>`;
+  if (!url) {
+    el.innerHTML = `<span style="color:var(--text3)">Nenhum PDF anexado a este modelo.</span>`;
+    return;
+  }
+  el.innerHTML = `<span style="color:var(--text3)">Verificando PDF...</span>`;
+  const ok = await validateTemplatePdfUrl(url);
+  el.innerHTML = ok
+    ? `📎 <a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(name || 'arquivo.pdf')}</a> · <span style="color:#22c55e">✓ arquivo disponível</span> · <button type="button" class="btn btn-ghost btn-sm" onclick="removeTemplatePdf()">🗑 Remover</button>`
+    : `⚠ <strong style="color:#f59e0b">PDF cadastrado, mas arquivo indisponível.</strong> Reenvie o PDF antes de salvar/enviar.`;
 }
 
 function pdfStoragePathFromUrl(url) {
@@ -2066,10 +2080,16 @@ async function uploadTemplatePdf(file) {
   }
 
   const { data: pub } = db.storage.from(PDF_BUCKET).getPublicUrl(path);
+  const uploadedOk = await validateTemplatePdfUrl(pub.publicUrl);
+  if (!uploadedOk) {
+    await db.storage.from(PDF_BUCKET).remove([path]).catch(() => {});
+    toast('O upload terminou, mas o PDF não pôde ser validado. O modelo não foi alterado.', 'error', 7000);
+    return;
+  }
   document.getElementById('tplPdfUrl').value = pub.publicUrl;
   document.getElementById('tplPdfFilename').value = file.name;
-  renderTplPdfStatus();
-  toast('PDF anexado! Não esqueça de clicar em "Salvar modelo".', 'success', 5000);
+  await renderTplPdfStatus();
+  toast('PDF enviado e validado! Agora clique em "Salvar modelo".', 'success', 5000);
 }
 
 function removeTemplatePdf() {
@@ -2079,8 +2099,8 @@ function removeTemplatePdf() {
   document.getElementById('tplPdfFilename').value = '';
   renderTplPdfStatus();
   toast('PDF removido do modelo. Clique em "Salvar modelo" pra confirmar.', 'info', 5000);
-  // Best-effort: apaga o arquivo do storage também (não bloqueia a UI se falhar).
-  if (path) db.storage.from(PDF_BUCKET).remove([path]).catch(() => {});
+  // Não apaga o arquivo físico neste clique. A remoção só é persistida ao salvar o modelo,
+  // evitando perda acidental de um anexo ainda referenciado.
 }
 function insertTagIntoBody(tag) {
   const ta = document.getElementById('tplBody');
@@ -2104,6 +2124,10 @@ async function saveTemplateForm() {
 
   if (!key || !name || !subject || !body) { toast('Preencha chave, nome, assunto e corpo.', 'error'); return; }
   if (!/^[a-z0-9_]+$/.test(key)) { toast('Chave só pode ter letras minúsculas, números e _ (ex: campanha_black_friday).', 'error'); return; }
+  if (pdf_url && !(await validateTemplatePdfUrl(pdf_url))) {
+    toast('Não é possível salvar: o PDF configurado não existe ou está inválido. Reenvie o arquivo.', 'error', 7000);
+    return;
+  }
 
   const payload = { name, purpose, referral_id, subject, body, pdf_url, pdf_filename, active };
   let error;
