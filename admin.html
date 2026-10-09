@@ -1103,11 +1103,11 @@ body{overflow-x:hidden}
       <div class="mono" id="swapPreviewLink" style="font-size:12px;word-break:break-all;margin-top:.25rem">—</div>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem">
-      <button class="btn btn-secondary" onclick="testarCupomReservado()">↗ Abrir link para testar</button>
+      <button class="btn btn-secondary" id="swapPreviewCopyBtn" onclick="copiarCupomReservado()">📋 Copiar link para testar</button>
       <button class="btn btn-danger" onclick="rejeitarCupomReservado()">✕ Este link não funciona</button>
     </div>
     <div id="swapPreviewStatus" style="font-size:12px;color:var(--text3);margin-top:.75rem">
-      Abra o link antes de confirmar.
+      Copie o link, teste no navegador e confirme somente se funcionar.
     </div>
     <div class="modal-footer" style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border)">
       <button class="btn btn-secondary" onclick="cancelarTrocaReservada()">Cancelar</button>
@@ -3892,10 +3892,24 @@ async function reservarProximoCupomTroca() {
   if (!reserved?.length) return reservarProximoCupomTroca();
 
   swapPreviewState.newCouponId = coupon.id;
-  swapPreviewState.newLink = coupon.link;
+  swapPreviewState.newLink = '';
   swapPreviewState.tested = false;
-  document.getElementById('swapPreviewLink').textContent = coupon.link;
-  document.getElementById('swapPreviewStatus').textContent = 'Abra o link antes de confirmar.';
+  document.getElementById('swapPreviewLink').textContent = 'Carregando link protegido...';
+  document.getElementById('swapPreviewStatus').textContent = 'Buscando o link real para teste.';
+  document.getElementById('swapPreviewCopyBtn').disabled = true;
+  const { data: secrets, error: secretErr } = await db.rpc('get_coupon_secrets', { p_coupon_ids: [coupon.id] });
+  const realLink = secrets?.find(item => item.coupon_id === coupon.id)?.link;
+  if (secretErr || !realLink || !/^https:\/\/chatgpt\.com\/p\//i.test(realLink)) {
+    await db.from('coupons').update({ status: 'available' }).eq('id', coupon.id).eq('status', 'reserved');
+    swapPreviewState.newCouponId = null;
+    document.getElementById('swapPreviewLink').textContent = 'Link indisponível';
+    toast('Não foi possível recuperar o link protegido. Nenhuma troca foi realizada.', 'error', 7000);
+    return false;
+  }
+  swapPreviewState.newLink = realLink;
+  document.getElementById('swapPreviewLink').textContent = realLink;
+  document.getElementById('swapPreviewCopyBtn').disabled = false;
+  document.getElementById('swapPreviewStatus').textContent = 'Copie o link, teste no navegador e confirme somente se funcionar.';
   document.getElementById('swapPreviewConfirmBtn').disabled = true;
   return true;
 }
@@ -3921,27 +3935,40 @@ async function trocarCupomUsuario(userId, oldCouponId, userName) {
   }
 }
 
-function testarCupomReservado() {
+async function copiarCupomReservado() {
   if (!swapPreviewState.newLink) return;
-  const opened = window.open(swapPreviewState.newLink, '_blank', 'noopener');
-  if (!opened) toast('O navegador bloqueou a nova aba. Permita pop-ups e tente novamente.', 'error', 6000);
-  swapPreviewState.tested = true;
-  document.getElementById('swapPreviewStatus').textContent = '✓ Link aberto para teste. Se estiver correto, volte aqui e confirme a troca.';
-  document.getElementById('swapPreviewConfirmBtn').disabled = false;
+  try {
+    await navigator.clipboard.writeText(swapPreviewState.newLink);
+    swapPreviewState.tested = true;
+    document.getElementById('swapPreviewStatus').textContent = 'Link copiado. Teste em outra aba; confirme apenas se funcionar.';
+    document.getElementById('swapPreviewConfirmBtn').disabled = false;
+    toast('Link copiado para teste manual.', 'success');
+  } catch (err) {
+    toast('Não foi possível copiar automaticamente. Selecione o link exibido e copie manualmente.', 'error', 6000);
+  }
 }
 
 async function rejeitarCupomReservado() {
   if (!swapPreviewState.newCouponId) return;
   const badId = swapPreviewState.newCouponId;
-  await db.from('coupons').update({ status: 'invalid', users_id: null, distributed_at: null }).eq('id', badId).eq('status', 'reserved');
+  const { data: blocked, error: blockErr } = await db.from('coupons')
+    .update({ status: 'blocked', users_id: null, distributed_at: null })
+    .eq('id', badId).eq('status', 'reserved').select('id');
+  if (blockErr || !blocked?.length) {
+    toast('Não foi possível bloquear o link reprovado. Tente novamente.', 'error', 7000);
+    return;
+  }
   await db.from('events').insert({
     coupons_id: badId, users_id: swapPreviewState.userId, event_type: 'swap_candidate_rejected',
     metadata: JSON.stringify({ origin: 'admin_swap_preview', reason: 'operator_link_test_failed' })
   });
   swapPreviewState.newCouponId = null;
   swapPreviewState.newLink = '';
+  swapPreviewState.tested = false;
+  document.getElementById('swapPreviewConfirmBtn').disabled = true;
+  document.getElementById('swapPreviewCopyBtn').disabled = true;
   document.getElementById('swapPreviewLink').textContent = 'Buscando outro...';
-  document.getElementById('swapPreviewStatus').textContent = 'O link anterior foi marcado como inválido. Reservando outro...';
+  document.getElementById('swapPreviewStatus').textContent = 'O link reprovado foi bloqueado. Reservando outro...';
   if (!(await reservarProximoCupomTroca())) await cancelarTrocaReservada();
 }
 
