@@ -563,7 +563,7 @@ body{overflow-x:hidden}
         <div class="page-header">
           <div class="page-header-left">
             <div class="page-title">Fila de Liberação</div>
-            <div class="page-sub">Solicitações confirmadas por e-mail aguardando decisão humana. Nenhum cupom é reservado antes da sua aprovação.</div>
+            <div class="page-sub">Solicitações confirmadas por e-mail aguardando decisão humana. Use Copiar link para testar; depois escolha Liberar ou Não liberar.</div>
           </div>
         </div>
         <div class="tbl-wrap">
@@ -3272,7 +3272,7 @@ function renderReleaseQueue() {
     <td data-label="Licenças">${esc(r.quantidade_licencas)}</td>
     <td data-label="Solicitado em">${fmtDate(r.created_at)}</td>
     <td class="sticky-actions"><div class="btns">
-      <button class="btn btn-ghost btn-sm" onclick="prepararCupomFila('${r.id}', false)">🔗 Ver link</button>
+      <button class="btn btn-ghost btn-sm" onclick="prepararCupomFila('${r.id}', false)">📋 Copiar link</button>
       <button class="btn btn-ghost btn-sm" onclick="prepararCupomFila('${r.id}', true)">🔄 Trocar cupom</button>
       <button class="btn btn-success btn-sm" onclick="approveManualRelease('${r.id}')">Liberar</button>
       <button class="btn btn-danger btn-sm" onclick="rejectManualRelease('${r.id}')">Não liberar</button>
@@ -3297,53 +3297,19 @@ function renderReleaseQueue() {
 }
 
 async function prepararCupomFila(id, trocar=false) {
-  const req = allReleaseRequests.find(r => r.id === id);
-  if (!req) return;
-
-  if (trocar && req.coupon_id) {
-    const { error: blockErr } = await db.from('coupons')
-      .update({ status:'blocked' })
-      .eq('id', req.coupon_id)
-      .eq('status','reserved');
-    if (blockErr) { toast('Erro ao bloquear o cupom testado: ' + blockErr.message, 'error', 6000); return; }
-    await db.from('coupon_release_requests').update({ coupon_id:null }).eq('id', id).eq('status','pending');
-    req.coupon_id = null;
+  const { data, error } = await db.functions.invoke('coupon-manual-release', {
+    body: { action: trocar ? 'swap' : 'prepare', request_id:id }
+  });
+  if (error || data?.error || !data?.link) {
+    toast(data?.error || error?.message || 'Não foi possível preparar o cupom.', 'error', 6000);
+    return;
   }
-
-  let couponId = req.coupon_id;
-  if (!couponId) {
-    const { data: avail, error: availErr } = await db.from('coupons')
-      .select('id').eq('status','available').order('created_at',{ascending:true}).limit(10);
-    if (availErr || !avail?.length) { toast('Nenhum cupom disponível.', 'error'); return; }
-
-    for (const candidate of avail) {
-      const { data: locked } = await db.from('coupons')
-        .update({ status:'reserved' })
-        .eq('id', candidate.id).eq('status','available').select('id');
-      if (!locked?.length) continue;
-      const { data: linked } = await db.from('coupon_release_requests')
-        .update({ coupon_id:candidate.id }).eq('id',id).eq('status','pending').is('coupon_id',null).select('id');
-      if (!linked?.length) {
-        await db.from('coupons').update({status:'available'}).eq('id',candidate.id).eq('status','reserved');
-        continue;
-      }
-      couponId = candidate.id;
-      req.coupon_id = candidate.id;
-      break;
-    }
+  try {
+    await navigator.clipboard.writeText(data.link);
+    toast(trocar ? 'Novo cupom reservado e link copiado!' : 'Link copiado!', 'success');
+  } catch {
+    toast('Cupom preparado, mas o navegador não permitiu copiar automaticamente.', 'error', 6000);
   }
-  if (!couponId) { toast('Não foi possível reservar um cupom.', 'error'); return; }
-
-  const { data, error } = await db.functions.invoke('admin-coupon-test-link', { body:{coupon_id:couponId} });
-  if (error || !data?.link) { toast('Não foi possível obter o link real do cupom.', 'error', 6000); return; }
-
-  try { await navigator.clipboard.writeText(data.link); } catch {}
-  openConfirm(
-    trocar ? 'Novo cupom reservado' : 'Cupom reservado para teste',
-    'Link real:\n\n' + data.link + '\n\nO link também foi copiado. A reserva expira em até 10 minutos se a operação não for concluída.',
-    ()=>{},
-    'OK'
-  );
   await loadReleaseQueue();
 }
 
