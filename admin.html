@@ -4116,6 +4116,14 @@ async function verCuponsUsuario(userId, userName) {
   }
 
   viewCouponsList = data || [];
+  if (viewCouponsList.length) {
+    const ids = viewCouponsList.map(c => c.id);
+    const { data: secretResponse, error: secretErr } = await db.functions.invoke('admin-coupon-test-link', {
+      body: { coupon_ids: ids, allow_linked: true }
+    });
+    const realById = new Map((secretResponse?.links || []).map(item => [item.coupon_id, item.link]));
+    if (!secretErr) viewCouponsList = viewCouponsList.map(c => ({ ...c, real_link: realById.get(c.id) || '' }));
+  }
   if (!viewCouponsList.length) {
     document.getElementById('viewCouponsBody').innerHTML = '<div style="font-size:12px;color:var(--text3);padding:.5rem 0">Nenhum cupom vinculado a esse usuário no momento.</div>';
     return;
@@ -4128,7 +4136,7 @@ async function verCuponsUsuario(userId, userName) {
         <div style="font-size:11px;color:var(--text3);margin-top:2px">${statusLabel(c.status)}${c.distributed_at ? ' · ' + fmtDate(c.distributed_at) : ''}</div>
       </div>
       <div style="display:flex;gap:.3rem;flex-shrink:0">
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="navigator.clipboard.writeText('${(c.link||'').replace(/'/g,"\\'")}');toast('Link copiado!','success')" title="Copiar link">📋</button>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="copiarLinkCupomUsuario('${c.id}')" title="Copiar link real">📋</button>
         <button class="btn btn-ghost btn-sm btn-icon" onclick="trocarCupomUsuario('${viewCouponsUserId}','${c.id}','${(viewCouponsUserName||'').replace(/'/g,"\\'")}')" title="Trocar por outro cupom disponível — este é bloqueado permanentemente">🔄</button>
         <button class="btn btn-ghost btn-sm btn-icon" onclick="devolverCupomModal('${c.id}')" title="Devolver ao estoque — fica disponível pra vincular a outra pessoa depois">↩</button>
       </div>
@@ -4137,6 +4145,20 @@ async function verCuponsUsuario(userId, userName) {
 
   const sendable = viewCouponsList.filter(c => c.status === 'delivered' || c.status === 'redeemed');
   document.getElementById('viewCouponsSendBtn').disabled = !sendable.length;
+}
+
+async function copiarLinkCupomUsuario(couponId) {
+  const coupon = viewCouponsList.find(c => c.id === couponId);
+  if (!coupon?.real_link) {
+    toast('Link real protegido indisponível para cópia.', 'error', 5000);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(coupon.real_link);
+    toast('Link real copiado!', 'success');
+  } catch {
+    toast('Não foi possível copiar o link.', 'error', 5000);
+  }
 }
 
 function closeViewCouponsModal() {
