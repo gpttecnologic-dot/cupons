@@ -3897,8 +3897,8 @@ async function reservarProximoCupomTroca() {
   document.getElementById('swapPreviewLink').textContent = 'Carregando link protegido...';
   document.getElementById('swapPreviewStatus').textContent = 'Buscando o link real para teste.';
   document.getElementById('swapPreviewCopyBtn').disabled = true;
-  const { data: secrets, error: secretErr } = await db.rpc('get_coupon_secrets', { p_coupon_ids: [coupon.id] });
-  const realLink = secrets?.find(item => item.coupon_id === coupon.id)?.link;
+  const { data: secretResponse, error: secretErr } = await db.functions.invoke('admin-coupon-test-link', { body: { coupon_id: coupon.id } });
+  const realLink = secretResponse?.link;
   if (secretErr || !realLink || !/^https:\/\/chatgpt\.com\/p\//i.test(realLink)) {
     await db.from('coupons').update({ status: 'available' }).eq('id', coupon.id).eq('status', 'reserved');
     swapPreviewState.newCouponId = null;
