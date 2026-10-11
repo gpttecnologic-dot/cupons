@@ -3583,7 +3583,11 @@ async function loadUsers() {
       .from('users')
       .select('id,name,email,phone,cpf,referral_id,coupons_id,quantidade_licencas,segmento,created_at,archived_at')
       .is('archived_at', null)
+      // Ordenação determinística é obrigatória na paginação. Só created_at
+      // permitia empates na fronteira entre páginas e podia fazer um usuário
+      // "sumir" da lista mesmo continuando no banco.
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(from, from + 999);
     if (batch.error) { error = batch.error; break; }
     if (!batch.data?.length) break;
