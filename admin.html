@@ -1780,6 +1780,16 @@ async function moveSlaTicket(ev,status){
 }
 
 // ─── TABS ─────────────────────────────────────────────────────────────────────
+function lastTabKey() { return crmUserId ? '12ia:last-tab:' + crmUserId : null; }
+function restoreLastTab() {
+  const key = lastTabKey();
+  const saved = key ? localStorage.getItem(key) : null;
+  if (!saved || !/^[a-z-]+$/.test(saved)) return false;
+  const nav = document.getElementById('nav-' + saved);
+  if (!document.getElementById('tab-' + saved) || !nav || nav.classList.contains('hidden')) return false;
+  goTab(saved);
+  return true;
+}
 function goTab(id) {
   document.querySelectorAll('.main > div').forEach(d => d.classList.add('hidden'));
   document.querySelectorAll('.sb-link').forEach(l => l.classList.remove('active'));
@@ -1789,6 +1799,8 @@ function goTab(id) {
   tabEl.classList.remove('hidden');
   if (navEl) navEl.classList.add('active');
   currentTab = id;
+  const tabKey = lastTabKey();
+  if (tabKey) localStorage.setItem(tabKey, id);
   if (id === 'dashboard') loadDashboard();
   if (id === 'coupons')   loadCoupons();
   if (id === 'releasequeue') loadReleaseQueue();
@@ -5509,7 +5521,8 @@ async function applyPermissionGating() {
     sec.classList.toggle('hidden', !anyVisible);
   });
 
-  if (isSystemAdmin) { loadDashboard(); return; }
+  if (restoreLastTab()) return;
+  if (isSystemAdmin) { goTab('dashboard'); return; }
   // Pouso: primeira aba avulsa liberada > Meu Desempenho > CRM (que já trata
   // sozinho o caso de não ter nenhuma empresa liberada).
   if (myTabAccess.length) { goTab(myTabAccess[0]); return; }
