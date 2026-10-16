@@ -721,7 +721,7 @@ body{overflow-x:hidden}
 
       <!-- PRODUTOS -->
       <div id="tab-products" class="hidden">
-        <div class="page-header"><div class="page-header-left"><div class="page-title">Produtos</div><div class="page-sub">Catálogo comercial usado no CRM, propostas e integrações</div></div><button class="btn btn-primary btn-sm" id="newProductBtn" type="button">+ Novo produto</button></div>
+        <div class="page-header"><div class="page-header-left"><div class="page-title">Produtos</div><div class="page-sub">Catálogo comercial usado no CRM, propostas e integrações</div></div><button class="btn btn-primary btn-sm" id="newProductBtn" type="button" onclick="window.openProductModal && window.openProductModal()">+ Novo produto</button></div>
         <div class="tbl-wrap"><div class="tbl-head"><div><div class="tbl-title">Produtos cadastrados</div><div class="tbl-sub">Configure valores padrão e regras de cada produto</div></div></div><div id="productsList"></div></div>
       </div>
 
@@ -5353,11 +5353,34 @@ async function loadProducts(){
   productsCache=data||[];
   document.getElementById('productsList').innerHTML=productsCache.length?productsCache.map(p=>`<div class="ref-item"><div style="flex:1"><div style="font-weight:700">${esc(p.name)} ${p.active?'':'<span class="badge">Inativo</span>'}</div><div style="font-size:11px;color:var(--text3)">${esc(p.category||'Sem categoria')} · Setup R$ ${Number(p.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Recorrência R$ ${Number(p.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · ${p.uses_coupons?'Usa cupons':'Sem cupons'} · ${p.partner_visibility?'Visível ao parceiro':'Interno'}</div></div><button class="btn btn-secondary btn-sm" onclick="editProduct('${p.id}')">Editar</button></div>`).join(''):'<div class="empty-state"><div class="empty-title">Nenhum produto cadastrado</div></div>';
 }
-function newProduct(){document.getElementById('productId').value='';document.getElementById('productName').value='';document.getElementById('productCategory').value='';document.getElementById('productDescription').value='';document.getElementById('productSetup').value='0';document.getElementById('productRecurring').value='0';document.getElementById('productPeriod').value='monthly';document.getElementById('productActive').checked=true;document.getElementById('productCoupons').checked=false;document.getElementById('productPartnerVisibility').checked=false;document.getElementById('productModalTitle').textContent='Novo produto';document.getElementById('productModal').classList.add('show');}
-window.newProduct = newProduct;
-document.getElementById('newProductBtn')?.addEventListener('click', newProduct);
+function newProduct(){
+  const modal=document.getElementById('productModal');
+  if(!modal){console.error('productModal não encontrado');return;}
+  const setVal=(id,value)=>{const el=document.getElementById(id);if(el)el.value=value;};
+  const setChecked=(id,value)=>{const el=document.getElementById(id);if(el)el.checked=value;};
+  setVal('productId','');
+  setVal('productName','');
+  setVal('productCategory','');
+  setVal('productDescription','');
+  setVal('productSetup','0');
+  setVal('productRecurring','0');
+  setVal('productPeriod','monthly');
+  setChecked('productActive',true);
+  setChecked('productCoupons',false);
+  setChecked('productPartnerVisibility',false);
+  const title=document.getElementById('productModalTitle');
+  if(title)title.textContent='Novo produto';
+  modal.classList.add('show');
+  modal.style.display='flex';
+}
+window.newProduct=newProduct;
+window.openProductModal=newProduct;
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('#newProductBtn');
+  if(btn){e.preventDefault();newProduct();}
+});
 function editProduct(id){const p=productsCache.find(x=>x.id===id);if(!p)return;document.getElementById('productId').value=p.id;document.getElementById('productName').value=p.name||'';document.getElementById('productCategory').value=p.category||'';document.getElementById('productDescription').value=p.description||'';document.getElementById('productSetup').value=p.default_setup||0;document.getElementById('productRecurring').value=p.default_recurring||0;document.getElementById('productPeriod').value=p.recurring_period||'monthly';document.getElementById('productActive').checked=!!p.active;document.getElementById('productCoupons').checked=!!p.uses_coupons;document.getElementById('productPartnerVisibility').checked=!!p.partner_visibility;document.getElementById('productModalTitle').textContent='Editar produto';document.getElementById('productModal').classList.add('show');}
-function closeProductModal(){document.getElementById('productModal').classList.remove('show');}
+function closeProductModal(){const modal=document.getElementById('productModal');if(!modal)return;modal.classList.remove('show');modal.style.display='';}
 async function saveProduct(){if(!isSystemAdmin){toast('Somente Master pode alterar produtos.','error');return;}const id=document.getElementById('productId').value;const payload={name:document.getElementById('productName').value.trim(),category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}const {error}=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);if(error){toast('Erro ao salvar produto: '+error.message,'error');return;}closeProductModal();toast('Produto salvo.','success');loadProducts();}
 
 // ─── PERMISSÕES ────────────────────────────────────────────────────────────
