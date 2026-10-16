@@ -77,6 +77,11 @@ a{color:var(--accent-light);text-decoration:none}
 .sb-footer{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid var(--border)}
 .sb-user{font-size:12px;color:var(--text3);margin-bottom:.75rem}
 .sb-settings-wrap{position:relative}
+/* Hide admin controls until permissions are checked. */
+#adminScreen:not(.permissions-ready) .sb-section,
+#adminScreen:not(.permissions-ready) .sb-link,
+#adminScreen:not(.permissions-ready) .sb-settings-wrap,
+#adminScreen:not(.permissions-ready) .main{visibility:hidden}
 .sb-settings-menu{display:none;position:absolute;bottom:calc(100% + 8px);right:0;min-width:220px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:.35rem;z-index:50}
 .sb-settings-menu.show{display:block}
 .sb-settings-menu .sb-link{border-radius:8px;border-left:none;padding:.575rem .75rem}
@@ -5488,7 +5493,7 @@ async function applyPermissionGating() {
   });
   const releaseQueueNav=document.getElementById('nav-releasequeue');
   if(releaseQueueNav) releaseQueueNav.classList.toggle('hidden', !(isSystemAdmin || myTabAccess.includes('coupons')));
-  document.getElementById('nav-permissoes').classList.toggle('hidden', !isSystemAdmin);
+  document.getElementById('nav-permissions').classList.toggle('hidden', !isSystemAdmin);
   const companiesNav=document.getElementById('nav-companies'); if(companiesNav) companiesNav.classList.toggle('hidden', !isSystemAdmin);
   // ADM Empresa opera somente o CRM de suas empresas, sem o painel de parceiros.
   const { data: companyLinks } = !isSystemAdmin
@@ -5521,6 +5526,7 @@ async function applyPermissionGating() {
     sec.classList.toggle('hidden', !anyVisible);
   });
 
+  document.getElementById('adminScreen').classList.add('permissions-ready');
   if (restoreLastTab()) return;
   if (isSystemAdmin) { goTab('dashboard'); return; }
   // Pouso: primeira aba avulsa liberada > Meu Desempenho > CRM (que já trata
