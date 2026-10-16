@@ -5445,7 +5445,7 @@ const SYSTEM_TAB_META = [
   { id: 'reports', label: 'Relatórios' },
   { id: 'sla', label: 'SLA' },
 ];
-const CRM_ONLY_SECTION_IDS = ['sbSecPrincipal', 'sbSecGerenciar', 'sbSecComunicacao', 'sbSecDados'];
+const CRM_ONLY_SECTION_IDS = ['sbSecPrincipal', 'sbSecGerenciar', 'sbSecComunicacao', 'sbSecDados', 'sbSecParceiro'];
 
 async function applyPermissionGating() {
   const { data: { user } } = await db.auth.getUser();
@@ -5478,8 +5478,21 @@ async function applyPermissionGating() {
   if(releaseQueueNav) releaseQueueNav.classList.toggle('hidden', !(isSystemAdmin || myTabAccess.includes('coupons')));
   document.getElementById('nav-permissoes').classList.toggle('hidden', !isSystemAdmin);
   const companiesNav=document.getElementById('nav-companies'); if(companiesNav) companiesNav.classList.toggle('hidden', !isSystemAdmin);
-  document.getElementById('nav-partner').classList.toggle('hidden', !(isSystemAdmin || myReferralAccess.length));
-  document.getElementById('sbSecParceiro').classList.toggle('hidden', !(isSystemAdmin || myReferralAccess.length));
+  // ADM Empresa opera somente o CRM de suas empresas, sem o painel de parceiros.
+  const { data: companyLinks } = !isSystemAdmin
+    ? await db.from('user_company_access').select('company_id').eq('user_id', crmUserId).limit(1)
+    : { data: [] };
+  const isCompanyOnlyOperator = !isSystemAdmin && !!companyLinks?.length && !myTabAccess.length;
+  const canSeePartner = !isCompanyOnlyOperator && (isSystemAdmin || myReferralAccess.length > 0);
+  document.getElementById('nav-partner').classList.toggle('hidden', !canSeePartner);
+  document.getElementById('sbSecParceiro').classList.toggle('hidden', !canSeePartner);
+  const settingsWrap = document.querySelector('.sb-settings-wrap');
+  if (settingsWrap) {
+    const hasSettingsAccess = ['permissions','companies','products','smtp']
+      .some(id => !document.getElementById('nav-' + id)?.classList.contains('hidden'));
+    settingsWrap.classList.toggle('hidden', !hasSettingsAccess || isCompanyOnlyOperator);
+    if (!hasSettingsAccess || isCompanyOnlyOperator) closeSettingsMenu();
+  }
   const slaNav=document.getElementById('nav-sla'); if(slaNav) slaNav.classList.toggle('hidden', !(isSystemAdmin||myTabAccess.includes('sla')));
   await loadNotifications(false);
   scheduleNotificationReminders();
