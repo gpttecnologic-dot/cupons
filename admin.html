@@ -721,7 +721,7 @@ body{overflow-x:hidden}
 
       <!-- PRODUTOS -->
       <div id="tab-products" class="hidden">
-        <div class="page-header"><div class="page-header-left"><div class="page-title">Produtos</div><div class="page-sub">Catálogo comercial usado no CRM, propostas e integrações</div></div><button class="btn btn-primary btn-sm" id="newProductBtn" type="button" onclick="window.openProductModal && window.openProductModal()">+ Novo produto</button></div>
+        <div class="page-header"><div class="page-header-left"><div class="page-title">Produtos</div><div class="page-sub">Catálogo comercial usado no CRM, propostas e integrações</div></div><button class="btn btn-primary btn-sm" id="newProductBtn" type="button" onclick="var m=document.getElementById('productModal');if(m){document.getElementById('productId').value='';document.getElementById('productName').value='';document.getElementById('productCategory').value='';document.getElementById('productDescription').value='';document.getElementById('productSetup').value='0';document.getElementById('productRecurring').value='0';document.getElementById('productPeriod').value='monthly';document.getElementById('productActive').checked=true;document.getElementById('productCoupons').checked=false;document.getElementById('productPartnerVisibility').checked=false;document.getElementById('productModalTitle').textContent='Novo produto';m.classList.add('show');m.style.display='flex';m.style.zIndex='99999';}">+ Novo produto</button></div>
         <div class="tbl-wrap"><div class="tbl-head"><div><div class="tbl-title">Produtos cadastrados</div><div class="tbl-sub">Configure valores padrão e regras de cada produto</div></div></div><div id="productsList"></div></div>
       </div>
 
