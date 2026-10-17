@@ -5755,7 +5755,6 @@ async function loadCrmCompanyProducts(){
  const el=document.getElementById('crmProposalProducts');if(!el)return;
  const dc=currentCrmDealCompanyLink();
  if(!dc){crmCompanyProducts=[];renderCrmCompanyProducts('');return;}
- if(!dc){crmCompanyProducts=[];el.innerHTML='<div style="font-size:12px;color:var(--text3)">Salve o negócio para selecionar produtos desta empresa.</div>';return;}
  const {data,error}=await db.from('crm_deal_company_products').select('id,deal_company_id,product_id,setup_value,recurring_value').eq('deal_company_id',dc.id);
  if(error){el.innerHTML='<div style="font-size:12px;color:var(--danger)">Erro ao carregar produtos da empresa.</div>';return;}
  crmCompanyProducts=data||[];renderCrmCompanyProducts(dc.id);
