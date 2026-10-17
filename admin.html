@@ -5752,21 +5752,27 @@ async function loadCrmCompanyProducts(){
 }
 function renderCrmCompanyProducts(dealCompanyId){
  const el=document.getElementById('crmProposalProducts');if(!el)return;
- el.innerHTML=crmProposalProducts.map(p=>{
-  const row=crmCompanyProducts.find(x=>x.product_id===p.id),checked=!!row;
-  const setup=checked?row.setup_value:(p.default_setup||0),rec=checked?row.recurring_value:(p.default_recurring||0);
+ const selectedIds=new Set(crmCompanyProducts.map(x=>x.product_id));
+ const available=crmProposalProducts.filter(p=>!selectedIds.has(p.id));
+ const selector=`<div style="display:flex;gap:.45rem;align-items:center"><select class="filter-sel" id="crmProposalProductSelect" style="flex:1;min-width:0"><option value="">Selecione um produto da empresa</option>${available.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmProposalProduct('${dealCompanyId}')" ${available.length?'':'disabled'}>+ Adicionar</button></div>`;
+ const cards=crmProposalProducts.filter(p=>selectedIds.has(p.id)).map(p=>{
+  const row=crmCompanyProducts.find(x=>x.product_id===p.id),checked=true;
+  const setup=row?.setup_value??(p.default_setup||0),rec=row?.recurring_value??(p.default_recurring||0);
   const maxDiscount=Number(p.max_discount_percent||0);
   const variants=(p.variants||[]).filter(x=>x.active!==false),accessories=(p.accessories||[]).filter(x=>x.active!==false),hasVariant=variants.length>0;
   const variantControl=hasVariant?`<label class="form-label" style="margin:.55rem 0 .2rem">Potência</label><select class="filter-sel crm-prod-variant" data-product="${p.id}" style="width:100%" ${checked?'':'disabled'} onchange="updateCrmProposalProduct('${p.id}')"><option value="">Selecione a potência</option>${variants.map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('')}</select>`:'';
   const accessoryControl=accessories.length?`<details style="margin-top:.45rem"><summary style="cursor:pointer;font-size:11px;color:var(--text2)">Acessórios (selecione um ou mais)</summary><div style="display:grid;gap:.2rem;padding:.4rem .2rem;max-height:130px;overflow:auto">${accessories.map(x=>`<label style="display:flex;align-items:center;gap:.4rem;font-size:11px"><input type="checkbox" class="crm-prod-accessory" data-product="${p.id}" value="${esc(x.id)}" ${checked?'':'disabled'} onchange="updateCrmProposalProduct('${p.id}')">${esc(x.label)}</label>`).join('')}</div></details>`:'';
-  return `<div style="padding:.65rem;border:1px solid var(--border);border-radius:8px">
-   <div style="display:grid;grid-template-columns:minmax(150px,1fr) repeat(${hasVariant?2:4},minmax(75px,105px));gap:.4rem;align-items:center">
-    <label style="display:flex;align-items:center;gap:.5rem;font-size:12px;font-weight:600"><input type="checkbox" class="crm-prod-check" data-product="${p.id}" ${checked?'checked':''} onchange="toggleCrmCompanyProduct('${dealCompanyId}','${p.id}',this.checked)">${esc(p.name)}<small style="color:var(--text3);font-weight:400">Máx. ${maxDiscount}%</small></label>
-    ${hasVariant?`<input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0" ${checked?'':'disabled'}>`:`<input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${setup}" placeholder="Setup R$" title="Setup unitário (R$)" style="margin:0;min-width:0" ${checked?'':'disabled'}><input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${rec}" placeholder="Recorrência R$" title="Recorrência unitária (R$)" style="margin:0;min-width:0" ${checked?'':'disabled'}><input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0" ${checked?'':'disabled'}>`}
-    <input class="swap-modal-input crm-prod-discount" data-product="${p.id}" type="number" min="0" max="${maxDiscount}" step=".01" value="0" placeholder="Desconto %" title="Desconto percentual (máximo ${maxDiscount}%)" style="margin:0;min-width:0" ${checked?'':'disabled'}>
+  return `<div style="padding:.65rem;border:1px solid var(--border);border-radius:8px;margin-top:.5rem">
+   <input type="checkbox" class="crm-prod-check" data-product="${p.id}" checked hidden>
+   <div style="display:grid;grid-template-columns:minmax(150px,1fr) repeat(${hasVariant?2:4},minmax(75px,105px)) auto;gap:.4rem;align-items:center">
+    <div style="font-size:12px;font-weight:600">${esc(p.name)} <small style="color:var(--text3);font-weight:400">Máx. ${maxDiscount}%</small></div>
+    ${hasVariant?`<input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0">`:`<input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${setup}" placeholder="Setup R$" title="Setup unitário (R$)" style="margin:0;min-width:0"><input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${rec}" placeholder="Recorrência R$" title="Recorrência unitária (R$)" style="margin:0;min-width:0"><input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0">`}
+    <input class="swap-modal-input crm-prod-discount" data-product="${p.id}" type="number" min="0" max="${maxDiscount}" step=".01" value="0" placeholder="Desconto %" title="Desconto percentual (máximo ${maxDiscount}%)" style="margin:0;min-width:0">
+    <button type="button" class="btn btn-ghost btn-sm" onclick="removeCrmProposalProduct('${dealCompanyId}','${p.id}')" title="Remover produto da proposta">×</button>
    </div>${variantControl}${accessoryControl}<div class="crm-prod-option-summary" data-product="${p.id}" style="font-size:11px;color:var(--text3);margin-top:.35rem">${hasVariant?'Escolha uma potência para calcular os valores.':''}</div>
   </div>`;
- }).join('')||'<div style="font-size:12px;color:var(--text3)">Nenhum produto ativo cadastrado.</div>';
+ }).join('');
+ el.innerHTML=selector+(cards||(crmProposalProducts.length?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Selecione um produto para incluir na proposta.</div>':'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Nenhum produto ativo cadastrado para esta empresa.</div>'));
 }
 function updateCrmProposalProduct(productId){
  const p=crmProposalProducts.find(x=>x.id===productId);if(!p)return;
@@ -5777,16 +5783,16 @@ function updateCrmProposalProduct(productId){
  const setup=Number(variant?.setup||0)+accessories.reduce((n,x)=>n+Number(x.setup||0),0),rec=Number(variant?.recurring||0)+accessories.reduce((n,x)=>n+Number(x.recurring||0),0),money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
  el.textContent=variant?`Setup por unidade: ${money(setup)} · Recorrência por unidade: ${money(rec)}${accessories.length?` · ${accessories.map(x=>x.label).join(', ')}`:''}`:accessories.length?`Acessórios: ${accessories.map(x=>x.label).join(', ')}`:'Escolha uma potência para calcular os valores.';
 }
-async function toggleCrmCompanyProduct(dealCompanyId,productId,checked){
- const setupEl=document.querySelector(`.crm-prod-setup[data-product="${productId}"]`),recEl=document.querySelector(`.crm-prod-recurring[data-product="${productId}"]`);
- if(setupEl)setupEl.disabled=!checked;if(recEl)recEl.disabled=!checked;
- const quantityEl=document.querySelector(`.crm-prod-quantity[data-product="${productId}"]`),discountEl=document.querySelector(`.crm-prod-discount[data-product="${productId}"]`);
- if(quantityEl)quantityEl.disabled=!checked;if(discountEl)discountEl.disabled=!checked;
- document.querySelectorAll(`.crm-prod-variant[data-product="${productId}"],.crm-prod-accessory[data-product="${productId}"]`).forEach(x=>x.disabled=!checked);
- if(!checked){const {error}=await db.from('crm_deal_company_products').delete().eq('deal_company_id',dealCompanyId).eq('product_id',productId);if(error){toast('Erro ao remover produto: '+error.message,'error');return;}crmCompanyProducts=crmCompanyProducts.filter(x=>x.product_id!==productId);return;}
- const payload={deal_company_id:dealCompanyId,product_id:productId,setup_value:Number(setupEl?.value||0),recurring_value:Number(recEl?.value||0),updated_at:new Date().toISOString()};
+async function addCrmProposalProduct(dealCompanyId){
+ const select=document.getElementById('crmProposalProductSelect'),productId=select?.value,p=crmProposalProducts.find(x=>x.id===productId);
+ if(!productId||!p){toast('Selecione um produto da empresa.','error');return;}
+ const payload={deal_company_id:dealCompanyId,product_id:productId,setup_value:Number(p.default_setup||0),recurring_value:Number(p.default_recurring||0),updated_at:new Date().toISOString()};
  const {data,error}=await db.from('crm_deal_company_products').upsert(payload,{onConflict:'deal_company_id,product_id'}).select().single();
- if(error){toast('Erro ao vincular produto: '+error.message,'error');return;}crmCompanyProducts=crmCompanyProducts.filter(x=>x.product_id!==productId).concat(data);
+ if(error){toast('Erro ao adicionar produto: '+error.message,'error');return;}crmCompanyProducts=crmCompanyProducts.filter(x=>x.product_id!==productId).concat(data);renderCrmCompanyProducts(dealCompanyId);
+}
+async function removeCrmProposalProduct(dealCompanyId,productId){
+ const {error}=await db.from('crm_deal_company_products').delete().eq('deal_company_id',dealCompanyId).eq('product_id',productId);
+ if(error){toast('Erro ao remover produto: '+error.message,'error');return;}crmCompanyProducts=crmCompanyProducts.filter(x=>x.product_id!==productId);renderCrmCompanyProducts(dealCompanyId);
 }
 async function saveCrmCompanyProductValues(){
  const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc)return true;
