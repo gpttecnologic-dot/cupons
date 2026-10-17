@@ -758,6 +758,16 @@ body{overflow-x:hidden}
           <div id="productVariantsList" style="max-height:220px;overflow:auto;display:grid;gap:.4rem"></div>
           <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.45rem" onclick="addProductVariant()">+ Adicionar potência</button>
         </div>
+        <div id="productLinkedAccessoriesSection" style="display:none;margin-top:.7rem;padding:.8rem;border:1px solid var(--border);border-radius:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;margin-bottom:.5rem">
+            <div>
+              <div style="font-size:12px;font-weight:700">Acessórios deste produto</div>
+              <div style="font-size:11px;color:var(--text3)">Cadastre acessórios vinculados a este produto. Eles também poderão ser selecionados na proposta.</div>
+            </div>
+            <button id="productLinkedAccessoryAdd" type="button" class="btn btn-secondary btn-sm" onclick="openNewAccessoryForProduct()">+ Novo acessório</button>
+          </div>
+          <div id="productLinkedAccessoriesList" style="display:grid;gap:.4rem"></div>
+        </div>
         <div id="productAccessoriesSection" style="display:none;margin-top:.7rem;padding:.8rem;border:1px solid var(--border);border-radius:8px">
           <div style="font-size:12px;font-weight:700;margin-bottom:.25rem">Acessórios</div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:.45rem">O consultor poderá escolher vários acessórios. Valores são por unidade do gerador.</div>
@@ -5492,10 +5502,40 @@ function renderProductParentOptions(selected=''){
  const options=productsCache.filter(p=>p.product_type!=='accessory'&&String(p.company_id)===String(companyId)&&String(p.id)!==String(document.getElementById('productId')?.value));
  el.innerHTML='<option value="">Selecione um produto</option>'+options.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');el.value=selected||'';
 }
+function renderProductLinkedAccessories(){
+ const section=document.getElementById('productLinkedAccessoriesSection');
+ const list=document.getElementById('productLinkedAccessoriesList');
+ const add=document.getElementById('productLinkedAccessoryAdd');
+ if(!section)return;
+ const isAccessory=document.getElementById('productType')?.value==='accessory';
+ section.style.display=isAccessory?'none':'block';
+ if(isAccessory)return;
+ const productId=document.getElementById('productId')?.value||'';
+ if(add)add.disabled=!productId;
+ if(!list)return;
+ if(!productId){list.innerHTML='<div style="font-size:11px;color:var(--text3)">Salve o produto para cadastrar acessórios vinculados.</div>';return;}
+ const children=productsCache.filter(p=>p.product_type==='accessory'&&String(p.parent_product_id)===String(productId));
+ list.innerHTML=children.length?children.map(a=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.5rem .65rem;background:var(--bg3);border-radius:6px;flex-wrap:wrap">
+   <div><div style="font-size:12px;font-weight:600">${esc(a.name)}</div><div style="font-size:10px;color:var(--text3)">Setup: R$ ${Number(a.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Mensal: R$ ${Number(a.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · ${a.active?'Ativo':'Inativo'}</div></div>
+   <button type="button" class="btn btn-ghost btn-sm" onclick="openEditProductModal('${a.id}',event)">Editar</button>
+ </div>`).join(''):'<div style="font-size:11px;color:var(--text3)">Nenhum acessório vinculado a este produto.</div>';
+}
+function openNewAccessoryForProduct(){
+ const productId=document.getElementById('productId')?.value||'';
+ const parent=productsCache.find(p=>String(p.id)===String(productId));
+ if(!parent){toast('Salve o produto antes de adicionar acessórios.','info');return;}
+ openNewProductModal();
+ const type=document.getElementById('productType');
+ if(type)type.value='accessory';
+ renderProductCompanyOptions(parent.company_id||'');
+ renderProductParentOptions(parent.id);
+ updateProductTypeFields();
+}
 function updateProductTypeFields(){
  const accessory=document.getElementById('productType')?.value==='accessory';
  const parent=document.getElementById('productParentWrap');if(parent)parent.style.display=accessory?'block':'none';
  setProductOptionSections(document.getElementById('productName')?.value||'');
+ renderProductLinkedAccessories();
 }
 async function loadProducts(){
   const [{data,error},{data:companies,error:companyError}]=await Promise.all([
