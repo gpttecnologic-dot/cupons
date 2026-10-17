@@ -971,7 +971,7 @@ body{overflow-x:hidden}
           <div id="proposalTemplatesList"></div>
         </div>
         <div id="proposalTemplateForm" class="tbl-wrap hidden" style="padding:1.25rem;margin-bottom:1.5rem">
-          <div class="tbl-head" style="justify-content:space-between"><div><div class="tbl-title" id="proposalTemplateFormTitle">Novo modelo de proposta</div><div class="tbl-sub">Variáveis disponíveis: {{empresa}}, {{contato}}, {{produtos}}, {{produtos_detalhes}}, {{setup}}, {{recorrencia}}, {{responsavel_nome}}</div></div><button class="btn btn-ghost btn-sm" onclick="closeCompanyProposalForm()">✕ Fechar</button></div>
+          <div class="tbl-head" style="justify-content:space-between"><div><div class="tbl-title" id="proposalTemplateFormTitle">Novo modelo de proposta</div><div class="tbl-sub">Variáveis disponíveis: {{empresa}}, {{contato}}, {{produtos}}, {{produtos_detalhes}}, {{setup}}, {{mensal}}, {{recorrencia}}, {{prazo_contrato}}, {{responsavel_nome}}</div></div><button class="btn btn-ghost btn-sm" onclick="closeCompanyProposalForm()">✕ Fechar</button></div>
           <input type="hidden" id="proposalTemplateId">
           <label class="form-label">Nome do modelo</label><input class="swap-modal-input" id="proposalTemplateName" placeholder="Ex.: Proposta comercial" style="margin-bottom:.7rem">
           <label class="form-label">Assunto</label><input class="swap-modal-input" id="proposalTemplateSubject" placeholder="Assunto do e-mail" style="margin-bottom:.7rem">
@@ -1348,9 +1348,9 @@ body{overflow-x:hidden}
     <div class="crm-modal-section" id="crmProposalSection">
       <div class="crm-modal-section-title"><span>✉️ Proposta por e-mail</span></div>
       <div><label class="form-label">Tipo</label><select class="filter-sel" id="crmProposalType" style="width:100%;margin-bottom:.65rem"><option value="client">Cliente / Corporação</option><option value="partnership">Parceria</option></select></div>
-      <label class="form-label">Produtos desta empresa</label>
+      <label class="form-label">Produtos disponíveis no CRM</label>
       <div id="crmProposalProducts" style="display:grid;gap:.5rem;margin-bottom:.7rem"></div>
-      <div style="font-size:11px;color:var(--text3);margin:-.2rem 0 .7rem">Selecione produtos, informe quantidade e desconto. Produtos com variações permitem escolher potência e vários acessórios; os valores são calculados por unidade e multiplicados pela quantidade.</div>
+      <div style="font-size:11px;color:var(--text3);margin:-.2rem 0 .7rem">Selecione produtos das empresas liberadas no seu CRM, informe quantidade e desconto. Produtos com variações permitem escolher potência e vários acessórios; os valores são calculados por unidade e multiplicados pela quantidade.</div>
       <label class="form-label">Modelo</label><select class="filter-sel" id="crmProposalTemplate" style="width:100%;margin-bottom:.65rem"></select>
       <label class="form-label">Destinatário</label><input class="swap-modal-input" id="crmProposalRecipient" type="email" placeholder="contato@empresa.com">
       <div style="display:flex;gap:.5rem;margin-top:.6rem"><button type="button" class="btn btn-secondary btn-sm" onclick="previewCrmProposal()">Visualizar</button><button type="button" class="btn btn-primary btn-sm" onclick="sendCrmProposal()">Enviar proposta</button></div>
@@ -5675,7 +5675,7 @@ async function applyPermissionGating() {
   goTab('crm');
 }
 
-let crmProposalProducts=[],crmProposalTemplates=[],crmCompanyProducts=[];
+let crmProposalProducts=[],crmProposalTemplates=[],crmCompanyProducts=[],crmProposalAllowedCompanyIds=new Set();
 
 function currentCompanyForProposal(){return crmSelectedCompanyId || crmCompanies?.[0]?.id || null}
 let companyProposalTemplates=[];
@@ -5731,11 +5731,16 @@ async function saveCompanyProposalSmtp(){
 async function loadCrmProposalData(){
  const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);
  const currentCompanyId=dc?.company_id||crmSelectedCompanyId;
- const [{data:p},{data:t}]=await Promise.all([
+ const [{data:p},{data:t},{data:authResult}]=await Promise.all([
   db.from('products').select('*').eq('active',true).order('name'),
-  db.from('crm_company_proposal_templates').select('id,name,subject,body,active').eq('company_id',currentCompanyId).eq('active',true).order('name')
+  db.from('crm_company_proposal_templates').select('id,name,subject,body,active').eq('company_id',currentCompanyId).eq('active',true).order('name'),
+  db.auth.getUser()
  ]);
- crmProposalProducts=(p||[]).filter(x=>!!currentCompanyId&&x.company_id===currentCompanyId);crmProposalTemplates=t||[];
+ const userId=authResult?.user?.id||crmUserId;
+ crmProposalAllowedCompanyIds=new Set();
+ if(crmIsAdmin||isSystemAdmin)crmProposalAllowedCompanyIds=new Set((crmCompanies||[]).map(c=>String(c.id)));
+ else if(userId){const {data:accessRows}=await db.from('user_company_access').select('company_id').eq('user_id',userId);crmProposalAllowedCompanyIds=new Set((accessRows||[]).map(x=>String(x.company_id)));}
+ crmProposalProducts=(p||[]).filter(x=>crmProposalAllowedCompanyIds.has(String(x.company_id))).map(x=>({...x,proposalCompanyName:crmCompanies.find(c=>String(c.id)===String(x.company_id))?.name||''}));crmProposalTemplates=t||[];
  const ts=document.getElementById('crmProposalTemplate');
  if(ts)ts.innerHTML=crmProposalTemplates.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
  await loadCrmCompanyProducts();
@@ -5754,7 +5759,7 @@ function renderCrmCompanyProducts(dealCompanyId){
  const el=document.getElementById('crmProposalProducts');if(!el)return;
  const selectedIds=new Set(crmCompanyProducts.map(x=>x.product_id));
  const available=crmProposalProducts.filter(p=>!selectedIds.has(p.id));
- const selector=`<div style="display:flex;gap:.45rem;align-items:center"><select class="filter-sel" id="crmProposalProductSelect" style="flex:1;min-width:0"><option value="">Selecione um produto da empresa</option>${available.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmProposalProduct('${dealCompanyId}')" ${available.length?'':'disabled'}>+ Adicionar</button></div>`;
+ const selector=`<div style="display:flex;gap:.45rem;align-items:center"><select class="filter-sel" id="crmProposalProductSelect" style="flex:1;min-width:0"><option value="">Selecione um produto</option>${available.map(p=>`<option value="${p.id}">${esc(p.proposalCompanyName)} · ${esc(p.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmProposalProduct('${dealCompanyId}')" ${available.length?'':'disabled'}>+ Adicionar</button></div>`;
  const cards=crmProposalProducts.filter(p=>selectedIds.has(p.id)).map(p=>{
   const row=crmCompanyProducts.find(x=>x.product_id===p.id),checked=true;
   const setup=row?.setup_value??(p.default_setup||0),rec=row?.recurring_value??(p.default_recurring||0);
@@ -5764,15 +5769,15 @@ function renderCrmCompanyProducts(dealCompanyId){
   const accessoryControl=accessories.length?`<details style="margin-top:.45rem"><summary style="cursor:pointer;font-size:11px;color:var(--text2)">Acessórios (selecione um ou mais)</summary><div style="display:grid;gap:.2rem;padding:.4rem .2rem;max-height:130px;overflow:auto">${accessories.map(x=>`<label style="display:flex;align-items:center;gap:.4rem;font-size:11px"><input type="checkbox" class="crm-prod-accessory" data-product="${p.id}" value="${esc(x.id)}" ${checked?'':'disabled'} onchange="updateCrmProposalProduct('${p.id}')">${esc(x.label)}</label>`).join('')}</div></details>`:'';
   return `<div style="padding:.65rem;border:1px solid var(--border);border-radius:8px;margin-top:.5rem">
    <input type="checkbox" class="crm-prod-check" data-product="${p.id}" checked hidden>
-   <div style="display:grid;grid-template-columns:minmax(150px,1fr) repeat(${hasVariant?2:4},minmax(75px,105px)) auto;gap:.4rem;align-items:center">
-    <div style="font-size:12px;font-weight:600">${esc(p.name)} <small style="color:var(--text3);font-weight:400">Máx. ${maxDiscount}%</small></div>
-    ${hasVariant?`<input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0">`:`<input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${setup}" placeholder="Setup R$" title="Setup unitário (R$)" style="margin:0;min-width:0"><input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${rec}" placeholder="Recorrência R$" title="Recorrência unitária (R$)" style="margin:0;min-width:0"><input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0">`}
+   <div style="display:grid;grid-template-columns:minmax(150px,1fr) repeat(2,minmax(75px,105px)) auto;gap:.4rem;align-items:center">
+    <div style="font-size:12px;font-weight:600">${esc(p.proposalCompanyName)} · ${esc(p.name)} <small style="color:var(--text3);font-weight:400">Máx. ${maxDiscount}%</small></div>
+    <input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0">
     <input class="swap-modal-input crm-prod-discount" data-product="${p.id}" type="number" min="0" max="${maxDiscount}" step=".01" value="0" placeholder="Desconto %" title="Desconto percentual (máximo ${maxDiscount}%)" style="margin:0;min-width:0">
     <button type="button" class="btn btn-ghost btn-sm" onclick="removeCrmProposalProduct('${dealCompanyId}','${p.id}')" title="Remover produto da proposta">×</button>
-   </div>${variantControl}${accessoryControl}<div class="crm-prod-option-summary" data-product="${p.id}" style="font-size:11px;color:var(--text3);margin-top:.35rem">${hasVariant?'Escolha uma potência para calcular os valores.':''}</div>
+   </div>${variantControl}${accessoryControl}<div style="display:grid;grid-template-columns:repeat(3,minmax(90px,1fr));gap:.4rem;margin-top:.5rem"><label style="font-size:10px;color:var(--text3)">Setup por unidade (R$)<input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${hasVariant?'':setup}" placeholder="Setup R$" style="margin:.2rem 0 0;min-width:0;width:100%"></label><label style="font-size:10px;color:var(--text3)">Contrato (meses)<input class="swap-modal-input crm-prod-contract" data-product="${p.id}" type="number" min="1" step="1" value="${Number(p.contract_months||12)}" placeholder="Meses" style="margin:.2rem 0 0;min-width:0;width:100%"></label><label style="font-size:10px;color:var(--text3)">Mensal por unidade (R$)<input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${hasVariant?'':rec}" placeholder="Mensal R$" style="margin:.2rem 0 0;min-width:0;width:100%"></label></div><div class="crm-prod-option-summary" data-product="${p.id}" style="font-size:11px;color:var(--text3);margin-top:.35rem">${hasVariant?'Escolha uma potência para carregar os valores configurados.':''}</div>
   </div>`;
  }).join('');
- el.innerHTML=selector+(cards||(crmProposalProducts.length?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Selecione um produto para incluir na proposta.</div>':'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Nenhum produto ativo cadastrado para esta empresa.</div>'));
+ el.innerHTML=selector+(cards||(crmProposalProducts.length?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Selecione um produto para incluir na proposta.</div>':'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Nenhum produto ativo encontrado nas empresas liberadas para seu acesso ao CRM.</div>'));
 }
 function updateCrmProposalProduct(productId){
  const p=crmProposalProducts.find(x=>x.id===productId);if(!p)return;
@@ -5780,8 +5785,9 @@ function updateCrmProposalProduct(productId){
  const variant=(p.variants||[]).find(x=>x.id===variantId),accessoryIds=[...document.querySelectorAll(`.crm-prod-accessory[data-product="${productId}"]:checked`)].map(x=>x.value),accessories=(p.accessories||[]).filter(x=>accessoryIds.includes(x.id));
  const el=document.querySelector(`.crm-prod-option-summary[data-product="${productId}"]`);if(!el)return;
  if(!(p.variants||[]).length&&!accessories.length){el.textContent='';return;}
- const setup=Number(variant?.setup||0)+accessories.reduce((n,x)=>n+Number(x.setup||0),0),rec=Number(variant?.recurring||0)+accessories.reduce((n,x)=>n+Number(x.recurring||0),0),money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
- el.textContent=variant?`Setup por unidade: ${money(setup)} · Recorrência por unidade: ${money(rec)}${accessories.length?` · ${accessories.map(x=>x.label).join(', ')}`:''}`:accessories.length?`Acessórios: ${accessories.map(x=>x.label).join(', ')}`:'Escolha uma potência para calcular os valores.';
+ const linked=crmCompanyProducts.find(x=>x.product_id===productId),setup=Number(variant?.setup??linked?.setup_value??p.default_setup??0)+accessories.reduce((n,x)=>n+Number(x.setup||0),0),rec=Number(variant?.recurring??linked?.recurring_value??p.default_recurring??0)+accessories.reduce((n,x)=>n+Number(x.recurring||0),0),money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+ const setupInput=document.querySelector(`.crm-prod-setup[data-product="${productId}"]`),recInput=document.querySelector(`.crm-prod-recurring[data-product="${productId}"]`);if(setupInput)setupInput.value=String(setup);if(recInput)recInput.value=String(rec);
+ el.textContent=`Valores sugeridos pelos dados do produto e acessórios selecionados: ${money(setup)} de setup e ${money(rec)} por mês. Você pode ajustar os valores para esta proposta.${accessories.length?` Acessórios: ${accessories.map(x=>x.label).join(', ')}.`:''}`;
 }
 async function addCrmProposalProduct(dealCompanyId){
  const select=document.getElementById('crmProposalProductSelect'),productId=select?.value,p=crmProposalProducts.find(x=>x.id===productId);
@@ -5804,26 +5810,28 @@ function selectedProposalItems(showError=true){
  for(const c of checked){
   const p=crmProposalProducts.find(x=>x.id===c.dataset.product),id=c.dataset.product;
   const quantity=Number(document.querySelector(`.crm-prod-quantity[data-product="${id}"]`)?.value),discountPercent=Number(document.querySelector(`.crm-prod-discount[data-product="${id}"]`)?.value||0),maxDiscount=Number(p?.max_discount_percent||0),variantId=document.querySelector(`.crm-prod-variant[data-product="${id}"]`)?.value||null,variant=(p?.variants||[]).find(x=>x.id===variantId),accessoryIds=[...document.querySelectorAll(`.crm-prod-accessory[data-product="${id}"]:checked`)].map(x=>x.value),accessories=(p?.accessories||[]).filter(x=>accessoryIds.includes(x.id));
-  if(!p||!dc||p.company_id!==dc.company_id){if(showError)toast('Há um produto que não pertence à empresa desta negociação.','error');return null;}
+  if(!p||!dc||!crmProposalAllowedCompanyIds.has(String(p.company_id))){if(showError)toast('Há um produto de uma empresa sem acesso liberado para esta proposta.','error');return null;}
   if(!Number.isInteger(quantity)||quantity<1){if(showError)toast(`Informe uma quantidade inteira válida para ${p.name}.`,'error');return null;}
   if((p.variants||[]).length&&!variant){if(showError)toast(`Selecione a potência do ${p.name}.`,'error');return null;}
-  const setupUnit=(variant?Number(variant.setup||0):Number(document.querySelector(`.crm-prod-setup[data-product="${id}"]`)?.value||0))+accessories.reduce((n,x)=>n+Number(x.setup||0),0),recurringUnit=(variant?Number(variant.recurring||0):Number(document.querySelector(`.crm-prod-recurring[data-product="${id}"]`)?.value||0))+accessories.reduce((n,x)=>n+Number(x.recurring||0),0);
+  const setupUnit=Number(document.querySelector(`.crm-prod-setup[data-product="${id}"]`)?.value||0),recurringUnit=Number(document.querySelector(`.crm-prod-recurring[data-product="${id}"]`)?.value||0),contractMonths=Number(document.querySelector(`.crm-prod-contract[data-product="${id}"]`)?.value);
   if(!Number.isFinite(setupUnit)||setupUnit<0||!Number.isFinite(recurringUnit)||recurringUnit<0){if(showError)toast(`Os valores de ${p.name} não podem ser negativos.`,'error');return null;}
+  if(!Number.isInteger(contractMonths)||contractMonths<1){if(showError)toast(`Informe o prazo do contrato em meses para ${p.name}.`,'error');return null;}
   if(!Number.isFinite(discountPercent)||discountPercent<0||discountPercent>maxDiscount){if(showError)toast(`O desconto de ${p.name} não pode ultrapassar ${maxDiscount}%.`,'error');return null;}
   const factor=1-discountPercent/100;
-  items.push({...p,displayName:p.name+(variant?` (${variant.label})`:''),variantId,variantLabel:variant?.label||null,accessories:accessories.map(x=>({id:x.id,label:x.label,setup:Number(x.setup||0),recurring:Number(x.recurring||0)})),accessoryIds,quantity,discountPercent,setupUnit,recurringUnit,setupTotal:Number((setupUnit*quantity*factor).toFixed(2)),recurringTotal:Number((recurringUnit*quantity*factor).toFixed(2))});
+  items.push({...p,displayName:p.name+(variant?` (${variant.label})`:'' )+(p.proposalCompanyName&&String(p.company_id)!==String(dc.company_id)?` — ${p.proposalCompanyName}`:''),variantId,variantLabel:variant?.label||null,accessories:accessories.map(x=>({id:x.id,label:x.label,setup:Number(x.setup||0),recurring:Number(x.recurring||0)})),accessoryIds,quantity,contractMonths,discountPercent,setupUnit,recurringUnit,setupTotal:Number((setupUnit*quantity*factor).toFixed(2)),recurringTotal:Number((recurringUnit*quantity*factor).toFixed(2))});
  }
  return items;
 }
 function proposalVars(){
  const selected=selectedProposalItems();if(!selected)return null;
  const owner=crmProfiles.find(x=>x.user_id===(crmDealCompaniesCache?.[0]?.owner_user_id));const money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
- const produtos=selected.map(x=>x.displayName).join(', '),detalhes=selected.map(x=>`${x.displayName}${x.accessories.length?` | Acessórios: ${x.accessories.map(a=>a.label).join(', ')}`:''} — Quantidade: ${x.quantity} | Desconto: ${x.discountPercent}% | Setup unitário: ${money(x.setupUnit)} × ${x.quantity} = ${money(x.setupTotal)} | Recorrência unitária: ${money(x.recurringUnit)} × ${x.quantity} = ${money(x.recurringTotal)}`).join('\n');
- return{empresa:document.getElementById('crmClientCompanyName').value||document.getElementById('crmTitle').value,contato:document.getElementById('crmContactName').value,produto:produtos,produtos,produtos_detalhes:detalhes,setup:money(selected.reduce((a,x)=>a+x.setupTotal,0)),recorrencia:money(selected.reduce((a,x)=>a+x.recurringTotal,0)),responsavel_nome:owner?.display_name||'',responsavel_email:owner?.email||''};
+ const produtos=selected.map(x=>x.displayName).join(', '),detalhes=selected.map(x=>`${x.displayName}${x.accessories.length?` | Acessórios: ${x.accessories.map(a=>a.label).join(', ')}`:''} — Quantidade: ${x.quantity} | Contrato: ${x.contractMonths} meses | Desconto: ${x.discountPercent}% | Setup unitário: ${money(x.setupUnit)} × ${x.quantity} = ${money(x.setupTotal)} | Mensal unitário: ${money(x.recurringUnit)} × ${x.quantity} = ${money(x.recurringTotal)}`).join('\n'),terms=[...new Set(selected.map(x=>x.contractMonths))];
+ const setupTotal=money(selected.reduce((a,x)=>a+x.setupTotal,0)),mensalTotal=money(selected.reduce((a,x)=>a+x.recurringTotal,0));
+ return{empresa:document.getElementById('crmClientCompanyName').value||document.getElementById('crmTitle').value,contato:document.getElementById('crmContactName').value,produto:produtos,produtos,produtos_detalhes:detalhes,setup:setupTotal,setup_total:setupTotal,mensal:mensalTotal,recorrencia:mensalTotal,prazo_contrato:terms.length===1?`${terms[0]} meses`:'Conforme prazo de cada produto',responsavel_nome:owner?.display_name||'',responsavel_email:owner?.email||''};
 }
 function renderProposalText(s,v){return Object.entries(v).reduce((o,[k,x])=>o.split('{{'+k+'}}').join(x||''),s||'');}
 function previewCrmProposal(){const t=crmProposalTemplates.find(x=>String(x.id)===String(document.getElementById('crmProposalTemplate')?.value)),el=document.getElementById('crmProposalPreview');if(!t||!el){toast('Selecione um modelo de proposta.','error');return false;}const v=proposalVars();if(!v)return false;const normalize=s=>String(s||'').replace(/\\\\n/g,'\n').replace(/\\n/g,'\n');el.textContent='Assunto: '+renderProposalText(normalize(t.subject),v)+'\n\n'+renderProposalText(normalize(t.body),v);el.classList.remove('hidden');return true;}
-async function sendCrmProposal(){if(!crmEditingDealId){toast('Salve o negócio antes de enviar a proposta.','error');return;}const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc){toast('Negócio sem empresa vinculada.','error');return;}if(!(await saveCrmCompanyProductValues()))return;const items=selectedProposalItems();if(!items)return;const body={deal_company_id:dc.id,product_ids:items.map(x=>x.id),items:items.map(x=>({product_id:x.id,quantity:x.quantity,discount_percent:x.discountPercent,variant_id:x.variantId,accessory_ids:x.accessoryIds})),proposal_type:document.getElementById('crmProposalType').value,template_id:document.getElementById('crmProposalTemplate').value,recipient_email:document.getElementById('crmProposalRecipient').value.trim()};if(!body.recipient_email){toast('Informe o e-mail do destinatário.','error');return;}if(!previewCrmProposal())return;if(!confirm('Enviar esta proposta para '+body.recipient_email+'?'))return;const {data,error}=await db.functions.invoke('send-crm-proposal',{body});if(error||!data?.success){toast('Erro ao enviar proposta: '+(data?.error||error?.message||'falha no envio'),'error');await loadCrmProposalHistory();return;}toast('Proposta enviada por e-mail.','success');await loadCrmProposalHistory();}
+async function sendCrmProposal(){if(!crmEditingDealId){toast('Salve o negócio antes de enviar a proposta.','error');return;}const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc){toast('Negócio sem empresa vinculada.','error');return;}if(!(await saveCrmCompanyProductValues()))return;const items=selectedProposalItems();if(!items)return;const body={deal_company_id:dc.id,product_ids:items.map(x=>x.id),items:items.map(x=>({product_id:x.id,quantity:x.quantity,discount_percent:x.discountPercent,variant_id:x.variantId,accessory_ids:x.accessoryIds,setup_value:x.setupUnit,recurring_value:x.recurringUnit,contract_months:x.contractMonths})),proposal_type:document.getElementById('crmProposalType').value,template_id:document.getElementById('crmProposalTemplate').value,recipient_email:document.getElementById('crmProposalRecipient').value.trim()};if(!body.recipient_email){toast('Informe o e-mail do destinatário.','error');return;}if(!previewCrmProposal())return;if(!confirm('Enviar esta proposta para '+body.recipient_email+'?'))return;const {data,error}=await db.functions.invoke('send-crm-proposal',{body});if(error||!data?.success){toast('Erro ao enviar proposta: '+(data?.error||error?.message||'falha no envio'),'error');await loadCrmProposalHistory();return;}toast('Proposta enviada por e-mail.','success');await loadCrmProposalHistory();}
 async function loadCrmProposalHistory(){const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId),el=document.getElementById('crmProposalHistory');if(!dc||!el)return;const {data}=await db.from('crm_proposals').select('id,recipient_email,status,sent_at,created_at,setup_value,recurring_value').eq('deal_company_id',dc.id).order('created_at',{ascending:false}).limit(10);el.innerHTML=(data||[]).length?'<div class="form-label">Histórico de propostas</div>'+(data||[]).map(x=>`<div style="font-size:11px;padding:.4rem 0;border-top:1px solid var(--border)">${x.status==='sent'?'✓':'⚠'} Proposta · ${esc(x.recipient_email)} · ${new Date(x.sent_at||x.created_at).toLocaleString('pt-BR')}</div>`).join(''):'';}
 async function loadCrmProfiles() {
   const { data, error } = await db.from('crm_profiles').select('user_id,email,display_name').order('email');

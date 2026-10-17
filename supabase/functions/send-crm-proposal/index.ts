@@ -38,6 +38,15 @@ serve(async (req) => {
       .maybeSingle()
     if (!dc) return json({ error: 'Negociação não encontrada ou sem acesso' }, 403)
 
+    const [{ data: companyAccess, error: accessError }, { data: crmAdmin }, { data: systemAdmin }] = await Promise.all([
+      admin.from('user_company_access').select('company_id').eq('user_id', user.id),
+      admin.from('crm_admins').select('user_id').eq('user_id', user.id).maybeSingle(),
+      admin.from('system_admins').select('user_id').eq('user_id', user.id).maybeSingle(),
+    ])
+    if (accessError) throw accessError
+    const canAccessAllCompanies = !!crmAdmin || !!systemAdmin
+    const allowedCompanyIds = new Set((companyAccess || []).map((row: any) => String(row.company_id)))
+
     const incomingItems = Array.isArray(items) && items.length
       ? items
       : (Array.isArray(product_ids) && product_ids.length ? product_ids : (product_id ? [product_id] : []))
@@ -48,11 +57,17 @@ serve(async (req) => {
       product_id: String(item?.product_id || ''),
       quantity: Number(item?.quantity),
       discount_percent: Number(item?.discount_percent ?? 0),
+      setup_value: item?.setup_value == null ? null : Number(item.setup_value),
+      recurring_value: item?.recurring_value == null ? null : Number(item.recurring_value),
+      contract_months: item?.contract_months == null ? null : Number(item.contract_months),
       variant_id: item?.variant_id ? String(item.variant_id) : null,
       accessory_ids: Array.isArray(item?.accessory_ids) ? item.accessory_ids.map((id: unknown) => String(id)) : [],
     }))
     if (normalizedItems.some((item: any) => !item.product_id || !Number.isSafeInteger(item.quantity) || item.quantity < 1 ||
       !Number.isFinite(item.discount_percent) || item.discount_percent < 0 ||
+      (item.setup_value != null && (!Number.isFinite(item.setup_value) || item.setup_value < 0)) ||
+      (item.recurring_value != null && (!Number.isFinite(item.recurring_value) || item.recurring_value < 0)) ||
+      (item.contract_months != null && (!Number.isSafeInteger(item.contract_months) || item.contract_months < 1)) ||
       new Set(item.accessory_ids).size !== item.accessory_ids.length)) {
       return json({ error: 'Quantidade ou desconto inválido' }, 400)
     }
@@ -76,11 +91,20 @@ serve(async (req) => {
     }
 
     const companyProductById = new Map((companyProducts as any[]).map((row) => [row.product_id, row]))
+    const productOwnerIds = [...new Set((companyProducts || []).map((row: any) => String(row.products?.company_id || '')).filter(Boolean))]
+    const { data: productOwners, error: ownersError } = productOwnerIds.length
+      ? await admin.from('companies').select('id,name').in('id', productOwnerIds)
+      : { data: [], error: null }
+    if (ownersError) throw ownersError
+    const productOwnerNameById = new Map((productOwners || []).map((company: any) => [String(company.id), company.name]))
+
     for (const item of normalizedItems as any[]) {
       const row: any = companyProductById.get(item.product_id)
       const product = row?.products
-      if (!row || !product || product.active === false || product.company_id !== dc.company_id) {
-        return json({ error: 'O produto selecionado não pertence à empresa desta negociação ou está inativo' }, 400)
+      const productCompanyId = String(product?.company_id || '')
+      if (!row || !product || product.active === false ||
+        (!canAccessAllCompanies && !allowedCompanyIds.has(productCompanyId))) {
+        return json({ error: 'Produto inativo ou pertencente a uma empresa sem acesso para este usuário' }, 400)
       }
       const maxDiscount = Number(product.max_discount_percent || 0)
       if (item.discount_percent > maxDiscount) {
@@ -104,13 +128,19 @@ serve(async (req) => {
       const selectedAccessories = item.accessory_ids.map((id: string) => accessories.find((option: any) => String(option.id) === id))
       const variantSetup = variant ? Number(variant.setup || 0) : Number(row.setup_value || 0)
       const variantRecurring = variant ? Number(variant.recurring || 0) : Number(row.recurring_value || 0)
-      const setupUnit = variantSetup + selectedAccessories.reduce((sum: number, option: any) => sum + Number(option.setup || 0), 0)
-      const recurringUnit = variantRecurring + selectedAccessories.reduce((sum: number, option: any) => sum + Number(option.recurring || 0), 0)
+      const configuredSetup = variantSetup + selectedAccessories.reduce((sum: number, option: any) => sum + Number(option.setup || 0), 0)
+      const configuredRecurring = variantRecurring + selectedAccessories.reduce((sum: number, option: any) => sum + Number(option.recurring || 0), 0)
+      const setupUnit = item.setup_value == null ? configuredSetup : item.setup_value
+      const recurringUnit = item.recurring_value == null ? configuredRecurring : item.recurring_value
+      const contractMonths = item.contract_months == null ? 12 : item.contract_months
       if (!Number.isFinite(setupUnit) || setupUnit < 0 || !Number.isFinite(recurringUnit) || recurringUnit < 0) {
         throw new Error('Valores inválidos cadastrados para ' + product.name)
       }
       const factor = 1 - item.discount_percent / 100
-      const displayName = product.name + (variant ? ' (' + variant.label + ')' : '')
+      const ownerName = productOwnerNameById.get(String(product.company_id))
+      const belongsToAnotherCompany = String(product.company_id) !== String(dc.company_id)
+      const displayName = product.name + (variant ? ' (' + variant.label + ')' : '') +
+        (belongsToAnotherCompany && ownerName ? ' — ' + ownerName : '')
       return {
         product_id: item.product_id,
         product_name: displayName || 'Produto',
@@ -121,6 +151,7 @@ serve(async (req) => {
           setup_unit: Number(option.setup || 0), recurring_unit: Number(option.recurring || 0),
         })),
         quantity: item.quantity,
+        contract_months: contractMonths,
         discount_percent: item.discount_percent,
         max_discount_percent: maxDiscount,
         setup_unit: setupUnit,
@@ -139,7 +170,7 @@ serve(async (req) => {
     const productNames = pricedItems.map((item: any) => item.product_name)
     const productDetails = pricedItems.map((item: any) =>
       item.product_name + (item.accessories.length ? ' | Acessórios: ' + item.accessories.map((option: any) => option.label).join(', ') : '') +
-      ' — Quantidade: ' + item.quantity + ' | Desconto: ' + item.discount_percent + '% | Setup unitário: ' +
+      ' — Quantidade: ' + item.quantity + ' | Contrato: ' + item.contract_months + ' meses | Desconto: ' + item.discount_percent + '% | Setup unitário: ' +
       money(item.setup_unit) + ' × ' + item.quantity + ' = ' + money(item.setup_total) + ' | Recorrência: ' +
       money(item.recurring_unit) + ' × ' + item.quantity + ' = ' + money(item.recurring_total)
     ).join('\\n')
@@ -151,7 +182,12 @@ serve(async (req) => {
       produtos: productNames.join(', '),
       produtos_detalhes: productDetails,
       setup: money(totalSetup),
+      setup_total: money(totalSetup),
+      mensal: money(totalRecurring),
       recorrencia: money(totalRecurring),
+      prazo_contrato: [...new Set(pricedItems.map((item: any) => item.contract_months))].length === 1
+        ? [...new Set(pricedItems.map((item: any) => item.contract_months))][0] + ' meses'
+        : 'Conforme prazo de cada produto',
       responsavel_nome: owner?.display_name || '',
       responsavel_email: owner?.email || '',
     }
