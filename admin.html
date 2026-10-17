@@ -412,6 +412,8 @@ body{overflow-x:hidden}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
         Negócios
       </div>
+      <div class="sb-link" id="nav-proposal-mails" onclick="goTab('proposal-mails')">E-mails de Proposta</div>
+      <div class="sb-link" id="nav-proposal-smtp" onclick="goTab('proposal-smtp')">Configuração SMTP</div>
       <div class="sb-footer">
         <div class="sb-user" id="sbUser"></div>
         <div class="sb-link" id="nav-sla" onclick="goTab('sla')" style="margin:0 0 .65rem;padding:.55rem .65rem;border-radius:8px;border-left:0">
@@ -940,6 +942,32 @@ body{overflow-x:hidden}
         </div>
       </div>
 
+      <div id="tab-proposal-mails" class="hidden">
+       <div class="page-header"><div class="page-header-left"><div class="page-title">E-mails de Proposta</div><div class="page-sub">Modelos exclusivos para a empresa selecionada</div></div></div>
+       <div class="tbl-wrap" style="padding:1.25rem"><label class="form-label">Empresa</label><select class="filter-sel" id="proposalMailCompany" onchange="loadCompanyProposalSettings('proposal-mails')" style="margin-bottom:1rem"></select>
+       <div id="proposalTemplatesList"></div>
+       <input type="hidden" id="proposalTemplateId"><label class="form-label">Nome do modelo</label><input class="swap-modal-input" id="proposalTemplateName" placeholder="Ex.: Proposta comercial" style="margin-bottom:.7rem">
+       <label class="form-label">Assunto</label><input class="swap-modal-input" id="proposalTemplateSubject" placeholder="Assunto do e-mail" style="margin-bottom:.7rem">
+       <label class="form-label">Corpo do e-mail</label><textarea class="swap-modal-input" id="proposalTemplateBody" style="min-height:180px" placeholder="Use {{empresa}}, {{contato}}, {{produtos}}, {{produtos_detalhes}}, {{setup}}, {{recorrencia}}, {{responsavel_nome}}"></textarea>
+       <div style="display:flex;gap:.6rem;margin-top:.8rem"><button class="btn btn-primary" onclick="saveCompanyProposalTemplate()">Salvar modelo</button><button class="btn btn-secondary" onclick="clearCompanyProposalTemplate()">Novo modelo</button></div>
+       </div>
+      </div>
+      <div id="tab-proposal-smtp" class="hidden">
+       <div class="page-header"><div class="page-header-left"><div class="page-title">Configuração SMTP</div><div class="page-sub">Exclusivo para propostas comerciais desta empresa; cupons e campanhas não são alterados</div></div></div>
+       <div class="tbl-wrap" style="padding:1.25rem">
+       <label class="form-label">Empresa</label><select class="filter-sel" id="proposalSmtpCompany" onchange="loadCompanyProposalSettings('proposal-smtp')"></select>
+       <label class="form-label" style="margin-top:1rem">Servidor de envio</label><select id="proposalSmtpMode" class="filter-sel" onchange="document.getElementById('proposalSmtpOwn').classList.toggle('hidden',this.value!=='own')"><option value="general">Usar SMTP geral da 12IA</option><option value="own">Usar SMTP próprio da empresa</option></select>
+       <div id="proposalSmtpOwn" class="hidden" style="margin-top:1rem">
+       <label class="form-label">Host</label><input class="swap-modal-input" id="proposalSmtpHost">
+       <label class="form-label">Porta</label><input class="swap-modal-input" type="number" id="proposalSmtpPort" value="587">
+       <label class="form-label">Usuário</label><input class="swap-modal-input" id="proposalSmtpUser">
+       <label class="form-label">Senha (em branco mantém a atual)</label><input class="swap-modal-input" type="password" autocomplete="new-password" id="proposalSmtpPassword">
+       <label class="form-label">Segurança</label><select class="filter-sel" id="proposalSmtpSecure"><option value="starttls">STARTTLS</option><option value="ssl">SSL/TLS</option></select>
+       <label class="form-label">E-mail remetente</label><input class="swap-modal-input" type="email" id="proposalSmtpFrom">
+       <label class="form-label">Nome remetente</label><input class="swap-modal-input" id="proposalSmtpFromName">
+       </div><button class="btn btn-primary" style="margin-top:1rem" onclick="saveCompanyProposalSmtp()">Salvar configuração SMTP</button>
+       </div>
+      </div>
       <!-- SLA -->
       <div id="tab-sla" class="hidden">
         <div class="page-header">
@@ -1819,6 +1847,7 @@ function goTab(id) {
   if (id === 'products')  loadProducts();
   if (id === 'companies') loadSettingsCompanies();
   if (id === 'crm')       loadCrm();
+  if (id === 'proposal-mails' || id === 'proposal-smtp') loadCompanyProposalSettings(id);
   if (id === 'sla')       loadSla();
   if (id === 'permissions' || id === 'permissoes') loadPermissionsTab();
   if (id === 'partner')   loadPartnerDashboard();
@@ -5510,6 +5539,7 @@ async function applyPermissionGating() {
     settingsWrap.classList.toggle('hidden', !hasSettingsAccess || isCompanyOnlyOperator);
     if (!hasSettingsAccess || isCompanyOnlyOperator) closeSettingsMenu();
   }
+  ['proposal-mails','proposal-smtp'].forEach(id=>document.getElementById('nav-'+id)?.classList.toggle('hidden',!isSystemAdmin&&!companyLinks?.length));
   const slaNav=document.getElementById('nav-sla'); if(slaNav) slaNav.classList.toggle('hidden', !(isSystemAdmin||myTabAccess.includes('sla')));
   await loadNotifications(false);
   scheduleNotificationReminders();
@@ -5537,10 +5567,57 @@ async function applyPermissionGating() {
 }
 
 let crmProposalProducts=[],crmProposalTemplates=[],crmCompanyProducts=[];
+
+function currentCompanyForProposal(){return crmSelectedCompanyId || crmCompanies?.[0]?.id || null}
+let companyProposalTemplates=[];
+async function proposalCompanyOptions(tab){
+ const selector=document.getElementById(tab==='proposal-mails'?'proposalMailCompany':'proposalSmtpCompany');
+ const {data:{user}}=await db.auth.getUser();
+ const {data:master}=await db.from('system_admins').select('user_id').eq('user_id',user.id).maybeSingle();
+ const {data:links}=await db.from('user_company_access').select('company_id').eq('user_id',user.id);
+ const allowed=new Set((links||[]).map(x=>x.company_id));
+ const {data:companies}=await db.from('companies').select('id,name').order('name');
+ const available=(companies||[]).filter(x=>master||allowed.has(x.id));
+ const previous=selector.value||currentCompanyForProposal();
+ selector.innerHTML=available.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
+ if(available.some(x=>x.id===previous))selector.value=previous;
+ return selector.value;
+}
+async function companyProposalCall(action,company_id,values={}){
+ const {data,error}=await db.functions.invoke('crm-company-proposal-settings',{body:{action,company_id,...values}});
+ if(error||data?.error)throw Error(data?.error||error?.message||'Erro na configuração');
+ return data;
+}
+async function loadCompanyProposalSettings(tab){
+ try{
+ const sel=document.getElementById(tab==='proposal-mails'?'proposalMailCompany':'proposalSmtpCompany');
+ const company_id=sel.value||await proposalCompanyOptions(tab);
+ if(!company_id)return;
+ const data=await companyProposalCall('list',company_id);
+ if(tab==='proposal-mails'){
+  companyProposalTemplates=data.templates||[];
+  document.getElementById('proposalTemplatesList').innerHTML=companyProposalTemplates.map((t,i)=>'<div style="display:flex;gap:.6rem;align-items:center;padding:.55rem;border-bottom:1px solid var(--border)"><span style="flex:1">'+esc(t.name)+'</span><button class="btn btn-secondary btn-sm" onclick="editCompanyProposalTemplate('+i+')">Editar</button><button class="btn btn-ghost btn-sm" onclick="deleteCompanyProposalTemplate('+i+')">Excluir</button></div>').join('')||'<p>Nenhum modelo cadastrado.</p>';
+ }else{
+  const m=data.mail||{};const v=id=>document.getElementById(id);
+  v('proposalSmtpMode').value=m.mode||'general';v('proposalSmtpHost').value=m.host||'';v('proposalSmtpPort').value=m.port||587;v('proposalSmtpUser').value=m.username||'';v('proposalSmtpPassword').value='';v('proposalSmtpSecure').value=m.secure||'starttls';v('proposalSmtpFrom').value=m.sender_email||'';v('proposalSmtpFromName').value=m.sender_name||'';
+  v('proposalSmtpOwn').classList.toggle('hidden',m.mode!=='own');
+ }
+ }catch(e){toast(String(e),'error')}
+}
+function clearCompanyProposalTemplate(){['proposalTemplateId','proposalTemplateName','proposalTemplateSubject','proposalTemplateBody'].forEach(id=>document.getElementById(id).value='')}
+function editCompanyProposalTemplate(i){const t=companyProposalTemplates[i];if(!t)return;document.getElementById('proposalTemplateId').value=t.id;document.getElementById('proposalTemplateName').value=t.name;document.getElementById('proposalTemplateSubject').value=t.subject;document.getElementById('proposalTemplateBody').value=t.body}
+async function saveCompanyProposalTemplate(){
+ try{const val=id=>document.getElementById(id).value;await companyProposalCall('save_template',val('proposalMailCompany'),{id:val('proposalTemplateId')||null,name:val('proposalTemplateName'),subject:val('proposalTemplateSubject'),body:val('proposalTemplateBody')});clearCompanyProposalTemplate();await loadCompanyProposalSettings('proposal-mails');toast('Modelo salvo','success')}catch(e){toast(String(e),'error')}
+}
+async function deleteCompanyProposalTemplate(i){const t=companyProposalTemplates[i];if(!t||!confirm('Excluir este modelo?'))return;try{await companyProposalCall('delete_template',document.getElementById('proposalMailCompany').value,{id:t.id});await loadCompanyProposalSettings('proposal-mails')}catch(e){toast(String(e),'error')}}
+async function saveCompanyProposalSmtp(){
+ try{const val=id=>document.getElementById(id).value;await companyProposalCall('save_mail',val('proposalSmtpCompany'),{mode:val('proposalSmtpMode'),host:val('proposalSmtpHost'),port:val('proposalSmtpPort'),username:val('proposalSmtpUser'),password:val('proposalSmtpPassword'),secure:val('proposalSmtpSecure'),sender_email:val('proposalSmtpFrom'),sender_name:val('proposalSmtpFromName')});await loadCompanyProposalSettings('proposal-smtp');toast('SMTP de propostas salvo','success')}catch(e){toast(String(e),'error')}
+}
+
 async function loadCrmProposalData(){
  const [{data:p},{data:t}]=await Promise.all([
   db.from('products').select('*').eq('active',true).order('name'),
-  db.from('email_templates').select('id,key,name,subject,body,active,purpose').eq('active',true).or('purpose.eq.proposal,key.like.crm_proposal%').order('name')
+  db.from('crm_company_proposal_templates').select('id,name,subject,body,active').eq('company_id',currentCompanyForProposal()).eq('active',true).order('name')
  ]);
  const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);
  const currentCompanyId=dc?.company_id||crmSelectedCompanyId;
