@@ -39,8 +39,8 @@ serve(async (req) => {
       lead.referral_id ? admin.from('referrals').select('name').eq('id', lead.referral_id).maybeSingle() : Promise.resolve({ data: null }),
     ])
     if (!company) return json({ error: 'Empresa 12IA não encontrada no CRM' }, 500)
-    const { data: stages } = await admin.from('crm_stages').select('id,name').eq('company_id', company.id).order('position').limit(1)
-    const stage = stages?.[0]
+    const { data: stages } = await admin.from('crm_stages').select('id,name').eq('company_id', company.id).order('position')
+    const stage = stages?.find((item: any) => item.name === 'Nutrição de Leads (início do funil)') || stages?.[0]
     if (!stage) return json({ error: 'O funil da 12IA não possui etapas cadastradas' }, 500)
 
     const dealId = crypto.randomUUID()
