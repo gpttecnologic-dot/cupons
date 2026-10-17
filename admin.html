@@ -740,15 +740,17 @@ body{overflow-x:hidden}
       <div class="modal-overlay" id="productModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);align-items:center;justify-content:center;padding:1rem"><div class="modal" style="max-width:650px;width:min(650px,96vw);position:relative;z-index:100000">
         <div class="modal-title" id="productModalTitle">Novo produto</div>
         <input type="hidden" id="productId">
+        <div><label class="form-label">Empresa</label><select class="filter-sel" id="productCompany" style="width:100%;margin-bottom:.65rem"><option value="">Selecione a empresa</option></select></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
           <div><label class="form-label">Nome</label><input class="swap-modal-input" id="productName"></div>
           <div><label class="form-label">Categoria</label><input class="swap-modal-input" id="productCategory" placeholder="Software, Consultoria..."></div>
         </div>
         <div><label class="form-label">Descrição</label><textarea class="swap-modal-input" id="productDescription" style="height:80px"></textarea></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.8rem">
           <div><label class="form-label">Setup padrão (R$)</label><input class="swap-modal-input" id="productSetup" type="number" min="0" step="0.01"></div>
           <div><label class="form-label">Recorrência padrão (R$)</label><input class="swap-modal-input" id="productRecurring" type="number" min="0" step="0.01"></div>
           <div><label class="form-label">Periodicidade</label><select class="filter-sel" id="productPeriod" style="width:100%"><option value="none">Sem recorrência</option><option value="monthly">Mensal</option><option value="quarterly">Trimestral</option><option value="semiannual">Semestral</option><option value="annual">Anual</option></select></div>
+          <div><label class="form-label">Desconto máximo (%)</label><input class="swap-modal-input" id="productMaxDiscount" type="number" min="0" max="100" step="0.01" value="0"><small style="color:var(--text3)">Limite permitido na proposta</small></div>
         </div>
         <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:.8rem">
           <label><input type="checkbox" id="productActive" checked> Produto ativo</label>
@@ -1337,7 +1339,7 @@ body{overflow-x:hidden}
       <div><label class="form-label">Tipo</label><select class="filter-sel" id="crmProposalType" style="width:100%;margin-bottom:.65rem"><option value="client">Cliente / Corporação</option><option value="partnership">Parceria</option></select></div>
       <label class="form-label">Produtos desta empresa</label>
       <div id="crmProposalProducts" style="display:grid;gap:.5rem;margin-bottom:.7rem"></div>
-      <div style="font-size:11px;color:var(--text3);margin:-.2rem 0 .7rem">Selecione um ou mais produtos. Setup e recorrência são definidos por produto para esta empresa.</div>
+      <div style="font-size:11px;color:var(--text3);margin:-.2rem 0 .7rem">Selecione produtos da empresa, informe quantidade e desconto. A quantidade multiplica setup e recorrência; o desconto respeita o limite configurado em cada produto.</div>
       <label class="form-label">Modelo</label><select class="filter-sel" id="crmProposalTemplate" style="width:100%;margin-bottom:.65rem"></select>
       <label class="form-label">Destinatário</label><input class="swap-modal-input" id="crmProposalRecipient" type="email" placeholder="contato@empresa.com">
       <div style="display:flex;gap:.5rem;margin-top:.6rem"><button type="button" class="btn btn-secondary btn-sm" onclick="previewCrmProposal()">Visualizar</button><button type="button" class="btn btn-primary btn-sm" onclick="sendCrmProposal()">Enviar proposta</button></div>
@@ -5415,19 +5417,30 @@ let myReferralAccess = []; // indicações liberadas pro painel "Meu Desempenho"
 let crmAllReferrals = [];
 
 let productsCache = [];
+let productCompaniesCache = [];
+function renderProductCompanyOptions(selected=''){
+  const el=document.getElementById('productCompany');if(!el)return;
+  el.innerHTML='<option value="">Selecione a empresa</option>'+productCompaniesCache.map(c=>`<option value="${c.id}" ${String(c.id)===String(selected)?'selected':''}>${esc(c.name)}</option>`).join('');
+  el.value=selected||'';
+}
 async function loadProducts(){
-  const {data,error}=await db.from('products').select('*').order('name');
-  if(error){toast('Erro ao carregar produtos: '+error.message,'error');return;}
-  productsCache=data||[];
-  document.getElementById('productsList').innerHTML=productsCache.length?productsCache.map(p=>`<div class="ref-item"><div style="flex:1"><div style="font-weight:700">${esc(p.name)} ${p.active?'':'<span class="badge">Inativo</span>'}</div><div style="font-size:11px;color:var(--text3)">${esc(p.category||'Sem categoria')} · Setup R$ ${Number(p.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Recorrência R$ ${Number(p.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · ${p.uses_coupons?'Usa cupons':'Sem cupons'} · ${p.partner_visibility?'Visível ao parceiro':'Interno'}</div></div><button class="btn btn-secondary btn-sm" type="button" onclick="openEditProductModal('${p.id}',event)">Editar</button></div>`).join(''):'<div class="empty-state"><div class="empty-title">Nenhum produto cadastrado</div></div>';
+  const [{data,error},{data:companies,error:companyError}]=await Promise.all([
+    db.from('products').select('*').order('name'),
+    db.from('companies').select('id,name').order('name')
+  ]);
+  if(error||companyError){toast('Erro ao carregar produtos ou empresas: '+(error?.message||companyError?.message),'error');return;}
+  productsCache=data||[];productCompaniesCache=companies||[];
+  const list=document.getElementById('productsList');
+  if(list)list.innerHTML=productsCache.length?productsCache.map(p=>{const company=productCompaniesCache.find(c=>c.id===p.company_id);return `<div class="ref-item"><div style="flex:1"><div style="font-weight:700">${esc(p.name)} ${p.active?'':'<span class="badge">Inativo</span>'}</div><div style="font-size:11px;color:var(--text3)">${esc(company?.name||'Empresa não definida')} · ${esc(p.category||'Sem categoria')} · Setup R$ ${Number(p.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Recorrência R$ ${Number(p.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Desconto máximo ${Number(p.max_discount_percent||0).toLocaleString('pt-BR')}% · ${p.uses_coupons?'Usa cupons':'Sem cupons'} · ${p.partner_visibility?'Visível ao parceiro':'Interno'}</div></div><button class="btn btn-secondary btn-sm" type="button" onclick="openEditProductModal('${p.id}',event)">Editar</button></div>`;}).join(''):'<div class="empty-state"><div class="empty-title">Nenhum produto cadastrado</div></div>';
 }
 function openNewProductModal(ev){
   if(ev){ev.preventDefault();ev.stopPropagation();}
   const modal=document.getElementById('productModal');
   if(!modal){alert('Erro: modal de produto não encontrado.');return false;}
   if(modal.parentElement!==document.body) document.body.appendChild(modal);
-  const values={productId:'',productName:'',productCategory:'',productDescription:'',productSetup:'0',productRecurring:'0',productPeriod:'monthly'};
+  const values={productId:'',productName:'',productCategory:'',productDescription:'',productSetup:'0',productRecurring:'0',productPeriod:'monthly',productMaxDiscount:'0'};
   Object.entries(values).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.value=value;});
+  renderProductCompanyOptions('');
   [['productActive',true],['productCoupons',false],['productPartnerVisibility',false]].forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.checked=v;});
   const title=document.getElementById('productModalTitle');if(title)title.textContent='Novo produto';
   modal.classList.add('show');
@@ -5450,6 +5463,8 @@ function newProduct(){
   setVal('productSetup','0');
   setVal('productRecurring','0');
   setVal('productPeriod','monthly');
+  setVal('productMaxDiscount','0');
+  renderProductCompanyOptions('');
   setChecked('productActive',true);
   setChecked('productCoupons',false);
   setChecked('productPartnerVisibility',false);
@@ -5471,8 +5486,9 @@ function openEditProductModal(id,ev){
   const modal=document.getElementById('productModal');
   if(!modal){alert('Erro: modal de produto não encontrado.');return false;}
   if(modal.parentElement!==document.body) document.body.appendChild(modal);
-  const values={productId:p.id,productName:p.name||'',productCategory:p.category||'',productDescription:p.description||'',productSetup:p.default_setup||0,productRecurring:p.default_recurring||0,productPeriod:p.recurring_period||'monthly'};
+  const values={productId:p.id,productName:p.name||'',productCategory:p.category||'',productDescription:p.description||'',productSetup:p.default_setup||0,productRecurring:p.default_recurring||0,productPeriod:p.recurring_period||'monthly',productMaxDiscount:p.max_discount_percent||0};
   Object.entries(values).forEach(([field,value])=>{const el=document.getElementById(field);if(el)el.value=value;});
+  renderProductCompanyOptions(p.company_id||'');
   [['productActive',!!p.active],['productCoupons',!!p.uses_coupons],['productPartnerVisibility',!!p.partner_visibility]].forEach(([field,v])=>{const el=document.getElementById(field);if(el)el.checked=v;});
   const title=document.getElementById('productModalTitle');if(title)title.textContent='Editar produto';
   modal.classList.add('show');
@@ -5483,9 +5499,9 @@ function openEditProductModal(id,ev){
   return false;
 }
 window.openEditProductModal=openEditProductModal;
-function editProduct(id){const p=productsCache.find(x=>x.id===id);if(!p)return;document.getElementById('productId').value=p.id;document.getElementById('productName').value=p.name||'';document.getElementById('productCategory').value=p.category||'';document.getElementById('productDescription').value=p.description||'';document.getElementById('productSetup').value=p.default_setup||0;document.getElementById('productRecurring').value=p.default_recurring||0;document.getElementById('productPeriod').value=p.recurring_period||'monthly';document.getElementById('productActive').checked=!!p.active;document.getElementById('productCoupons').checked=!!p.uses_coupons;document.getElementById('productPartnerVisibility').checked=!!p.partner_visibility;document.getElementById('productModalTitle').textContent='Editar produto';document.getElementById('productModal').classList.add('show');}
+function editProduct(id){const p=productsCache.find(x=>x.id===id);if(!p)return;document.getElementById('productId').value=p.id;document.getElementById('productName').value=p.name||'';document.getElementById('productCategory').value=p.category||'';document.getElementById('productDescription').value=p.description||'';document.getElementById('productSetup').value=p.default_setup||0;document.getElementById('productRecurring').value=p.default_recurring||0;document.getElementById('productPeriod').value=p.recurring_period||'monthly';document.getElementById('productMaxDiscount').value=p.max_discount_percent||0;renderProductCompanyOptions(p.company_id||'');document.getElementById('productActive').checked=!!p.active;document.getElementById('productCoupons').checked=!!p.uses_coupons;document.getElementById('productPartnerVisibility').checked=!!p.partner_visibility;document.getElementById('productModalTitle').textContent='Editar produto';document.getElementById('productModal').classList.add('show');}
 function closeProductModal(){const modal=document.getElementById('productModal');if(!modal)return;modal.classList.remove('show');modal.style.display='';}
-async function saveProduct(){if(!isSystemAdmin){toast('Somente Master pode alterar produtos.','error');return;}const id=document.getElementById('productId').value;const payload={name:document.getElementById('productName').value.trim(),category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}const {error}=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);if(error){toast('Erro ao salvar produto: '+error.message,'error');return;}closeProductModal();toast('Produto salvo.','success');loadProducts();}
+async function saveProduct(){if(!isSystemAdmin){toast('Somente Master pode alterar produtos.','error');return;}const id=document.getElementById('productId').value;const payload={name:document.getElementById('productName').value.trim(),company_id:document.getElementById('productCompany').value||null,category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),max_discount_percent:Number(document.getElementById('productMaxDiscount').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}if(!payload.company_id){toast('Selecione a empresa do produto.','error');return;}if(!Number.isFinite(payload.max_discount_percent)||payload.max_discount_percent<0||payload.max_discount_percent>100){toast('O desconto máximo deve estar entre 0% e 100%.','error');return;}const {error}=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);if(error){toast('Erro ao salvar produto: '+error.message,'error');return;}closeProductModal();toast('Produto salvo.','success');loadProducts();}
 
 // ─── PERMISSÕES ────────────────────────────────────────────────────────────
 // "Administrador" geral (system_admins) enxerga todas as abas do sistema.
@@ -5654,7 +5670,7 @@ async function loadCrmProposalData(){
   db.from('products').select('*').eq('active',true).order('name'),
   db.from('crm_company_proposal_templates').select('id,name,subject,body,active').eq('company_id',currentCompanyId).eq('active',true).order('name')
  ]);
- crmProposalProducts=(p||[]).filter(x=>!x.company_id||x.company_id===currentCompanyId);crmProposalTemplates=t||[];
+ crmProposalProducts=(p||[]).filter(x=>!!currentCompanyId&&x.company_id===currentCompanyId);crmProposalTemplates=t||[];
  const ts=document.getElementById('crmProposalTemplate');
  if(ts)ts.innerHTML=crmProposalTemplates.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
  await loadCrmCompanyProducts();
@@ -5674,16 +5690,21 @@ function renderCrmCompanyProducts(dealCompanyId){
  el.innerHTML=crmProposalProducts.map(p=>{
   const row=crmCompanyProducts.find(x=>x.product_id===p.id),checked=!!row;
   const setup=checked?row.setup_value:(p.default_setup||0),rec=checked?row.recurring_value:(p.default_recurring||0);
-  return `<div style="display:grid;grid-template-columns:minmax(160px,1fr) 120px 120px;gap:.5rem;align-items:center;padding:.55rem .65rem;border:1px solid var(--border);border-radius:8px">
-   <label style="display:flex;align-items:center;gap:.5rem;font-size:12px;font-weight:600"><input type="checkbox" class="crm-prod-check" data-product="${p.id}" ${checked?'checked':''} onchange="toggleCrmCompanyProduct('${dealCompanyId}','${p.id}',this.checked)">${esc(p.name)}</label>
-   <input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${setup}" placeholder="Setup" style="margin:0" ${checked?'':'disabled'}>
-   <input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${rec}" placeholder="Recorrência" style="margin:0" ${checked?'':'disabled'}>
+  const maxDiscount=Number(p.max_discount_percent||0);
+  return `<div style="display:grid;grid-template-columns:minmax(130px,1fr) repeat(4,minmax(74px,100px));gap:.4rem;align-items:center;padding:.55rem .65rem;border:1px solid var(--border);border-radius:8px">
+   <label style="display:flex;align-items:center;gap:.5rem;font-size:12px;font-weight:600"><input type="checkbox" class="crm-prod-check" data-product="${p.id}" ${checked?'checked':''} onchange="toggleCrmCompanyProduct('${dealCompanyId}','${p.id}',this.checked)">${esc(p.name)}<small style="color:var(--text3);font-weight:400">Máx. ${maxDiscount}%</small></label>
+   <input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${setup}" placeholder="Setup R$" title="Setup unitário (R$)" style="margin:0;min-width:0" ${checked?'':'disabled'}>
+   <input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${rec}" placeholder="Recorrência R$" title="Recorrência unitária (R$)" style="margin:0;min-width:0" ${checked?'':'disabled'}>
+   <input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0" ${checked?'':'disabled'}>
+   <input class="swap-modal-input crm-prod-discount" data-product="${p.id}" type="number" min="0" max="${maxDiscount}" step=".01" value="0" placeholder="Desconto %" title="Desconto percentual (máximo ${maxDiscount}%)" style="margin:0;min-width:0" ${checked?'':'disabled'}>
   </div>`;
  }).join('')||'<div style="font-size:12px;color:var(--text3)">Nenhum produto ativo cadastrado.</div>';
 }
 async function toggleCrmCompanyProduct(dealCompanyId,productId,checked){
  const setupEl=document.querySelector(`.crm-prod-setup[data-product="${productId}"]`),recEl=document.querySelector(`.crm-prod-recurring[data-product="${productId}"]`);
  if(setupEl)setupEl.disabled=!checked;if(recEl)recEl.disabled=!checked;
+ const quantityEl=document.querySelector(`.crm-prod-quantity[data-product="${productId}"]`),discountEl=document.querySelector(`.crm-prod-discount[data-product="${productId}"]`);
+ if(quantityEl)quantityEl.disabled=!checked;if(discountEl)discountEl.disabled=!checked;
  if(!checked){const {error}=await db.from('crm_deal_company_products').delete().eq('deal_company_id',dealCompanyId).eq('product_id',productId);if(error){toast('Erro ao remover produto: '+error.message,'error');return;}crmCompanyProducts=crmCompanyProducts.filter(x=>x.product_id!==productId);return;}
  const payload={deal_company_id:dealCompanyId,product_id:productId,setup_value:Number(setupEl?.value||0),recurring_value:Number(recEl?.value||0),updated_at:new Date().toISOString()};
  const {data,error}=await db.from('crm_deal_company_products').upsert(payload,{onConflict:'deal_company_id,product_id'}).select().single();
@@ -5693,15 +5714,30 @@ async function saveCrmCompanyProductValues(){
  const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc)return true;
  const checked=[...document.querySelectorAll('.crm-prod-check:checked')];for(const c of checked){const pid=c.dataset.product;const setup=document.querySelector(`.crm-prod-setup[data-product="${pid}"]`),rec=document.querySelector(`.crm-prod-recurring[data-product="${pid}"]`);const {error}=await db.from('crm_deal_company_products').upsert({deal_company_id:dc.id,product_id:pid,setup_value:Number(setup?.value||0),recurring_value:Number(rec?.value||0),updated_at:new Date().toISOString()},{onConflict:'deal_company_id,product_id'});if(error){toast('Erro ao salvar produtos: '+error.message,'error');return false;}}return true;
 }
+function selectedProposalItems(showError=true){
+ const checked=[...document.querySelectorAll('.crm-prod-check:checked')];if(!checked.length){if(showError)toast('Selecione pelo menos um produto para esta empresa.','error');return null;}
+ const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId),items=[];
+ for(const c of checked){
+  const p=crmProposalProducts.find(x=>x.id===c.dataset.product),id=c.dataset.product;
+  const quantity=Number(document.querySelector(`.crm-prod-quantity[data-product="${id}"]`)?.value),discountPercent=Number(document.querySelector(`.crm-prod-discount[data-product="${id}"]`)?.value||0),setupUnit=Number(document.querySelector(`.crm-prod-setup[data-product="${id}"]`)?.value||0),recurringUnit=Number(document.querySelector(`.crm-prod-recurring[data-product="${id}"]`)?.value||0),maxDiscount=Number(p?.max_discount_percent||0);
+  if(!p||!dc||p.company_id!==dc.company_id){if(showError)toast('Há um produto que não pertence à empresa desta negociação.','error');return null;}
+  if(!Number.isInteger(quantity)||quantity<1){if(showError)toast(`Informe uma quantidade inteira válida para ${p.name}.`,'error');return null;}
+  if(!Number.isFinite(setupUnit)||setupUnit<0||!Number.isFinite(recurringUnit)||recurringUnit<0){if(showError)toast(`Os valores de ${p.name} não podem ser negativos.`,'error');return null;}
+  if(!Number.isFinite(discountPercent)||discountPercent<0||discountPercent>maxDiscount){if(showError)toast(`O desconto de ${p.name} não pode ultrapassar ${maxDiscount}%.`,'error');return null;}
+  const factor=1-discountPercent/100;
+  items.push({...p,quantity,discountPercent,setupUnit,recurringUnit,setupTotal:Number((setupUnit*quantity*factor).toFixed(2)),recurringTotal:Number((recurringUnit*quantity*factor).toFixed(2))});
+ }
+ return items;
+}
 function proposalVars(){
- const selected=[...document.querySelectorAll('.crm-prod-check:checked')].map(c=>{const p=crmProposalProducts.find(x=>x.id===c.dataset.product),setup=document.querySelector(`.crm-prod-setup[data-product="${c.dataset.product}"]`)?.value||0,rec=document.querySelector(`.crm-prod-recurring[data-product="${c.dataset.product}"]`)?.value||0;return{...p,setup,rec};});
+ const selected=selectedProposalItems();if(!selected)return null;
  const owner=crmProfiles.find(x=>x.user_id===(crmDealCompaniesCache?.[0]?.owner_user_id));const money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
- const produtos=selected.map(x=>x.name).join(', '),detalhes=selected.map(x=>`${x.name} — Setup: ${money(x.setup)} | Recorrência: ${money(x.rec)}`).join('\n');
- return{empresa:document.getElementById('crmClientCompanyName').value||document.getElementById('crmTitle').value,contato:document.getElementById('crmContactName').value,produto:produtos,produtos,produtos_detalhes:detalhes,setup:money(selected.reduce((a,x)=>a+Number(x.setup||0),0)),recorrencia:money(selected.reduce((a,x)=>a+Number(x.rec||0),0)),responsavel_nome:owner?.display_name||'',responsavel_email:owner?.email||''};
+ const produtos=selected.map(x=>x.name).join(', '),detalhes=selected.map(x=>`${x.name} — Quantidade: ${x.quantity} | Desconto: ${x.discountPercent}% | Setup: ${money(x.setupUnit)} × ${x.quantity} = ${money(x.setupTotal)} | Recorrência: ${money(x.recurringUnit)} × ${x.quantity} = ${money(x.recurringTotal)}`).join('\n');
+ return{empresa:document.getElementById('crmClientCompanyName').value||document.getElementById('crmTitle').value,contato:document.getElementById('crmContactName').value,produto:produtos,produtos,produtos_detalhes:detalhes,setup:money(selected.reduce((a,x)=>a+x.setupTotal,0)),recorrencia:money(selected.reduce((a,x)=>a+x.recurringTotal,0)),responsavel_nome:owner?.display_name||'',responsavel_email:owner?.email||''};
 }
 function renderProposalText(s,v){return Object.entries(v).reduce((o,[k,x])=>o.split('{{'+k+'}}').join(x||''),s||'');}
-function previewCrmProposal(){const t=crmProposalTemplates.find(x=>String(x.id)===String(document.getElementById('crmProposalTemplate')?.value)),el=document.getElementById('crmProposalPreview');if(!t||!el){toast('Selecione um modelo de proposta.','error');return;}const v=proposalVars();if(!v.produtos){toast('Selecione pelo menos um produto para esta empresa.','error');return;}const normalize=s=>String(s||'').replace(/\\\\n/g,'\n').replace(/\\n/g,'\n');el.textContent='Assunto: '+renderProposalText(normalize(t.subject),v)+'\n\n'+renderProposalText(normalize(t.body),v);el.classList.remove('hidden');}
-async function sendCrmProposal(){if(!crmEditingDealId){toast('Salve o negócio antes de enviar a proposta.','error');return;}const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc){toast('Negócio sem empresa vinculada.','error');return;}if(!(await saveCrmCompanyProductValues()))return;const selected=[...document.querySelectorAll('.crm-prod-check:checked')].map(c=>c.dataset.product);if(!selected.length){toast('Selecione pelo menos um produto.','error');return;}const body={deal_company_id:dc.id,product_ids:selected,proposal_type:document.getElementById('crmProposalType').value,template_id:document.getElementById('crmProposalTemplate').value,recipient_email:document.getElementById('crmProposalRecipient').value.trim()};if(!body.recipient_email){toast('Informe o e-mail do destinatário.','error');return;}previewCrmProposal();if(!confirm('Enviar esta proposta para '+body.recipient_email+'?'))return;const {data,error}=await db.functions.invoke('send-crm-proposal',{body});if(error||!data?.success){toast('Erro ao enviar proposta: '+(data?.error||error?.message||'falha no envio'),'error');await loadCrmProposalHistory();return;}toast('Proposta enviada por e-mail.','success');await loadCrmProposalHistory();}
+function previewCrmProposal(){const t=crmProposalTemplates.find(x=>String(x.id)===String(document.getElementById('crmProposalTemplate')?.value)),el=document.getElementById('crmProposalPreview');if(!t||!el){toast('Selecione um modelo de proposta.','error');return false;}const v=proposalVars();if(!v)return false;const normalize=s=>String(s||'').replace(/\\\\n/g,'\n').replace(/\\n/g,'\n');el.textContent='Assunto: '+renderProposalText(normalize(t.subject),v)+'\n\n'+renderProposalText(normalize(t.body),v);el.classList.remove('hidden');return true;}
+async function sendCrmProposal(){if(!crmEditingDealId){toast('Salve o negócio antes de enviar a proposta.','error');return;}const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc){toast('Negócio sem empresa vinculada.','error');return;}if(!(await saveCrmCompanyProductValues()))return;const items=selectedProposalItems();if(!items)return;const body={deal_company_id:dc.id,product_ids:items.map(x=>x.id),items:items.map(x=>({product_id:x.id,quantity:x.quantity,discount_percent:x.discountPercent})),proposal_type:document.getElementById('crmProposalType').value,template_id:document.getElementById('crmProposalTemplate').value,recipient_email:document.getElementById('crmProposalRecipient').value.trim()};if(!body.recipient_email){toast('Informe o e-mail do destinatário.','error');return;}if(!previewCrmProposal())return;if(!confirm('Enviar esta proposta para '+body.recipient_email+'?'))return;const {data,error}=await db.functions.invoke('send-crm-proposal',{body});if(error||!data?.success){toast('Erro ao enviar proposta: '+(data?.error||error?.message||'falha no envio'),'error');await loadCrmProposalHistory();return;}toast('Proposta enviada por e-mail.','success');await loadCrmProposalHistory();}
 async function loadCrmProposalHistory(){const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId),el=document.getElementById('crmProposalHistory');if(!dc||!el)return;const {data}=await db.from('crm_proposals').select('id,recipient_email,status,sent_at,created_at,setup_value,recurring_value').eq('deal_company_id',dc.id).order('created_at',{ascending:false}).limit(10);el.innerHTML=(data||[]).length?'<div class="form-label">Histórico de propostas</div>'+(data||[]).map(x=>`<div style="font-size:11px;padding:.4rem 0;border-top:1px solid var(--border)">${x.status==='sent'?'✓':'⚠'} Proposta · ${esc(x.recipient_email)} · ${new Date(x.sent_at||x.created_at).toLocaleString('pt-BR')}</div>`).join(''):'';}
 async function loadCrmProfiles() {
   const { data, error } = await db.from('crm_profiles').select('user_id,email,display_name').order('email');
