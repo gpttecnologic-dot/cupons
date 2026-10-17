@@ -945,15 +945,28 @@ body{overflow-x:hidden}
       </div>
 
       <div id="tab-proposal-mails" class="hidden">
-       <div class="page-header"><div class="page-header-left"><div class="page-title">E-mails de Proposta</div><div class="page-sub">Modelos exclusivos para a empresa selecionada</div></div></div>
-       <div class="tbl-wrap" style="padding:1.25rem"><label class="form-label">Empresa</label><select class="filter-sel" id="proposalMailCompany" onchange="loadCompanyProposalSettings('proposal-mails')" style="margin-bottom:1rem"></select>
-       <div id="proposalTemplatesList"></div>
-       <input type="hidden" id="proposalTemplateId"><label class="form-label">Nome do modelo</label><input class="swap-modal-input" id="proposalTemplateName" placeholder="Ex.: Proposta comercial" style="margin-bottom:.7rem">
-       <label class="form-label">Assunto</label><input class="swap-modal-input" id="proposalTemplateSubject" placeholder="Assunto do e-mail" style="margin-bottom:.7rem">
-       <label class="form-label">Corpo do e-mail</label><textarea class="swap-modal-input" id="proposalTemplateBody" style="min-height:180px" placeholder="Use {{empresa}}, {{contato}}, {{produtos}}, {{produtos_detalhes}}, {{setup}}, {{recorrencia}}, {{responsavel_nome}}"></textarea>
-       <div style="display:flex;gap:.6rem;margin-top:.8rem"><button class="btn btn-primary" onclick="saveCompanyProposalTemplate()">Salvar modelo</button><button class="btn btn-secondary" onclick="clearCompanyProposalTemplate()">Novo modelo</button></div>
-       </div>
+        <div class="page-header"><div class="page-header-left"><div class="page-title">E-mails de Proposta</div><div class="page-sub">Modelos comerciais organizados por empresa</div></div></div>
+        <div class="tbl-wrap" style="margin-bottom:1.5rem">
+          <div class="tbl-head" style="justify-content:space-between;gap:1rem;flex-wrap:wrap">
+            <div><div class="tbl-title">Modelos de e-mail</div><div class="tbl-sub">Selecione a empresa para gerenciar seus modelos de proposta</div></div>
+            <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+              <label for="proposalMailCompany" class="form-label" style="margin:0">Empresa</label>
+              <select class="filter-sel" id="proposalMailCompany" onchange="clearCompanyProposalTemplate();loadCompanyProposalSettings('proposal-mails')"></select>
+              <button class="btn btn-primary btn-sm" onclick="openCompanyProposalForm()">+ Novo modelo</button>
+            </div>
+          </div>
+          <div id="proposalTemplatesList"></div>
+        </div>
+        <div id="proposalTemplateForm" class="tbl-wrap hidden" style="padding:1.25rem;margin-bottom:1.5rem">
+          <div class="tbl-head" style="justify-content:space-between"><div><div class="tbl-title" id="proposalTemplateFormTitle">Novo modelo de proposta</div><div class="tbl-sub">Variáveis disponíveis: {{empresa}}, {{contato}}, {{produtos}}, {{produtos_detalhes}}, {{setup}}, {{recorrencia}}, {{responsavel_nome}}</div></div><button class="btn btn-ghost btn-sm" onclick="closeCompanyProposalForm()">✕ Fechar</button></div>
+          <input type="hidden" id="proposalTemplateId">
+          <label class="form-label">Nome do modelo</label><input class="swap-modal-input" id="proposalTemplateName" placeholder="Ex.: Proposta comercial" style="margin-bottom:.7rem">
+          <label class="form-label">Assunto</label><input class="swap-modal-input" id="proposalTemplateSubject" placeholder="Assunto do e-mail" style="margin-bottom:.7rem">
+          <label class="form-label">Corpo do e-mail</label><textarea class="swap-modal-input" id="proposalTemplateBody" style="min-height:180px" placeholder="Escreva a mensagem da proposta"></textarea>
+          <div style="display:flex;gap:.6rem;margin-top:.8rem"><button class="btn btn-primary" onclick="saveCompanyProposalTemplate()">Salvar modelo</button><button class="btn btn-secondary" onclick="closeCompanyProposalForm()">Cancelar</button></div>
+        </div>
       </div>
+
       <div id="tab-proposal-smtp" class="hidden">
        <div class="page-header"><div class="page-header-left"><div class="page-title">Configuração SMTP</div><div class="page-sub">Exclusivo para propostas comerciais desta empresa; cupons e campanhas não são alterados</div></div></div>
        <div class="tbl-wrap" style="padding:1.25rem">
@@ -5610,7 +5623,9 @@ async function loadCompanyProposalSettings(tab){
  const data=await companyProposalCall('list',company_id);
  if(tab==='proposal-mails'){
   companyProposalTemplates=data.templates||[];
-  document.getElementById('proposalTemplatesList').innerHTML=companyProposalTemplates.map((t,i)=>'<div style="display:flex;gap:.6rem;align-items:center;padding:.55rem;border-bottom:1px solid var(--border)"><span style="flex:1">'+esc(t.name)+'</span><button class="btn btn-secondary btn-sm" onclick="editCompanyProposalTemplate('+i+')">Editar</button><button class="btn btn-ghost btn-sm" onclick="deleteCompanyProposalTemplate('+i+')">Excluir</button></div>').join('')||'<p>Nenhum modelo cadastrado.</p>';
+  document.getElementById('proposalTemplatesList').innerHTML=companyProposalTemplates.length
+   ? '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Nome</th><th>Assunto</th><th>Ativo</th><th class="sticky-actions">Ações</th></tr></thead><tbody>'+companyProposalTemplates.map((t,i)=>'<tr><td data-label="Nome">'+esc(t.name)+'</td><td data-label="Assunto">'+esc(t.subject)+'</td><td data-label="Ativo">'+(t.active?'✓':'—')+'</td><td data-label="Ações" class="sticky-actions"><div class="btns"><button class="btn btn-secondary btn-sm" onclick="editCompanyProposalTemplate('+i+')">✎ Editar</button><button class="btn btn-danger btn-sm" onclick="deleteCompanyProposalTemplate('+i+')">🗑 Excluir</button></div></td></tr>').join('')+'</tbody></table></div>'
+   : '<div class="empty-state"><div class="empty-icon">✉</div><div class="empty-title">Nenhum modelo cadastrado para esta empresa</div></div>';
  }else{
   const m=data.mail||{};const v=id=>document.getElementById(id);
   v('proposalSmtpMode').value=m.mode||'general';v('proposalSmtpHost').value=m.host||'';v('proposalSmtpPort').value=m.port||587;v('proposalSmtpUser').value=m.username||'';v('proposalSmtpPassword').value='';v('proposalSmtpSecure').value=m.secure||'starttls';v('proposalSmtpFrom').value=m.sender_email||'';v('proposalSmtpFromName').value=m.sender_name||'';
@@ -5619,9 +5634,11 @@ async function loadCompanyProposalSettings(tab){
  }catch(e){toast(String(e),'error')}
 }
 function clearCompanyProposalTemplate(){['proposalTemplateId','proposalTemplateName','proposalTemplateSubject','proposalTemplateBody'].forEach(id=>document.getElementById(id).value='')}
-function editCompanyProposalTemplate(i){const t=companyProposalTemplates[i];if(!t)return;document.getElementById('proposalTemplateId').value=t.id;document.getElementById('proposalTemplateName').value=t.name;document.getElementById('proposalTemplateSubject').value=t.subject;document.getElementById('proposalTemplateBody').value=t.body}
+function openCompanyProposalForm(){clearCompanyProposalTemplate();document.getElementById('proposalTemplateFormTitle').textContent='Novo modelo de proposta';document.getElementById('proposalTemplateForm').classList.remove('hidden')}
+function closeCompanyProposalForm(){clearCompanyProposalTemplate();document.getElementById('proposalTemplateForm').classList.add('hidden')}
+function editCompanyProposalTemplate(i){const t=companyProposalTemplates[i];if(!t)return;document.getElementById('proposalTemplateId').value=t.id;document.getElementById('proposalTemplateName').value=t.name;document.getElementById('proposalTemplateSubject').value=t.subject;document.getElementById('proposalTemplateBody').value=t.body;document.getElementById('proposalTemplateFormTitle').textContent='Editar modelo: '+t.name;document.getElementById('proposalTemplateForm').classList.remove('hidden')}
 async function saveCompanyProposalTemplate(){
- try{const val=id=>document.getElementById(id).value;await companyProposalCall('save_template',val('proposalMailCompany'),{id:val('proposalTemplateId')||null,name:val('proposalTemplateName'),subject:val('proposalTemplateSubject'),body:val('proposalTemplateBody')});clearCompanyProposalTemplate();await loadCompanyProposalSettings('proposal-mails');toast('Modelo salvo','success')}catch(e){toast(String(e),'error')}
+ try{const val=id=>document.getElementById(id).value;await companyProposalCall('save_template',val('proposalMailCompany'),{id:val('proposalTemplateId')||null,name:val('proposalTemplateName'),subject:val('proposalTemplateSubject'),body:val('proposalTemplateBody')});closeCompanyProposalForm();await loadCompanyProposalSettings('proposal-mails');toast('Modelo salvo','success')}catch(e){toast(String(e),'error')}
 }
 async function deleteCompanyProposalTemplate(i){const t=companyProposalTemplates[i];if(!t||!confirm('Excluir este modelo?'))return;try{await companyProposalCall('delete_template',document.getElementById('proposalMailCompany').value,{id:t.id});await loadCompanyProposalSettings('proposal-mails')}catch(e){toast(String(e),'error')}}
 async function saveCompanyProposalSmtp(){
