@@ -5565,7 +5565,8 @@ async function applyPermissionGating() {
     settingsWrap.classList.toggle('hidden', !hasSettingsAccess || isCompanyOnlyOperator);
     if (!hasSettingsAccess || isCompanyOnlyOperator) closeSettingsMenu();
   }
-  ['proposal-mails','proposal-smtp'].forEach(id=>document.getElementById('nav-'+id)?.classList.toggle('hidden',isCrmConsultant||(!isSystemAdmin&&!companyLinks?.length)));
+  const {data:crmAdminRole}=await db.from('crm_admins').select('user_id').eq('user_id',crmUserId).maybeSingle();
+  ['proposal-mails','proposal-smtp'].forEach(id=>document.getElementById('nav-'+id)?.classList.toggle('hidden',isCrmConsultant||(!isSystemAdmin&&!crmAdminRole&&!companyLinks?.length)));
   const slaNav=document.getElementById('nav-sla'); if(slaNav) slaNav.classList.toggle('hidden', !(isSystemAdmin||myTabAccess.includes('sla')));
   await loadNotifications(false);
   scheduleNotificationReminders();
@@ -5601,10 +5602,11 @@ async function proposalCompanyOptions(tab){
  const selector=document.getElementById(tab==='proposal-mails'?'proposalMailCompany':'proposalSmtpCompany');
  const {data:{user}}=await db.auth.getUser();
  const {data:master}=await db.from('system_admins').select('user_id').eq('user_id',user.id).maybeSingle();
+ const {data:crmAdminRole}=await db.from('crm_admins').select('user_id').eq('user_id',user.id).maybeSingle();
  const {data:links}=await db.from('user_company_access').select('company_id').eq('user_id',user.id);
  const allowed=new Set((links||[]).map(x=>x.company_id));
  const {data:companies}=await db.from('companies').select('id,name').order('name');
- const available=(companies||[]).filter(x=>master||allowed.has(x.id));
+ const available=(companies||[]).filter(x=>master||crmAdminRole||allowed.has(x.id));
  const previous=selector.value||currentCompanyForProposal();
  selector.innerHTML=available.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
  if(available.some(x=>x.id===previous))selector.value=previous;
