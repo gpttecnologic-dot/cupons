@@ -22,6 +22,8 @@ serve(async (req) => {
 
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
   try {
+    const { data: readonly } = await admin.from('crm_readonly_consultants').select('user_id').eq('user_id', user.id).maybeSingle()
+    if (readonly) return json({ error: 'Usuário possui acesso somente de leitura' }, 403)
     const { corporate_lead_id } = await req.json()
     if (!corporate_lead_id || typeof corporate_lead_id !== 'string') return json({ error: 'Pedido corporativo inválido' }, 400)
 
