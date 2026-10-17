@@ -5714,15 +5714,17 @@ async function loadCrmEligibleOwners() {
     db.from('system_admins').select('user_id'),
     db.from('crm_admins').select('user_id')
   ]);
-  const globalOperators = new Set([...(sysRows || []), ...(crmAdminRows || [])].map(r => r.user_id));
+  // Master administra todas as empresas, mas só pode ser responsável nas
+  // empresas explicitamente liberadas. Executivos mantêm visão global.
+  const masters = new Set((sysRows || []).map(r => r.user_id));
+  const executives = new Set((crmAdminRows || []).map(r => r.user_id).filter(id => !masters.has(id)));
   crmEligibleOwnersByCompany = {};
   crmCompanies.forEach(company => {
     crmEligibleOwnersByCompany[company.id] = crmProfiles.filter(p =>
-      globalOperators.has(p.user_id) || (accessRows || []).some(a => a.user_id === p.user_id && a.company_id === company.id)
+      executives.has(p.user_id) || (accessRows || []).some(a => a.user_id === p.user_id && a.company_id === company.id)
     );
   });
 }
-
 async function loadCrm() {
   if (!crmUserId) {
     const { data: { user } } = await db.auth.getUser();
