@@ -5952,6 +5952,15 @@ function renderCrmContacts() {
 function addCrmContactRow(){ crmContactsCache.push({name:'',role:'',phone:'',email:''}); renderCrmContacts(); }
 
 // ── Modal de negócio ─────────────────────────────────────────────────────────
+function updateCrmProposalPartnershipVisibility(){
+  const company = crmCompanies.find(c => c.id === crmSelectedCompanyId);
+  const isLocline = company?.name?.trim().toLowerCase() === 'locline';
+  const typeSelect = document.getElementById('crmProposalType');
+  const partnershipOption = typeSelect?.querySelector('option[value="partnership"]');
+  if(partnershipOption) partnershipOption.hidden = !!isLocline;
+  if(isLocline && typeSelect?.value === 'partnership') typeSelect.value = 'client';
+}
+
 async function openCrmDealModal(dealId, initialStageId) {
   crmEditingDealId = dealId || null;
   document.getElementById('crmDeleteBtn').classList.toggle('hidden', !dealId);
@@ -6020,6 +6029,7 @@ async function openCrmDealModal(dealId, initialStageId) {
   if (!crmProfiles.length) await loadCrmProfiles();
   await renderCrmDealCompaniesSection();
   renderCrmDealExtrasSections(!!crmEditingLinkId);
+  updateCrmProposalPartnershipVisibility();
   document.getElementById('crmDealModal').classList.add('show');
   setTimeout(loadCrmProposalData,0);
 }
