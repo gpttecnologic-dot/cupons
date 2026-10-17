@@ -102,9 +102,9 @@ serve(async (req) => {
       const row: any = companyProductById.get(item.product_id)
       const product = row?.products
       const productCompanyId = String(product?.company_id || '')
-      if (!row || !product || product.active === false ||
+      if (!row || !product || product.active === false || productCompanyId !== String(dc.company_id) ||
         (!canAccessAllCompanies && !allowedCompanyIds.has(productCompanyId))) {
-        return json({ error: 'Produto inativo ou pertencente a uma empresa sem acesso para este usuário' }, 400)
+        return json({ error: 'Produto inativo, sem acesso ou pertencente a outra empresa' }, 400)
       }
       const maxDiscount = Number(product.max_discount_percent || 0)
       if (item.discount_percent > maxDiscount) {
