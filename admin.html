@@ -200,6 +200,10 @@ td.primary{color:var(--text);font-weight:500}
 .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hidden{display:none!important}
+/* Consultor: menus e ações de escrita não são exibidos. O banco também bloqueia gravações. */
+.crm-consultant #tab-crm button:not([data-consultant-allow]),.crm-consultant #tab-crm [draggable="true"],.crm-consultant #tab-crm .crm-add-btn{pointer-events:none!important;opacity:.45!important}
+.crm-consultant #tab-crm input:not([type="search"]),.crm-consultant #tab-crm textarea{pointer-events:none!important}
+.crm-consultant #tab-crm .btn-primary{display:none!important}
 .dbtn{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:3px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit}
 .dbtn:hover{background:var(--bg4)}
 .dbtn.active{background:rgba(124,106,247,.15);color:var(--accent-light);border-color:rgba(124,106,247,.3)}
@@ -1009,6 +1013,7 @@ body{overflow-x:hidden}
             <input class="swap-modal-input" id="permNewEmail" type="email" placeholder="e-mail@exemplo.com" style="margin:0">
             <select class="filter-sel" id="permNewRole" onchange="renderNewOperatorCompanies()" style="margin:0">
               <option value="company_admin">ADM Empresa</option>
+              <option value="consultor">Consultor (somente leitura)</option>
               <option value="perfil_executivo">Perfil Executivo</option>
               <option value="master">Master</option>
             </select>
@@ -1822,6 +1827,7 @@ function restoreLastTab() {
   return true;
 }
 function goTab(id) {
+  if(isCrmConsultant && id!=='crm') id='crm';
   document.querySelectorAll('.main > div').forEach(d => d.classList.add('hidden'));
   document.querySelectorAll('.sb-link').forEach(l => l.classList.remove('active'));
   const tabEl = document.getElementById('tab-' + id);
@@ -5489,6 +5495,7 @@ const SYSTEM_TAB_META = [
   { id: 'reports', label: 'Relatórios' },
   { id: 'sla', label: 'SLA' },
 ];
+let isCrmConsultant = false;
 const CRM_ONLY_SECTION_IDS = ['sbSecPrincipal', 'sbSecGerenciar', 'sbSecComunicacao', 'sbSecDados', 'sbSecParceiro'];
 
 async function applyPermissionGating() {
@@ -5497,6 +5504,7 @@ async function applyPermissionGating() {
   isSystemAdmin = false;
   myTabAccess = [];
   myReferralAccess = [];
+  isCrmConsultant = false;
   if (crmUserId) {
     const [{ data: sysRow }, { data: tabRows }, { data: refRows }] = await Promise.all([
       db.from('system_admins').select('user_id').eq('user_id', crmUserId).maybeSingle(),
@@ -5504,6 +5512,8 @@ async function applyPermissionGating() {
       db.from('user_referral_access').select('referral_id, referrals(id,name)').eq('user_id', crmUserId),
     ]);
     isSystemAdmin = !!sysRow;
+    const {data:consultantRow}=await db.from('crm_readonly_consultants').select('user_id').eq('user_id',crmUserId).maybeSingle();
+    isCrmConsultant=!!consultantRow;
     myTabAccess = (tabRows || []).map(r => r.tab_id);
     myReferralAccess = (refRows || []).map(r => ({ id: r.referral_id, name: r.referrals?.name || '?' }));
     // Master tem visão global de parceiros. Perfis com visão global do CRM
@@ -5522,6 +5532,9 @@ async function applyPermissionGating() {
   if(releaseQueueNav) releaseQueueNav.classList.toggle('hidden', !(isSystemAdmin || myTabAccess.includes('coupons')));
   document.getElementById('nav-permissions').classList.toggle('hidden', !isSystemAdmin);
   const companiesNav=document.getElementById('nav-companies'); if(companiesNav) companiesNav.classList.toggle('hidden', !isSystemAdmin);
+  if (isCrmConsultant) {
+    document.getElementById('adminScreen').classList.add('crm-consultant');
+  } else document.getElementById('adminScreen').classList.remove('crm-consultant');
   // ADM Empresa opera somente o CRM de suas empresas, sem o painel de parceiros.
   const { data: companyLinks } = !isSystemAdmin
     ? await db.from('user_company_access').select('company_id').eq('user_id', crmUserId).limit(1)
@@ -5537,7 +5550,7 @@ async function applyPermissionGating() {
     settingsWrap.classList.toggle('hidden', !hasSettingsAccess || isCompanyOnlyOperator);
     if (!hasSettingsAccess || isCompanyOnlyOperator) closeSettingsMenu();
   }
-  ['proposal-mails','proposal-smtp'].forEach(id=>document.getElementById('nav-'+id)?.classList.toggle('hidden',!isSystemAdmin&&!companyLinks?.length));
+  ['proposal-mails','proposal-smtp'].forEach(id=>document.getElementById('nav-'+id)?.classList.toggle('hidden',isCrmConsultant||(!isSystemAdmin&&!companyLinks?.length)));
   const slaNav=document.getElementById('nav-sla'); if(slaNav) slaNav.classList.toggle('hidden', !(isSystemAdmin||myTabAccess.includes('sla')));
   await loadNotifications(false);
   scheduleNotificationReminders();
@@ -5555,6 +5568,7 @@ async function applyPermissionGating() {
   });
 
   document.getElementById('adminScreen').classList.add('permissions-ready');
+  if(isCrmConsultant){goTab('crm');return;}
   if (restoreLastTab()) return;
   if (isSystemAdmin) { goTab('dashboard'); return; }
   // Pouso: primeira aba avulsa liberada > Meu Desempenho > CRM (que já trata
@@ -6617,7 +6631,7 @@ async function createOperator() {
   const permission = document.getElementById('permNewRole').value;
   const company_ids = (permission === 'master' || permission === 'perfil_executivo') ? [] : permCheckedValues('permNewCompanies');
   if (!name || !email) { toast('Preencha nome e e-mail.', 'error'); return; }
-  if (permission === 'company_admin' && !company_ids.length) { toast('Selecione pelo menos uma empresa.', 'error'); return; }
+  if (['company_admin','consultor'].includes(permission) && !company_ids.length) { toast('Selecione pelo menos uma empresa.', 'error'); return; }
   const { data, error } = await db.functions.invoke('crm-manage-access', { body: { action:'create_operator', name, email, permission, company_ids, redirect_to: window.location.origin + window.location.pathname } });
   if (error || data?.error) { toast('Erro: ' + (data?.error || error.message || String(error)), 'error', 6000); return; }
   document.getElementById('permNewName').value = '';
