@@ -48,9 +48,12 @@ serve(async (req) => {
       product_id: String(item?.product_id || ''),
       quantity: Number(item?.quantity),
       discount_percent: Number(item?.discount_percent ?? 0),
+      variant_id: item?.variant_id ? String(item.variant_id) : null,
+      accessory_ids: Array.isArray(item?.accessory_ids) ? item.accessory_ids.map((id: unknown) => String(id)) : [],
     }))
     if (normalizedItems.some((item: any) => !item.product_id || !Number.isSafeInteger(item.quantity) || item.quantity < 1 ||
-      !Number.isFinite(item.discount_percent) || item.discount_percent < 0)) {
+      !Number.isFinite(item.discount_percent) || item.discount_percent < 0 ||
+      new Set(item.accessory_ids).size !== item.accessory_ids.length)) {
       return json({ error: 'Quantidade ou desconto inválido' }, 400)
     }
     const requestedIds = [...new Set(normalizedItems.map((item: any) => item.product_id))]
@@ -83,17 +86,40 @@ serve(async (req) => {
       if (item.discount_percent > maxDiscount) {
         return json({ error: 'O desconto de ' + product.name + ' excede o limite de ' + maxDiscount + '%' }, 400)
       }
+      const variants = Array.isArray(product.variants) ? product.variants.filter((option: any) => option?.active !== false) : []
+      const accessories = Array.isArray(product.accessories) ? product.accessories.filter((option: any) => option?.active !== false) : []
+      const variant = variants.find((option: any) => String(option.id) === item.variant_id)
+      if (variants.length && !variant) return json({ error: 'Selecione uma potência válida para ' + product.name }, 400)
+      if (!variants.length && item.variant_id) return json({ error: 'A potência enviada não pertence ao produto ' + product.name }, 400)
+      const selectedAccessories = item.accessory_ids.map((id: string) => accessories.find((option: any) => String(option.id) === id))
+      if (selectedAccessories.some((option: any) => !option)) return json({ error: 'Um acessório selecionado não pertence ao produto ' + product.name }, 400)
     }
     const pricedItems = normalizedItems.map((item: any) => {
       const row: any = companyProductById.get(item.product_id)
       const product = row?.products
       const maxDiscount = Number(product.max_discount_percent || 0)
-      const setupUnit = Number(row.setup_value || 0)
-      const recurringUnit = Number(row.recurring_value || 0)
+      const variants = Array.isArray(product.variants) ? product.variants.filter((option: any) => option?.active !== false) : []
+      const accessories = Array.isArray(product.accessories) ? product.accessories.filter((option: any) => option?.active !== false) : []
+      const variant = variants.find((option: any) => String(option.id) === item.variant_id)
+      const selectedAccessories = item.accessory_ids.map((id: string) => accessories.find((option: any) => String(option.id) === id))
+      const variantSetup = variant ? Number(variant.setup || 0) : Number(row.setup_value || 0)
+      const variantRecurring = variant ? Number(variant.recurring || 0) : Number(row.recurring_value || 0)
+      const setupUnit = variantSetup + selectedAccessories.reduce((sum: number, option: any) => sum + Number(option.setup || 0), 0)
+      const recurringUnit = variantRecurring + selectedAccessories.reduce((sum: number, option: any) => sum + Number(option.recurring || 0), 0)
+      if (!Number.isFinite(setupUnit) || setupUnit < 0 || !Number.isFinite(recurringUnit) || recurringUnit < 0) {
+        throw new Error('Valores inválidos cadastrados para ' + product.name)
+      }
       const factor = 1 - item.discount_percent / 100
+      const displayName = product.name + (variant ? ' (' + variant.label + ')' : '')
       return {
         product_id: item.product_id,
-        product_name: product.name || 'Produto',
+        product_name: displayName || 'Produto',
+        variant_id: variant?.id || null,
+        variant_label: variant?.label || null,
+        accessories: selectedAccessories.map((option: any) => ({
+          id: option.id, label: option.label,
+          setup_unit: Number(option.setup || 0), recurring_unit: Number(option.recurring || 0),
+        })),
         quantity: item.quantity,
         discount_percent: item.discount_percent,
         max_discount_percent: maxDiscount,
@@ -112,7 +138,8 @@ serve(async (req) => {
     const totalRecurring = pricedItems.reduce((sum: number, item: any) => sum + item.recurring_total, 0)
     const productNames = pricedItems.map((item: any) => item.product_name)
     const productDetails = pricedItems.map((item: any) =>
-      item.product_name + ' — Quantidade: ' + item.quantity + ' | Desconto: ' + item.discount_percent + '% | Setup: ' +
+      item.product_name + (item.accessories.length ? ' | Acessórios: ' + item.accessories.map((option: any) => option.label).join(', ') : '') +
+      ' — Quantidade: ' + item.quantity + ' | Desconto: ' + item.discount_percent + '% | Setup unitário: ' +
       money(item.setup_unit) + ' × ' + item.quantity + ' = ' + money(item.setup_total) + ' | Recorrência: ' +
       money(item.recurring_unit) + ' × ' + item.quantity + ' = ' + money(item.recurring_total)
     ).join('\\n')
