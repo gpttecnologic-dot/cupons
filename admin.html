@@ -5677,6 +5677,10 @@ async function applyPermissionGating() {
 
 let crmProposalProducts=[],crmProposalTemplates=[],crmCompanyProducts=[],crmProposalAllowedCompanyIds=new Set();
 
+function currentCrmDealCompanyLink(){
+ return crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId)||crmDealOtherLinks[0]||null;
+}
+
 function currentCompanyForProposal(){return crmSelectedCompanyId || crmCompanies?.[0]?.id || null}
 let companyProposalTemplates=[];
 async function proposalCompanyOptions(tab){
@@ -5729,7 +5733,7 @@ async function saveCompanyProposalSmtp(){
 }
 
 async function loadCrmProposalData(){
- const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);
+ const dc=currentCrmDealCompanyLink();
  const currentCompanyId=dc?.company_id||crmSelectedCompanyId;
  const [{data:p},{data:t},{data:authResult}]=await Promise.all([
   db.from('products').select('*').eq('active',true).order('name'),
@@ -5742,15 +5746,15 @@ async function loadCrmProposalData(){
  else if(userId){const {data:accessRows}=await db.from('user_company_access').select('company_id').eq('user_id',userId);crmProposalAllowedCompanyIds=new Set((accessRows||[]).map(x=>String(x.company_id)));}
  crmProposalProducts=(p||[]).filter(x=>crmProposalAllowedCompanyIds.has(String(x.company_id))).map(x=>({...x,proposalCompanyName:crmCompanies.find(c=>String(c.id)===String(x.company_id))?.name||''}));crmProposalTemplates=t||[];
  const ts=document.getElementById('crmProposalTemplate');
- if(ts)ts.innerHTML=crmProposalTemplates.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
+ if(ts)ts.innerHTML=crmProposalTemplates.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')||'<option value="">Nenhum modelo ativo cadastrado para esta empresa</option>';
  await loadCrmCompanyProducts();
  const email=document.getElementById('crmContactEmail')?.value||'';if(document.getElementById('crmProposalRecipient'))document.getElementById('crmProposalRecipient').value=email;
  if(crmEditingDealId)loadCrmProposalHistory();
 }
 async function loadCrmCompanyProducts(){
  const el=document.getElementById('crmProposalProducts');if(!el)return;
- const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);
- if(!dc){crmCompanyProducts=[];el.innerHTML='<div style="font-size:12px;color:var(--text3)">Salve o negócio para selecionar produtos desta empresa.</div>';return;}
+ const dc=currentCrmDealCompanyLink();
+ if(!dc){crmCompanyProducts=[];renderCrmCompanyProducts('');return;}
  const {data,error}=await db.from('crm_deal_company_products').select('id,deal_company_id,product_id,setup_value,recurring_value').eq('deal_company_id',dc.id);
  if(error){el.innerHTML='<div style="font-size:12px;color:var(--danger)">Erro ao carregar produtos da empresa.</div>';return;}
  crmCompanyProducts=data||[];renderCrmCompanyProducts(dc.id);
@@ -5759,7 +5763,8 @@ function renderCrmCompanyProducts(dealCompanyId){
  const el=document.getElementById('crmProposalProducts');if(!el)return;
  const selectedIds=new Set(crmCompanyProducts.map(x=>x.product_id));
  const available=crmProposalProducts.filter(p=>!selectedIds.has(p.id));
- const selector=`<div style="display:flex;gap:.45rem;align-items:center"><select class="filter-sel" id="crmProposalProductSelect" style="flex:1;min-width:0"><option value="">Selecione um produto</option>${available.map(p=>`<option value="${p.id}">${esc(p.proposalCompanyName)} · ${esc(p.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmProposalProduct('${dealCompanyId}')" ${available.length?'':'disabled'}>+ Adicionar</button></div>`;
+ const canAdd=!!dealCompanyId;
+ const selector=`<div style="display:flex;gap:.45rem;align-items:center"><select class="filter-sel" id="crmProposalProductSelect" style="flex:1;min-width:0" ${canAdd?'':'disabled'}><option value="">Selecione um produto</option>${available.map(p=>`<option value="${p.id}">${esc(p.proposalCompanyName)} · ${esc(p.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmProposalProduct('${dealCompanyId}')" ${available.length&&canAdd?'':'disabled'}>+ Adicionar</button></div>`;
  const cards=crmProposalProducts.filter(p=>selectedIds.has(p.id)).map(p=>{
   const row=crmCompanyProducts.find(x=>x.product_id===p.id),checked=true;
   const setup=row?.setup_value??(p.default_setup||0),rec=row?.recurring_value??(p.default_recurring||0);
@@ -5777,7 +5782,7 @@ function renderCrmCompanyProducts(dealCompanyId){
    </div>${variantControl}${accessoryControl}<div style="display:grid;grid-template-columns:repeat(3,minmax(90px,1fr));gap:.4rem;margin-top:.5rem"><label style="font-size:10px;color:var(--text3)">Setup por unidade (R$)<input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${hasVariant?'':setup}" placeholder="Setup R$" style="margin:.2rem 0 0;min-width:0;width:100%"></label><label style="font-size:10px;color:var(--text3)">Contrato (meses)<input class="swap-modal-input crm-prod-contract" data-product="${p.id}" type="number" min="1" step="1" value="${Number(p.contract_months||12)}" placeholder="Meses" style="margin:.2rem 0 0;min-width:0;width:100%"></label><label style="font-size:10px;color:var(--text3)">Mensal por unidade (R$)<input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${hasVariant?'':rec}" placeholder="Mensal R$" style="margin:.2rem 0 0;min-width:0;width:100%"></label></div><div class="crm-prod-option-summary" data-product="${p.id}" style="font-size:11px;color:var(--text3);margin-top:.35rem">${hasVariant?'Escolha uma potência para carregar os valores configurados.':''}</div>
   </div>`;
  }).join('');
- el.innerHTML=selector+(cards||(crmProposalProducts.length?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Selecione um produto para incluir na proposta.</div>':'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Nenhum produto ativo encontrado nas empresas liberadas para seu acesso ao CRM.</div>'));
+ el.innerHTML=selector+(cards||(!canAdd?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Salve o negócio nesta empresa para adicionar produtos à proposta.</div>':crmProposalProducts.length?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Selecione um produto para incluir na proposta.</div>':'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Nenhum produto ativo encontrado nas empresas liberadas para seu acesso ao CRM.</div>'));
 }
 function updateCrmProposalProduct(productId){
  const p=crmProposalProducts.find(x=>x.id===productId);if(!p)return;
@@ -5801,12 +5806,11 @@ async function removeCrmProposalProduct(dealCompanyId,productId){
  if(error){toast('Erro ao remover produto: '+error.message,'error');return;}crmCompanyProducts=crmCompanyProducts.filter(x=>x.product_id!==productId);renderCrmCompanyProducts(dealCompanyId);
 }
 async function saveCrmCompanyProductValues(){
- const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc)return true;
- const checked=[...document.querySelectorAll('.crm-prod-check:checked')];for(const c of checked){const pid=c.dataset.product,p=crmProposalProducts.find(x=>x.id===pid);if((p?.variants||[]).length)continue;const setup=document.querySelector(`.crm-prod-setup[data-product="${pid}"]`),rec=document.querySelector(`.crm-prod-recurring[data-product="${pid}"]`);const {error}=await db.from('crm_deal_company_products').upsert({deal_company_id:dc.id,product_id:pid,setup_value:Number(setup?.value||0),recurring_value:Number(rec?.value||0),updated_at:new Date().toISOString()},{onConflict:'deal_company_id,product_id'});if(error){toast('Erro ao salvar produtos: '+error.message,'error');return false;}}return true;
+ const dc=currentCrmDealCompanyLink();if(!dc)return true;const checked=[...document.querySelectorAll('.crm-prod-check:checked')];for(const c of checked){const pid=c.dataset.product,p=crmProposalProducts.find(x=>x.id===pid);if((p?.variants||[]).length)continue;const setup=document.querySelector(`.crm-prod-setup[data-product="${pid}"]`),rec=document.querySelector(`.crm-prod-recurring[data-product="${pid}"]`);const {error}=await db.from('crm_deal_company_products').upsert({deal_company_id:dc.id,product_id:pid,setup_value:Number(setup?.value||0),recurring_value:Number(rec?.value||0),updated_at:new Date().toISOString()},{onConflict:'deal_company_id,product_id'});if(error){toast('Erro ao salvar produtos: '+error.message,'error');return false;}}return true;
 }
 function selectedProposalItems(showError=true){
  const checked=[...document.querySelectorAll('.crm-prod-check:checked')];if(!checked.length){if(showError)toast('Selecione pelo menos um produto para esta empresa.','error');return null;}
- const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId),items=[];
+ const dc=currentCrmDealCompanyLink(),items=[];
  for(const c of checked){
   const p=crmProposalProducts.find(x=>x.id===c.dataset.product),id=c.dataset.product;
   const quantity=Number(document.querySelector(`.crm-prod-quantity[data-product="${id}"]`)?.value),discountPercent=Number(document.querySelector(`.crm-prod-discount[data-product="${id}"]`)?.value||0),maxDiscount=Number(p?.max_discount_percent||0),variantId=document.querySelector(`.crm-prod-variant[data-product="${id}"]`)?.value||null,variant=(p?.variants||[]).find(x=>x.id===variantId),accessoryIds=[...document.querySelectorAll(`.crm-prod-accessory[data-product="${id}"]:checked`)].map(x=>x.value),accessories=(p?.accessories||[]).filter(x=>accessoryIds.includes(x.id));
@@ -5824,15 +5828,15 @@ function selectedProposalItems(showError=true){
 }
 function proposalVars(){
  const selected=selectedProposalItems();if(!selected)return null;
- const owner=crmProfiles.find(x=>x.user_id===(crmDealCompaniesCache?.[0]?.owner_user_id));const money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+ const owner=crmProfiles.find(x=>x.user_id===currentCrmDealCompanyLink()?.owner_user_id);const money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
  const produtos=selected.map(x=>x.displayName).join(', '),detalhes=selected.map(x=>`${x.displayName}${x.accessories.length?` | Acessórios: ${x.accessories.map(a=>a.label).join(', ')}`:''} — Quantidade: ${x.quantity} | Contrato: ${x.contractMonths} meses | Desconto: ${x.discountPercent}% | Setup unitário: ${money(x.setupUnit)} × ${x.quantity} = ${money(x.setupTotal)} | Mensal unitário: ${money(x.recurringUnit)} × ${x.quantity} = ${money(x.recurringTotal)}`).join('\n'),terms=[...new Set(selected.map(x=>x.contractMonths))];
  const setupTotal=money(selected.reduce((a,x)=>a+x.setupTotal,0)),mensalTotal=money(selected.reduce((a,x)=>a+x.recurringTotal,0));
  return{empresa:document.getElementById('crmClientCompanyName').value||document.getElementById('crmTitle').value,contato:document.getElementById('crmContactName').value,produto:produtos,produtos,produtos_detalhes:detalhes,setup:setupTotal,setup_total:setupTotal,mensal:mensalTotal,recorrencia:mensalTotal,prazo_contrato:terms.length===1?`${terms[0]} meses`:'Conforme prazo de cada produto',responsavel_nome:owner?.display_name||'',responsavel_email:owner?.email||''};
 }
 function renderProposalText(s,v){return Object.entries(v).reduce((o,[k,x])=>o.split('{{'+k+'}}').join(x||''),s||'');}
 function previewCrmProposal(){const t=crmProposalTemplates.find(x=>String(x.id)===String(document.getElementById('crmProposalTemplate')?.value)),el=document.getElementById('crmProposalPreview');if(!t||!el){toast('Selecione um modelo de proposta.','error');return false;}const v=proposalVars();if(!v)return false;const normalize=s=>String(s||'').replace(/\\\\n/g,'\n').replace(/\\n/g,'\n');el.textContent='Assunto: '+renderProposalText(normalize(t.subject),v)+'\n\n'+renderProposalText(normalize(t.body),v);el.classList.remove('hidden');return true;}
-async function sendCrmProposal(){if(!crmEditingDealId){toast('Salve o negócio antes de enviar a proposta.','error');return;}const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc){toast('Negócio sem empresa vinculada.','error');return;}if(!(await saveCrmCompanyProductValues()))return;const items=selectedProposalItems();if(!items)return;const body={deal_company_id:dc.id,product_ids:items.map(x=>x.id),items:items.map(x=>({product_id:x.id,quantity:x.quantity,discount_percent:x.discountPercent,variant_id:x.variantId,accessory_ids:x.accessoryIds,setup_value:x.setupUnit,recurring_value:x.recurringUnit,contract_months:x.contractMonths})),proposal_type:document.getElementById('crmProposalType').value,template_id:document.getElementById('crmProposalTemplate').value,recipient_email:document.getElementById('crmProposalRecipient').value.trim()};if(!body.recipient_email){toast('Informe o e-mail do destinatário.','error');return;}if(!previewCrmProposal())return;if(!confirm('Enviar esta proposta para '+body.recipient_email+'?'))return;const {data,error}=await db.functions.invoke('send-crm-proposal',{body});if(error||!data?.success){toast('Erro ao enviar proposta: '+(data?.error||error?.message||'falha no envio'),'error');await loadCrmProposalHistory();return;}toast('Proposta enviada por e-mail.','success');await loadCrmProposalHistory();}
-async function loadCrmProposalHistory(){const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId),el=document.getElementById('crmProposalHistory');if(!dc||!el)return;const {data}=await db.from('crm_proposals').select('id,recipient_email,status,sent_at,created_at,setup_value,recurring_value').eq('deal_company_id',dc.id).order('created_at',{ascending:false}).limit(10);el.innerHTML=(data||[]).length?'<div class="form-label">Histórico de propostas</div>'+(data||[]).map(x=>`<div style="font-size:11px;padding:.4rem 0;border-top:1px solid var(--border)">${x.status==='sent'?'✓':'⚠'} Proposta · ${esc(x.recipient_email)} · ${new Date(x.sent_at||x.created_at).toLocaleString('pt-BR')}</div>`).join(''):'';}
+async function sendCrmProposal(){if(!crmEditingDealId){toast('Salve o negócio antes de enviar a proposta.','error');return;}const dc=currentCrmDealCompanyLink();if(!dc){toast('Negócio sem empresa vinculada.','error');return;}if(!(await saveCrmCompanyProductValues()))return;const items=selectedProposalItems();if(!items)return;const body={deal_company_id:dc.id,product_ids:items.map(x=>x.id),items:items.map(x=>({product_id:x.id,quantity:x.quantity,discount_percent:x.discountPercent,variant_id:x.variantId,accessory_ids:x.accessoryIds,setup_value:x.setupUnit,recurring_value:x.recurringUnit,contract_months:x.contractMonths})),proposal_type:document.getElementById('crmProposalType').value,template_id:document.getElementById('crmProposalTemplate').value,recipient_email:document.getElementById('crmProposalRecipient').value.trim()};if(!body.recipient_email){toast('Informe o e-mail do destinatário.','error');return;}if(!previewCrmProposal())return;if(!confirm('Enviar esta proposta para '+body.recipient_email+'?'))return;const {data,error}=await db.functions.invoke('send-crm-proposal',{body});if(error||!data?.success){toast('Erro ao enviar proposta: '+(data?.error||error?.message||'falha no envio'),'error');await loadCrmProposalHistory();return;}toast('Proposta enviada por e-mail.','success');await loadCrmProposalHistory();}
+async function loadCrmProposalHistory(){const dc=currentCrmDealCompanyLink(),el=document.getElementById('crmProposalHistory');if(!dc||!el)return;const {data}=await db.from('crm_proposals').select('id,recipient_email,status,sent_at,created_at,setup_value,recurring_value').eq('deal_company_id',dc.id).order('created_at',{ascending:false}).limit(10);el.innerHTML=(data||[]).length?'<div class="form-label">Histórico de propostas</div>'+(data||[]).map(x=>`<div style="font-size:11px;padding:.4rem 0;border-top:1px solid var(--border)">${x.status==='sent'?'✓':'⚠'} Proposta · ${esc(x.recipient_email)} · ${new Date(x.sent_at||x.created_at).toLocaleString('pt-BR')}</div>`).join(''):'';}
 async function loadCrmProfiles() {
   const { data, error } = await db.from('crm_profiles').select('user_id,email,display_name').order('email');
   if (error) { crmProfiles = []; return; }
@@ -6161,7 +6165,7 @@ async function openCrmDealModal(dealId, initialStageId) {
   renderCrmDealExtrasSections(!!crmEditingLinkId);
   updateCrmProposalPartnershipVisibility();
   document.getElementById('crmDealModal').classList.add('show');
-  setTimeout(loadCrmProposalData,0);
+  setTimeout(()=>loadCrmProposalData().catch(error=>{const el=document.getElementById('crmProposalProducts');if(el)el.innerHTML=`<div style="font-size:12px;color:var(--danger)">Erro ao carregar os produtos da proposta: ${esc(error?.message||String(error))}</div>`;}),0);
 }
 function closeCrmDealModal() {
   document.getElementById('crmDealModal').classList.remove('show');
