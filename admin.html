@@ -752,6 +752,17 @@ body{overflow-x:hidden}
           <div><label class="form-label">Periodicidade</label><select class="filter-sel" id="productPeriod" style="width:100%"><option value="none">Sem recorrência</option><option value="monthly">Mensal</option><option value="quarterly">Trimestral</option><option value="semiannual">Semestral</option><option value="annual">Anual</option></select></div>
           <div><label class="form-label">Desconto máximo (%)</label><input class="swap-modal-input" id="productMaxDiscount" type="number" min="0" max="100" step="0.01" value="0"><small style="color:var(--text3)">Limite permitido na proposta</small></div>
         </div>
+        <div id="productVariantsSection" style="display:none;margin-top:1rem;padding:.8rem;border:1px solid var(--border);border-radius:8px">
+          <div style="font-size:12px;font-weight:700;margin-bottom:.45rem">Potências disponíveis (kVA)</div>
+          <div id="productVariantsList" style="max-height:220px;overflow:auto;display:grid;gap:.4rem"></div>
+          <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.45rem" onclick="addProductVariant()">+ Adicionar potência</button>
+        </div>
+        <div id="productAccessoriesSection" style="display:none;margin-top:.7rem;padding:.8rem;border:1px solid var(--border);border-radius:8px">
+          <div style="font-size:12px;font-weight:700;margin-bottom:.25rem">Acessórios</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:.45rem">O consultor poderá escolher vários acessórios. Valores são por unidade do gerador.</div>
+          <div id="productAccessoriesList" style="max-height:180px;overflow:auto;display:grid;gap:.4rem"></div>
+          <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.45rem" onclick="addProductAccessory()">+ Adicionar acessório</button>
+        </div>
         <div style="display:flex;gap:1.2rem;flex-wrap:wrap;margin-top:.8rem">
           <label><input type="checkbox" id="productActive" checked> Produto ativo</label>
           <label><input type="checkbox" id="productCoupons"> Utiliza cupons</label>
@@ -1339,7 +1350,7 @@ body{overflow-x:hidden}
       <div><label class="form-label">Tipo</label><select class="filter-sel" id="crmProposalType" style="width:100%;margin-bottom:.65rem"><option value="client">Cliente / Corporação</option><option value="partnership">Parceria</option></select></div>
       <label class="form-label">Produtos desta empresa</label>
       <div id="crmProposalProducts" style="display:grid;gap:.5rem;margin-bottom:.7rem"></div>
-      <div style="font-size:11px;color:var(--text3);margin:-.2rem 0 .7rem">Selecione produtos da empresa, informe quantidade e desconto. A quantidade multiplica setup e recorrência; o desconto respeita o limite configurado em cada produto.</div>
+      <div style="font-size:11px;color:var(--text3);margin:-.2rem 0 .7rem">Selecione produtos, informe quantidade e desconto. Produtos com variações permitem escolher potência e vários acessórios; os valores são calculados por unidade e multiplicados pela quantidade.</div>
       <label class="form-label">Modelo</label><select class="filter-sel" id="crmProposalTemplate" style="width:100%;margin-bottom:.65rem"></select>
       <label class="form-label">Destinatário</label><input class="swap-modal-input" id="crmProposalRecipient" type="email" placeholder="contato@empresa.com">
       <div style="display:flex;gap:.5rem;margin-top:.6rem"><button type="button" class="btn btn-secondary btn-sm" onclick="previewCrmProposal()">Visualizar</button><button type="button" class="btn btn-primary btn-sm" onclick="sendCrmProposal()">Enviar proposta</button></div>
@@ -4527,7 +4538,7 @@ async function loadCorporateLeads() {
 
   let { data, error } = await db
     .from('corporate_leads')
-    .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,created_at,notified,contacted,contacted_at,linked_user_id')
+    .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,created_at,notified,contacted,contacted_at,linked_user_id,crm_deal_company_id')
     .order('created_at', { ascending: false });
 
   // A coluna linked_user_id só existe depois de rodar o SQL
@@ -4537,7 +4548,7 @@ async function loadCorporateLeads() {
   if (error && /linked_user_id/i.test(error.message || '')) {
     const retry = await db
       .from('corporate_leads')
-      .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,created_at,notified,contacted,contacted_at')
+      .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,created_at,notified,contacted,contacted_at,crm_deal_company_id')
       .order('created_at', { ascending: false });
     data = retry.data; error = retry.error;
     (data || []).forEach(l => { l.linked_user_id = null; });
@@ -4594,6 +4605,9 @@ function renderCorporateLeads() {
     </td>
     <td class="sticky-actions">
       <div class="btns">
+        ${l.crm_deal_company_id
+          ? `<span class="badge b-distributed">✓ Enviado ao CRM 12IA</span>`
+          : `<button class="btn btn-primary btn-sm" onclick="sendCorporateLeadToCrm('${l.id}')">Enviar para CRM 12IA</button>`}
         ${l.linked_user_id
           ? `<button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${l.linked_user_id}','${(l.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom já vinculados">🔗 Ver cupons</button>`
           : `<button class="btn btn-primary btn-sm" onclick="vincularCorporativo('${l.id}')" title="Pede a quantidade real de cupons combinada com o cliente (pediu ${l.quantidade_licencas} no formulário) antes de criar/vincular">🔗 Vincular cupons</button>`
@@ -4608,6 +4622,17 @@ function renderCorporateLeads() {
     <th>Nome</th><th>E-mail</th><th>Telefone</th><th>CPF</th><th>Parceiro</th><th>Licenças</th>
     <th>Cadastrado em</th><th>E-mail comercial</th><th>Status</th><th>Cupons</th><th class="sticky-actions"></th>
   </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+async function sendCorporateLeadToCrm(leadId){
+  const lead=allCorporateLeads.find(x=>x.id===leadId);
+  if(!lead){toast('Pedido corporativo não encontrado.','error');return;}
+  if(lead.crm_deal_company_id){toast('Esse pedido já foi enviado ao CRM 12IA.','info');return;}
+  if(!confirm(`Enviar o pedido de ${lead.name} (${lead.quantidade_licencas} licenças) para o CRM da 12IA?`))return;
+  const {data,error}=await db.functions.invoke('corporate-lead-to-crm',{body:{corporate_lead_id:leadId}});
+  if(error||!data?.success){toast('Erro ao enviar para o CRM: '+(data?.error||error?.message||'falha na integração'),'error',7000);return;}
+  toast('Pedido enviado ao CRM da 12IA.','success');
+  await loadCorporateLeads();
 }
 
 // Vincula cupons a um pedido corporativo: cria (ou reaproveita, se já
@@ -5418,6 +5443,24 @@ let crmAllReferrals = [];
 
 let productsCache = [];
 let productCompaniesCache = [];
+let productVariantsDraft = [];
+let productAccessoriesDraft = [];
+function productUsesOptions(name){const id=document.getElementById('productId')?.value,existing=productsCache.find(x=>x.id===id);return String(name||'').trim().toLowerCase()==='gerador'||productVariantsDraft.length>0||productAccessoriesDraft.length>0||!!existing?.variants?.length||!!existing?.accessories?.length;}
+function setProductOptionSections(name){
+  const show=productUsesOptions(name);
+  document.getElementById('productVariantsSection')?.style.setProperty('display',show?'block':'none');
+  document.getElementById('productAccessoriesSection')?.style.setProperty('display',show?'block':'none');
+}
+function renderProductOptionEditors(){
+  const variants=document.getElementById('productVariantsList'),accessories=document.getElementById('productAccessoriesList');
+  if(variants)variants.innerHTML=productVariantsDraft.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 105px 105px 32px;gap:.35rem;align-items:center"><input class="swap-modal-input" data-option-kind="variant" data-option-index="${i}" data-option-field="label" value="${esc(x.label||'')}" placeholder="Potência, ex. 100 kVA" style="margin:0"><input class="swap-modal-input" data-option-kind="variant" data-option-index="${i}" data-option-field="setup" type="number" min="0" step=".01" value="${Number(x.setup||0)}" placeholder="Setup R$" title="Setup por unidade" style="margin:0"><input class="swap-modal-input" data-option-kind="variant" data-option-index="${i}" data-option-field="recurring" type="number" min="0" step=".01" value="${Number(x.recurring||0)}" placeholder="Mensal R$" title="Recorrência por unidade" style="margin:0"><button type="button" class="btn btn-ghost btn-sm" onclick="removeProductOption('variant',${i})" title="Remover">×</button></div>`).join('')||'<div style="font-size:11px;color:var(--text3)">Nenhuma potência cadastrada.</div>';
+  if(accessories)accessories.innerHTML=productAccessoriesDraft.map((x,i)=>`<div style="display:grid;grid-template-columns:1fr 105px 105px 32px;gap:.35rem;align-items:center"><input class="swap-modal-input" data-option-kind="accessory" data-option-index="${i}" data-option-field="label" value="${esc(x.label||'')}" placeholder="Nome do acessório" style="margin:0"><input class="swap-modal-input" data-option-kind="accessory" data-option-index="${i}" data-option-field="setup" type="number" min="0" step=".01" value="${Number(x.setup||0)}" placeholder="Setup R$" title="Setup por unidade" style="margin:0"><input class="swap-modal-input" data-option-kind="accessory" data-option-index="${i}" data-option-field="recurring" type="number" min="0" step=".01" value="${Number(x.recurring||0)}" placeholder="Mensal R$" title="Recorrência por unidade" style="margin:0"><button type="button" class="btn btn-ghost btn-sm" onclick="removeProductOption('accessory',${i})" title="Remover">×</button></div>`).join('')||'<div style="font-size:11px;color:var(--text3)">Nenhum acessório cadastrado.</div>';
+}
+function addProductVariant(){productVariantsDraft.push({id:crypto.randomUUID(),label:'',setup:0,recurring:0,active:true});renderProductOptionEditors();}
+function addProductAccessory(){productAccessoriesDraft.push({id:crypto.randomUUID(),label:'',setup:0,recurring:0,active:true});renderProductOptionEditors();}
+function removeProductOption(kind,index){(kind==='variant'?productVariantsDraft:productAccessoriesDraft).splice(index,1);renderProductOptionEditors();}
+document.addEventListener('input',e=>{const el=e.target.closest('[data-option-kind]');if(!el)return;const list=el.dataset.optionKind==='variant'?productVariantsDraft:productAccessoriesDraft,item=list[Number(el.dataset.optionIndex)];if(!item)return;const field=el.dataset.optionField;item[field]=field==='label'?el.value:Number(el.value||0);});
+document.getElementById('productName')?.addEventListener('input',e=>setProductOptionSections(e.target.value));
 function renderProductCompanyOptions(selected=''){
   const el=document.getElementById('productCompany');if(!el)return;
   el.innerHTML='<option value="">Selecione a empresa</option>'+productCompaniesCache.map(c=>`<option value="${c.id}" ${String(c.id)===String(selected)?'selected':''}>${esc(c.name)}</option>`).join('');
@@ -5431,7 +5474,7 @@ async function loadProducts(){
   if(error||companyError){toast('Erro ao carregar produtos ou empresas: '+(error?.message||companyError?.message),'error');return;}
   productsCache=data||[];productCompaniesCache=companies||[];
   const list=document.getElementById('productsList');
-  if(list)list.innerHTML=productsCache.length?productsCache.map(p=>{const company=productCompaniesCache.find(c=>c.id===p.company_id);return `<div class="ref-item"><div style="flex:1"><div style="font-weight:700">${esc(p.name)} ${p.active?'':'<span class="badge">Inativo</span>'}</div><div style="font-size:11px;color:var(--text3)">${esc(company?.name||'Empresa não definida')} · ${esc(p.category||'Sem categoria')} · Setup R$ ${Number(p.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Recorrência R$ ${Number(p.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Desconto máximo ${Number(p.max_discount_percent||0).toLocaleString('pt-BR')}% · ${p.uses_coupons?'Usa cupons':'Sem cupons'} · ${p.partner_visibility?'Visível ao parceiro':'Interno'}</div></div><button class="btn btn-secondary btn-sm" type="button" onclick="openEditProductModal('${p.id}',event)">Editar</button></div>`;}).join(''):'<div class="empty-state"><div class="empty-title">Nenhum produto cadastrado</div></div>';
+  if(list)list.innerHTML=productsCache.length?productsCache.map(p=>{const company=productCompaniesCache.find(c=>c.id===p.company_id),optionInfo=productUsesOptions(p.name)?` · ${Array.isArray(p.variants)?p.variants.filter(x=>x.active!==false).length:0} potências · ${Array.isArray(p.accessories)?p.accessories.filter(x=>x.active!==false).length:0} acessórios`:'';return `<div class="ref-item"><div style="flex:1"><div style="font-weight:700">${esc(p.name)} ${p.active?'':'<span class="badge">Inativo</span>'}</div><div style="font-size:11px;color:var(--text3)">${esc(company?.name||'Empresa não definida')} · ${esc(p.category||'Sem categoria')} · Setup R$ ${Number(p.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Recorrência R$ ${Number(p.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Desconto máximo ${Number(p.max_discount_percent||0).toLocaleString('pt-BR')}%${optionInfo} · ${p.uses_coupons?'Usa cupons':'Sem cupons'} · ${p.partner_visibility?'Visível ao parceiro':'Interno'}</div></div><button class="btn btn-secondary btn-sm" type="button" onclick="openEditProductModal('${p.id}',event)">Editar</button></div>`;}).join(''):'<div class="empty-state"><div class="empty-title">Nenhum produto cadastrado</div></div>';
 }
 function openNewProductModal(ev){
   if(ev){ev.preventDefault();ev.stopPropagation();}
@@ -5440,6 +5483,7 @@ function openNewProductModal(ev){
   if(modal.parentElement!==document.body) document.body.appendChild(modal);
   const values={productId:'',productName:'',productCategory:'',productDescription:'',productSetup:'0',productRecurring:'0',productPeriod:'monthly',productMaxDiscount:'0'};
   Object.entries(values).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.value=value;});
+  productVariantsDraft=[];productAccessoriesDraft=[];setProductOptionSections('');renderProductOptionEditors();
   renderProductCompanyOptions('');
   [['productActive',true],['productCoupons',false],['productPartnerVisibility',false]].forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.checked=v;});
   const title=document.getElementById('productModalTitle');if(title)title.textContent='Novo produto';
@@ -5464,6 +5508,7 @@ function newProduct(){
   setVal('productRecurring','0');
   setVal('productPeriod','monthly');
   setVal('productMaxDiscount','0');
+  productVariantsDraft=[];productAccessoriesDraft=[];setProductOptionSections('');renderProductOptionEditors();
   renderProductCompanyOptions('');
   setChecked('productActive',true);
   setChecked('productCoupons',false);
@@ -5488,6 +5533,7 @@ function openEditProductModal(id,ev){
   if(modal.parentElement!==document.body) document.body.appendChild(modal);
   const values={productId:p.id,productName:p.name||'',productCategory:p.category||'',productDescription:p.description||'',productSetup:p.default_setup||0,productRecurring:p.default_recurring||0,productPeriod:p.recurring_period||'monthly',productMaxDiscount:p.max_discount_percent||0};
   Object.entries(values).forEach(([field,value])=>{const el=document.getElementById(field);if(el)el.value=value;});
+  productVariantsDraft=Array.isArray(p.variants)?structuredClone(p.variants):[];productAccessoriesDraft=Array.isArray(p.accessories)?structuredClone(p.accessories):[];setProductOptionSections(p.name);renderProductOptionEditors();
   renderProductCompanyOptions(p.company_id||'');
   [['productActive',!!p.active],['productCoupons',!!p.uses_coupons],['productPartnerVisibility',!!p.partner_visibility]].forEach(([field,v])=>{const el=document.getElementById(field);if(el)el.checked=v;});
   const title=document.getElementById('productModalTitle');if(title)title.textContent='Editar produto';
@@ -5499,9 +5545,9 @@ function openEditProductModal(id,ev){
   return false;
 }
 window.openEditProductModal=openEditProductModal;
-function editProduct(id){const p=productsCache.find(x=>x.id===id);if(!p)return;document.getElementById('productId').value=p.id;document.getElementById('productName').value=p.name||'';document.getElementById('productCategory').value=p.category||'';document.getElementById('productDescription').value=p.description||'';document.getElementById('productSetup').value=p.default_setup||0;document.getElementById('productRecurring').value=p.default_recurring||0;document.getElementById('productPeriod').value=p.recurring_period||'monthly';document.getElementById('productMaxDiscount').value=p.max_discount_percent||0;renderProductCompanyOptions(p.company_id||'');document.getElementById('productActive').checked=!!p.active;document.getElementById('productCoupons').checked=!!p.uses_coupons;document.getElementById('productPartnerVisibility').checked=!!p.partner_visibility;document.getElementById('productModalTitle').textContent='Editar produto';document.getElementById('productModal').classList.add('show');}
+function editProduct(id){openEditProductModal(id);}
 function closeProductModal(){const modal=document.getElementById('productModal');if(!modal)return;modal.classList.remove('show');modal.style.display='';}
-async function saveProduct(){if(!isSystemAdmin){toast('Somente Master pode alterar produtos.','error');return;}const id=document.getElementById('productId').value;const payload={name:document.getElementById('productName').value.trim(),company_id:document.getElementById('productCompany').value||null,category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),max_discount_percent:Number(document.getElementById('productMaxDiscount').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}if(!payload.company_id){toast('Selecione a empresa do produto.','error');return;}if(!Number.isFinite(payload.max_discount_percent)||payload.max_discount_percent<0||payload.max_discount_percent>100){toast('O desconto máximo deve estar entre 0% e 100%.','error');return;}const {error}=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);if(error){toast('Erro ao salvar produto: '+error.message,'error');return;}closeProductModal();toast('Produto salvo.','success');loadProducts();}
+async function saveProduct(){if(!isSystemAdmin){toast('Somente Master pode alterar produtos.','error');return;}const id=document.getElementById('productId').value;const name=document.getElementById('productName').value.trim(),usesOptions=productUsesOptions(name);const cleanOptions=(rows,label)=>{const out=rows.filter(x=>String(x.label||'').trim()).map(x=>({...x,label:String(x.label).trim(),setup:Number(x.setup||0),recurring:Number(x.recurring||0),active:x.active!==false}));if(out.some(x=>!Number.isFinite(x.setup)||x.setup<0||!Number.isFinite(x.recurring)||x.recurring<0))throw new Error(`Valores inválidos em ${label}.`);const names=out.map(x=>x.label.toLowerCase());if(new Set(names).size!==names.length)throw new Error(`Não repita nomes em ${label}.`);return out;};let variants=[],accessories=[];try{variants=usesOptions?cleanOptions(productVariantsDraft,'potências'):[];accessories=usesOptions?cleanOptions(productAccessoriesDraft,'acessórios'):[];}catch(e){toast(e.message,'error');return;}const payload={name,company_id:document.getElementById('productCompany').value||null,category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),max_discount_percent:Number(document.getElementById('productMaxDiscount').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,variants,accessories,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}if(!payload.company_id){toast('Selecione a empresa do produto.','error');return;}if(!Number.isFinite(payload.max_discount_percent)||payload.max_discount_percent<0||payload.max_discount_percent>100){toast('O desconto máximo deve estar entre 0% e 100%.','error');return;}if(usesOptions&&!variants.length){toast('Cadastre ao menos uma potência.','error');return;}const {error}=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);if(error){toast('Erro ao salvar produto: '+error.message,'error');return;}closeProductModal();toast('Produto salvo.','success');loadProducts();}
 
 // ─── PERMISSÕES ────────────────────────────────────────────────────────────
 // "Administrador" geral (system_admins) enxerga todas as abas do sistema.
@@ -5691,20 +5737,33 @@ function renderCrmCompanyProducts(dealCompanyId){
   const row=crmCompanyProducts.find(x=>x.product_id===p.id),checked=!!row;
   const setup=checked?row.setup_value:(p.default_setup||0),rec=checked?row.recurring_value:(p.default_recurring||0);
   const maxDiscount=Number(p.max_discount_percent||0);
-  return `<div style="display:grid;grid-template-columns:minmax(130px,1fr) repeat(4,minmax(74px,100px));gap:.4rem;align-items:center;padding:.55rem .65rem;border:1px solid var(--border);border-radius:8px">
-   <label style="display:flex;align-items:center;gap:.5rem;font-size:12px;font-weight:600"><input type="checkbox" class="crm-prod-check" data-product="${p.id}" ${checked?'checked':''} onchange="toggleCrmCompanyProduct('${dealCompanyId}','${p.id}',this.checked)">${esc(p.name)}<small style="color:var(--text3);font-weight:400">Máx. ${maxDiscount}%</small></label>
-   <input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${setup}" placeholder="Setup R$" title="Setup unitário (R$)" style="margin:0;min-width:0" ${checked?'':'disabled'}>
-   <input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${rec}" placeholder="Recorrência R$" title="Recorrência unitária (R$)" style="margin:0;min-width:0" ${checked?'':'disabled'}>
-   <input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0" ${checked?'':'disabled'}>
-   <input class="swap-modal-input crm-prod-discount" data-product="${p.id}" type="number" min="0" max="${maxDiscount}" step=".01" value="0" placeholder="Desconto %" title="Desconto percentual (máximo ${maxDiscount}%)" style="margin:0;min-width:0" ${checked?'':'disabled'}>
+  const variants=(p.variants||[]).filter(x=>x.active!==false),accessories=(p.accessories||[]).filter(x=>x.active!==false),hasVariant=variants.length>0;
+  const variantControl=hasVariant?`<label class="form-label" style="margin:.55rem 0 .2rem">Potência</label><select class="filter-sel crm-prod-variant" data-product="${p.id}" style="width:100%" ${checked?'':'disabled'} onchange="updateCrmProposalProduct('${p.id}')"><option value="">Selecione a potência</option>${variants.map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('')}</select>`:'';
+  const accessoryControl=accessories.length?`<details style="margin-top:.45rem"><summary style="cursor:pointer;font-size:11px;color:var(--text2)">Acessórios (selecione um ou mais)</summary><div style="display:grid;gap:.2rem;padding:.4rem .2rem;max-height:130px;overflow:auto">${accessories.map(x=>`<label style="display:flex;align-items:center;gap:.4rem;font-size:11px"><input type="checkbox" class="crm-prod-accessory" data-product="${p.id}" value="${esc(x.id)}" ${checked?'':'disabled'} onchange="updateCrmProposalProduct('${p.id}')">${esc(x.label)}</label>`).join('')}</div></details>`:'';
+  return `<div style="padding:.65rem;border:1px solid var(--border);border-radius:8px">
+   <div style="display:grid;grid-template-columns:minmax(150px,1fr) repeat(${hasVariant?2:4},minmax(75px,105px));gap:.4rem;align-items:center">
+    <label style="display:flex;align-items:center;gap:.5rem;font-size:12px;font-weight:600"><input type="checkbox" class="crm-prod-check" data-product="${p.id}" ${checked?'checked':''} onchange="toggleCrmCompanyProduct('${dealCompanyId}','${p.id}',this.checked)">${esc(p.name)}<small style="color:var(--text3);font-weight:400">Máx. ${maxDiscount}%</small></label>
+    ${hasVariant?`<input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0" ${checked?'':'disabled'}>`:`<input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${setup}" placeholder="Setup R$" title="Setup unitário (R$)" style="margin:0;min-width:0" ${checked?'':'disabled'}><input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${rec}" placeholder="Recorrência R$" title="Recorrência unitária (R$)" style="margin:0;min-width:0" ${checked?'':'disabled'}><input class="swap-modal-input crm-prod-quantity" data-product="${p.id}" type="number" min="1" step="1" value="1" placeholder="Qtd." title="Quantidade" style="margin:0;min-width:0" ${checked?'':'disabled'}>`}
+    <input class="swap-modal-input crm-prod-discount" data-product="${p.id}" type="number" min="0" max="${maxDiscount}" step=".01" value="0" placeholder="Desconto %" title="Desconto percentual (máximo ${maxDiscount}%)" style="margin:0;min-width:0" ${checked?'':'disabled'}>
+   </div>${variantControl}${accessoryControl}<div class="crm-prod-option-summary" data-product="${p.id}" style="font-size:11px;color:var(--text3);margin-top:.35rem">${hasVariant?'Escolha uma potência para calcular os valores.':''}</div>
   </div>`;
  }).join('')||'<div style="font-size:12px;color:var(--text3)">Nenhum produto ativo cadastrado.</div>';
+}
+function updateCrmProposalProduct(productId){
+ const p=crmProposalProducts.find(x=>x.id===productId);if(!p)return;
+ const variantId=document.querySelector(`.crm-prod-variant[data-product="${productId}"]`)?.value;
+ const variant=(p.variants||[]).find(x=>x.id===variantId),accessoryIds=[...document.querySelectorAll(`.crm-prod-accessory[data-product="${productId}"]:checked`)].map(x=>x.value),accessories=(p.accessories||[]).filter(x=>accessoryIds.includes(x.id));
+ const el=document.querySelector(`.crm-prod-option-summary[data-product="${productId}"]`);if(!el)return;
+ if(!(p.variants||[]).length&&!accessories.length){el.textContent='';return;}
+ const setup=Number(variant?.setup||0)+accessories.reduce((n,x)=>n+Number(x.setup||0),0),rec=Number(variant?.recurring||0)+accessories.reduce((n,x)=>n+Number(x.recurring||0),0),money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+ el.textContent=variant?`Setup por unidade: ${money(setup)} · Recorrência por unidade: ${money(rec)}${accessories.length?` · ${accessories.map(x=>x.label).join(', ')}`:''}`:accessories.length?`Acessórios: ${accessories.map(x=>x.label).join(', ')}`:'Escolha uma potência para calcular os valores.';
 }
 async function toggleCrmCompanyProduct(dealCompanyId,productId,checked){
  const setupEl=document.querySelector(`.crm-prod-setup[data-product="${productId}"]`),recEl=document.querySelector(`.crm-prod-recurring[data-product="${productId}"]`);
  if(setupEl)setupEl.disabled=!checked;if(recEl)recEl.disabled=!checked;
  const quantityEl=document.querySelector(`.crm-prod-quantity[data-product="${productId}"]`),discountEl=document.querySelector(`.crm-prod-discount[data-product="${productId}"]`);
  if(quantityEl)quantityEl.disabled=!checked;if(discountEl)discountEl.disabled=!checked;
+ document.querySelectorAll(`.crm-prod-variant[data-product="${productId}"],.crm-prod-accessory[data-product="${productId}"]`).forEach(x=>x.disabled=!checked);
  if(!checked){const {error}=await db.from('crm_deal_company_products').delete().eq('deal_company_id',dealCompanyId).eq('product_id',productId);if(error){toast('Erro ao remover produto: '+error.message,'error');return;}crmCompanyProducts=crmCompanyProducts.filter(x=>x.product_id!==productId);return;}
  const payload={deal_company_id:dealCompanyId,product_id:productId,setup_value:Number(setupEl?.value||0),recurring_value:Number(recEl?.value||0),updated_at:new Date().toISOString()};
  const {data,error}=await db.from('crm_deal_company_products').upsert(payload,{onConflict:'deal_company_id,product_id'}).select().single();
@@ -5712,32 +5771,34 @@ async function toggleCrmCompanyProduct(dealCompanyId,productId,checked){
 }
 async function saveCrmCompanyProductValues(){
  const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc)return true;
- const checked=[...document.querySelectorAll('.crm-prod-check:checked')];for(const c of checked){const pid=c.dataset.product;const setup=document.querySelector(`.crm-prod-setup[data-product="${pid}"]`),rec=document.querySelector(`.crm-prod-recurring[data-product="${pid}"]`);const {error}=await db.from('crm_deal_company_products').upsert({deal_company_id:dc.id,product_id:pid,setup_value:Number(setup?.value||0),recurring_value:Number(rec?.value||0),updated_at:new Date().toISOString()},{onConflict:'deal_company_id,product_id'});if(error){toast('Erro ao salvar produtos: '+error.message,'error');return false;}}return true;
+ const checked=[...document.querySelectorAll('.crm-prod-check:checked')];for(const c of checked){const pid=c.dataset.product,p=crmProposalProducts.find(x=>x.id===pid);if((p?.variants||[]).length)continue;const setup=document.querySelector(`.crm-prod-setup[data-product="${pid}"]`),rec=document.querySelector(`.crm-prod-recurring[data-product="${pid}"]`);const {error}=await db.from('crm_deal_company_products').upsert({deal_company_id:dc.id,product_id:pid,setup_value:Number(setup?.value||0),recurring_value:Number(rec?.value||0),updated_at:new Date().toISOString()},{onConflict:'deal_company_id,product_id'});if(error){toast('Erro ao salvar produtos: '+error.message,'error');return false;}}return true;
 }
 function selectedProposalItems(showError=true){
  const checked=[...document.querySelectorAll('.crm-prod-check:checked')];if(!checked.length){if(showError)toast('Selecione pelo menos um produto para esta empresa.','error');return null;}
  const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId),items=[];
  for(const c of checked){
   const p=crmProposalProducts.find(x=>x.id===c.dataset.product),id=c.dataset.product;
-  const quantity=Number(document.querySelector(`.crm-prod-quantity[data-product="${id}"]`)?.value),discountPercent=Number(document.querySelector(`.crm-prod-discount[data-product="${id}"]`)?.value||0),setupUnit=Number(document.querySelector(`.crm-prod-setup[data-product="${id}"]`)?.value||0),recurringUnit=Number(document.querySelector(`.crm-prod-recurring[data-product="${id}"]`)?.value||0),maxDiscount=Number(p?.max_discount_percent||0);
+  const quantity=Number(document.querySelector(`.crm-prod-quantity[data-product="${id}"]`)?.value),discountPercent=Number(document.querySelector(`.crm-prod-discount[data-product="${id}"]`)?.value||0),maxDiscount=Number(p?.max_discount_percent||0),variantId=document.querySelector(`.crm-prod-variant[data-product="${id}"]`)?.value||null,variant=(p?.variants||[]).find(x=>x.id===variantId),accessoryIds=[...document.querySelectorAll(`.crm-prod-accessory[data-product="${id}"]:checked`)].map(x=>x.value),accessories=(p?.accessories||[]).filter(x=>accessoryIds.includes(x.id));
   if(!p||!dc||p.company_id!==dc.company_id){if(showError)toast('Há um produto que não pertence à empresa desta negociação.','error');return null;}
   if(!Number.isInteger(quantity)||quantity<1){if(showError)toast(`Informe uma quantidade inteira válida para ${p.name}.`,'error');return null;}
+  if((p.variants||[]).length&&!variant){if(showError)toast(`Selecione a potência do ${p.name}.`,'error');return null;}
+  const setupUnit=(variant?Number(variant.setup||0):Number(document.querySelector(`.crm-prod-setup[data-product="${id}"]`)?.value||0))+accessories.reduce((n,x)=>n+Number(x.setup||0),0),recurringUnit=(variant?Number(variant.recurring||0):Number(document.querySelector(`.crm-prod-recurring[data-product="${id}"]`)?.value||0))+accessories.reduce((n,x)=>n+Number(x.recurring||0),0);
   if(!Number.isFinite(setupUnit)||setupUnit<0||!Number.isFinite(recurringUnit)||recurringUnit<0){if(showError)toast(`Os valores de ${p.name} não podem ser negativos.`,'error');return null;}
   if(!Number.isFinite(discountPercent)||discountPercent<0||discountPercent>maxDiscount){if(showError)toast(`O desconto de ${p.name} não pode ultrapassar ${maxDiscount}%.`,'error');return null;}
   const factor=1-discountPercent/100;
-  items.push({...p,quantity,discountPercent,setupUnit,recurringUnit,setupTotal:Number((setupUnit*quantity*factor).toFixed(2)),recurringTotal:Number((recurringUnit*quantity*factor).toFixed(2))});
+  items.push({...p,displayName:p.name+(variant?` (${variant.label})`:''),variantId,variantLabel:variant?.label||null,accessories:accessories.map(x=>({id:x.id,label:x.label,setup:Number(x.setup||0),recurring:Number(x.recurring||0)})),accessoryIds,quantity,discountPercent,setupUnit,recurringUnit,setupTotal:Number((setupUnit*quantity*factor).toFixed(2)),recurringTotal:Number((recurringUnit*quantity*factor).toFixed(2))});
  }
  return items;
 }
 function proposalVars(){
  const selected=selectedProposalItems();if(!selected)return null;
  const owner=crmProfiles.find(x=>x.user_id===(crmDealCompaniesCache?.[0]?.owner_user_id));const money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
- const produtos=selected.map(x=>x.name).join(', '),detalhes=selected.map(x=>`${x.name} — Quantidade: ${x.quantity} | Desconto: ${x.discountPercent}% | Setup: ${money(x.setupUnit)} × ${x.quantity} = ${money(x.setupTotal)} | Recorrência: ${money(x.recurringUnit)} × ${x.quantity} = ${money(x.recurringTotal)}`).join('\n');
+ const produtos=selected.map(x=>x.displayName).join(', '),detalhes=selected.map(x=>`${x.displayName}${x.accessories.length?` | Acessórios: ${x.accessories.map(a=>a.label).join(', ')}`:''} — Quantidade: ${x.quantity} | Desconto: ${x.discountPercent}% | Setup unitário: ${money(x.setupUnit)} × ${x.quantity} = ${money(x.setupTotal)} | Recorrência unitária: ${money(x.recurringUnit)} × ${x.quantity} = ${money(x.recurringTotal)}`).join('\n');
  return{empresa:document.getElementById('crmClientCompanyName').value||document.getElementById('crmTitle').value,contato:document.getElementById('crmContactName').value,produto:produtos,produtos,produtos_detalhes:detalhes,setup:money(selected.reduce((a,x)=>a+x.setupTotal,0)),recorrencia:money(selected.reduce((a,x)=>a+x.recurringTotal,0)),responsavel_nome:owner?.display_name||'',responsavel_email:owner?.email||''};
 }
 function renderProposalText(s,v){return Object.entries(v).reduce((o,[k,x])=>o.split('{{'+k+'}}').join(x||''),s||'');}
 function previewCrmProposal(){const t=crmProposalTemplates.find(x=>String(x.id)===String(document.getElementById('crmProposalTemplate')?.value)),el=document.getElementById('crmProposalPreview');if(!t||!el){toast('Selecione um modelo de proposta.','error');return false;}const v=proposalVars();if(!v)return false;const normalize=s=>String(s||'').replace(/\\\\n/g,'\n').replace(/\\n/g,'\n');el.textContent='Assunto: '+renderProposalText(normalize(t.subject),v)+'\n\n'+renderProposalText(normalize(t.body),v);el.classList.remove('hidden');return true;}
-async function sendCrmProposal(){if(!crmEditingDealId){toast('Salve o negócio antes de enviar a proposta.','error');return;}const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc){toast('Negócio sem empresa vinculada.','error');return;}if(!(await saveCrmCompanyProductValues()))return;const items=selectedProposalItems();if(!items)return;const body={deal_company_id:dc.id,product_ids:items.map(x=>x.id),items:items.map(x=>({product_id:x.id,quantity:x.quantity,discount_percent:x.discountPercent})),proposal_type:document.getElementById('crmProposalType').value,template_id:document.getElementById('crmProposalTemplate').value,recipient_email:document.getElementById('crmProposalRecipient').value.trim()};if(!body.recipient_email){toast('Informe o e-mail do destinatário.','error');return;}if(!previewCrmProposal())return;if(!confirm('Enviar esta proposta para '+body.recipient_email+'?'))return;const {data,error}=await db.functions.invoke('send-crm-proposal',{body});if(error||!data?.success){toast('Erro ao enviar proposta: '+(data?.error||error?.message||'falha no envio'),'error');await loadCrmProposalHistory();return;}toast('Proposta enviada por e-mail.','success');await loadCrmProposalHistory();}
+async function sendCrmProposal(){if(!crmEditingDealId){toast('Salve o negócio antes de enviar a proposta.','error');return;}const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);if(!dc){toast('Negócio sem empresa vinculada.','error');return;}if(!(await saveCrmCompanyProductValues()))return;const items=selectedProposalItems();if(!items)return;const body={deal_company_id:dc.id,product_ids:items.map(x=>x.id),items:items.map(x=>({product_id:x.id,quantity:x.quantity,discount_percent:x.discountPercent,variant_id:x.variantId,accessory_ids:x.accessoryIds})),proposal_type:document.getElementById('crmProposalType').value,template_id:document.getElementById('crmProposalTemplate').value,recipient_email:document.getElementById('crmProposalRecipient').value.trim()};if(!body.recipient_email){toast('Informe o e-mail do destinatário.','error');return;}if(!previewCrmProposal())return;if(!confirm('Enviar esta proposta para '+body.recipient_email+'?'))return;const {data,error}=await db.functions.invoke('send-crm-proposal',{body});if(error||!data?.success){toast('Erro ao enviar proposta: '+(data?.error||error?.message||'falha no envio'),'error');await loadCrmProposalHistory();return;}toast('Proposta enviada por e-mail.','success');await loadCrmProposalHistory();}
 async function loadCrmProposalHistory(){const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId),el=document.getElementById('crmProposalHistory');if(!dc||!el)return;const {data}=await db.from('crm_proposals').select('id,recipient_email,status,sent_at,created_at,setup_value,recurring_value').eq('deal_company_id',dc.id).order('created_at',{ascending:false}).limit(10);el.innerHTML=(data||[]).length?'<div class="form-label">Histórico de propostas</div>'+(data||[]).map(x=>`<div style="font-size:11px;padding:.4rem 0;border-top:1px solid var(--border)">${x.status==='sent'?'✓':'⚠'} Proposta · ${esc(x.recipient_email)} · ${new Date(x.sent_at||x.created_at).toLocaleString('pt-BR')}</div>`).join(''):'';}
 async function loadCrmProfiles() {
   const { data, error } = await db.from('crm_profiles').select('user_id,email,display_name').order('email');
