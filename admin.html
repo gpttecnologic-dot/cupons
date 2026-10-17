@@ -1348,7 +1348,7 @@ body{overflow-x:hidden}
     <div class="crm-modal-section" id="crmProposalSection">
       <div class="crm-modal-section-title"><span>✉️ Proposta por e-mail</span></div>
       <div><label class="form-label">Tipo</label><select class="filter-sel" id="crmProposalType" style="width:100%;margin-bottom:.65rem"><option value="client">Cliente / Corporação</option><option value="partnership">Parceria</option></select></div>
-      <label class="form-label">Produtos disponíveis no CRM</label>
+      <label class="form-label">Empresa da proposta</label><select class="filter-sel" id="crmProposalCompany" style="width:100%;margin-bottom:.65rem" onchange="changeCrmProposalCompany(this.value)"></select><label class="form-label">Produtos disponíveis nesta empresa</label>
       <div id="crmProposalProducts" style="display:grid;gap:.5rem;margin-bottom:.7rem"></div>
       <div style="font-size:11px;color:var(--text3);margin:-.2rem 0 .7rem">Selecione produtos das empresas liberadas no seu CRM, informe quantidade e desconto. Produtos com variações permitem escolher potência e vários acessórios; os valores são calculados por unidade e multiplicados pela quantidade.</div>
       <label class="form-label">Modelo</label><select class="filter-sel" id="crmProposalTemplate" style="width:100%;margin-bottom:.65rem"></select>
@@ -5675,11 +5675,12 @@ async function applyPermissionGating() {
   goTab('crm');
 }
 
-let crmProposalProducts=[],crmProposalTemplates=[],crmCompanyProducts=[],crmProposalAllowedCompanyIds=new Set();
+let crmProposalProducts=[],crmProposalTemplates=[],crmCompanyProducts=[],crmProposalAllowedCompanyIds=new Set(),crmProposalCompanyLinkId=null;
 
 function currentCrmDealCompanyLink(){
- return crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId)||crmDealOtherLinks[0]||null;
+ return crmDealOtherLinks.find(x=>String(x.id)===String(crmProposalCompanyLinkId))||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId)||crmDealOtherLinks[0]||null;
 }
+function changeCrmProposalCompany(linkId){crmProposalCompanyLinkId=linkId||null;loadCrmProposalData();}
 
 function currentCompanyForProposal(){return crmSelectedCompanyId || crmCompanies?.[0]?.id || null}
 let companyProposalTemplates=[];
@@ -5735,6 +5736,13 @@ async function saveCompanyProposalSmtp(){
 async function loadCrmProposalData(){
  const dc=currentCrmDealCompanyLink();
  const currentCompanyId=dc?.company_id||crmSelectedCompanyId;
+ const companySelector=document.getElementById("crmProposalCompany");
+ if(companySelector){
+  const linkedCompanies=crmDealOtherLinks.map(link=>({id:link.id,name:link.companies?.name||crmCompanies.find(c=>String(c.id)===String(link.company_id))?.name||"Empresa"}));
+  companySelector.innerHTML=linkedCompanies.length?linkedCompanies.map(link=>"<option value=\""+esc(link.id)+"\">"+esc(link.name)+"</option>").join(""):"<option value=\"\">Vincule o negócio a uma empresa</option>";
+  if(dc?.id)companySelector.value=String(dc.id);
+  companySelector.disabled=linkedCompanies.length<2;
+ }
  const [{data:p},{data:t},{data:authResult}]=await Promise.all([
   db.from('products').select('*').eq('active',true).order('name'),
   db.from('crm_company_proposal_templates').select('id,name,subject,body,active').eq('company_id',currentCompanyId).eq('active',true).order('name'),
@@ -5744,7 +5752,7 @@ async function loadCrmProposalData(){
  crmProposalAllowedCompanyIds=new Set();
  if(crmIsAdmin||isSystemAdmin)crmProposalAllowedCompanyIds=new Set((crmCompanies||[]).map(c=>String(c.id)));
  else if(userId){const {data:accessRows}=await db.from('user_company_access').select('company_id').eq('user_id',userId);crmProposalAllowedCompanyIds=new Set((accessRows||[]).map(x=>String(x.company_id)));}
- crmProposalProducts=(p||[]).filter(x=>crmProposalAllowedCompanyIds.has(String(x.company_id))).map(x=>({...x,proposalCompanyName:crmCompanies.find(c=>String(c.id)===String(x.company_id))?.name||''}));crmProposalTemplates=t||[];
+ crmProposalProducts=(p||[]).filter(x=>String(x.company_id)===String(currentCompanyId)&&crmProposalAllowedCompanyIds.has(String(x.company_id))).map(x=>({...x,proposalCompanyName:crmCompanies.find(c=>String(c.id)===String(x.company_id))?.name||''}));crmProposalTemplates=t||[];
  const ts=document.getElementById('crmProposalTemplate');
  if(ts)ts.innerHTML=crmProposalTemplates.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')||'<option value="">Nenhum modelo ativo cadastrado para esta empresa</option>';
  await loadCrmCompanyProducts();
@@ -5764,7 +5772,7 @@ function renderCrmCompanyProducts(dealCompanyId){
  const selectedIds=new Set(crmCompanyProducts.map(x=>x.product_id));
  const available=crmProposalProducts.filter(p=>!selectedIds.has(p.id));
  const canAdd=!!dealCompanyId;
- const selector=`<div style="display:flex;gap:.45rem;align-items:center"><select class="filter-sel" id="crmProposalProductSelect" style="flex:1;min-width:0" ${canAdd?'':'disabled'}><option value="">Selecione um produto</option>${available.map(p=>`<option value="${p.id}">${esc(p.proposalCompanyName)} · ${esc(p.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmProposalProduct('${dealCompanyId}')" ${available.length&&canAdd?'':'disabled'}>+ Adicionar</button></div>`;
+ const selector=`<div style="display:flex;gap:.45rem;align-items:center"><select class="filter-sel" id="crmProposalProductSelect" size="6" style="flex:1;min-width:0;height:8rem;max-height:8rem;overflow-y:auto;overscroll-behavior:contain" ${canAdd?'':'disabled'}><option value="">Selecione um produto</option>${available.map(p=>`<option value="${p.id}">${esc(p.proposalCompanyName)} · ${esc(p.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmProposalProduct('${dealCompanyId}')" ${available.length&&canAdd?'':'disabled'}>+ Adicionar</button></div>`;
  const cards=crmProposalProducts.filter(p=>selectedIds.has(p.id)).map(p=>{
   const row=crmCompanyProducts.find(x=>x.product_id===p.id),checked=true;
   const setup=row?.setup_value??(p.default_setup||0),rec=row?.recurring_value??(p.default_recurring||0);
@@ -5782,7 +5790,7 @@ function renderCrmCompanyProducts(dealCompanyId){
    </div>${variantControl}${accessoryControl}<div style="display:grid;grid-template-columns:repeat(3,minmax(90px,1fr));gap:.4rem;margin-top:.5rem"><label style="font-size:10px;color:var(--text3)">Setup por unidade (R$)<input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${hasVariant?'':setup}" placeholder="Setup R$" style="margin:.2rem 0 0;min-width:0;width:100%"></label><label style="font-size:10px;color:var(--text3)">Contrato (meses)<input class="swap-modal-input crm-prod-contract" data-product="${p.id}" type="number" min="1" step="1" value="${Number(p.contract_months||12)}" placeholder="Meses" style="margin:.2rem 0 0;min-width:0;width:100%"></label><label style="font-size:10px;color:var(--text3)">Mensal por unidade (R$)<input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${hasVariant?'':rec}" placeholder="Mensal R$" style="margin:.2rem 0 0;min-width:0;width:100%"></label></div><div class="crm-prod-option-summary" data-product="${p.id}" style="font-size:11px;color:var(--text3);margin-top:.35rem">${hasVariant?'Escolha uma potência para carregar os valores configurados.':''}</div>
   </div>`;
  }).join('');
- el.innerHTML=selector+(cards||(!canAdd?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Salve o negócio nesta empresa para adicionar produtos à proposta.</div>':crmProposalProducts.length?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Selecione um produto para incluir na proposta.</div>':'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Nenhum produto ativo encontrado nas empresas liberadas para seu acesso ao CRM.</div>'));
+ el.innerHTML=selector+(cards||(!canAdd?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Salve o negócio nesta empresa para adicionar produtos à proposta.</div>':crmProposalProducts.length?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Selecione um produto para incluir na proposta.</div>':'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Nenhum produto ativo cadastrado para esta empresa.</div>'));
 }
 function updateCrmProposalProduct(productId){
  const p=crmProposalProducts.find(x=>x.id===productId);if(!p)return;
@@ -6121,6 +6129,7 @@ async function openCrmDealModal(dealId, initialStageId) {
   document.getElementById('crmNewCommentBody').value = '';
   crmDealOtherLinks = [];
   crmEditingLinkId = null;
+  crmProposalCompanyLinkId = null;
   crmDealCompanyLabelIds = new Set();
   crmAttachmentsCache = [];
   crmChecklistsCache = [];
@@ -6153,6 +6162,7 @@ async function openCrmDealModal(dealId, initialStageId) {
     crmDealOtherLinks = links || [];
     const mine = crmDealOtherLinks.find(l => l.company_id === crmSelectedCompanyId);
     crmEditingLinkId = mine ? mine.id : null;
+    crmProposalCompanyLinkId = mine?.id || crmDealOtherLinks[0]?.id || null;
     if (mine) {
       document.getElementById('crmDueDate').value = mine.due_date || '';
       document.getElementById('crmDelivered').checked = !!mine.delivered_at;
@@ -6510,8 +6520,10 @@ async function addCrmDealCompanyLink() {
   if (error) { toast('Erro: ' + error.message, 'error'); return; }
   const { data: links } = await db.from('crm_deal_companies').select('id,company_id,stage_id,value,owner_user_id,companies(id,name)').eq('deal_id', crmEditingDealId);
   crmDealOtherLinks = links || [];
+  if(!crmProposalCompanyLinkId)crmProposalCompanyLinkId=crmDealOtherLinks.find(l=>l.id===crmEditingLinkId)?.id||crmDealOtherLinks[0]?.id||null;
   toast('Vinculado.', 'success');
   renderCrmDealCompaniesSection();
+  await loadCrmProposalData();
 }
 
 function removeCrmDealCompanyLink(companyId) {
@@ -6521,8 +6533,10 @@ function removeCrmDealCompanyLink(companyId) {
     const { error } = await db.from('crm_deal_companies').delete().eq('id', link.id);
     if (error) { toast('Erro: ' + error.message, 'error'); return; }
     crmDealOtherLinks = crmDealOtherLinks.filter(l => l.id !== link.id);
+    if(String(crmProposalCompanyLinkId)===String(link.id))crmProposalCompanyLinkId=crmDealOtherLinks.find(l=>l.company_id===crmSelectedCompanyId)?.id||crmDealOtherLinks[0]?.id||null;
     toast('Desvinculado.', 'info');
     renderCrmDealCompaniesSection();
+    loadCrmProposalData();
     loadCrmBoard();
   }, '✕ Desvincular');
 }
