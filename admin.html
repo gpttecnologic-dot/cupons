@@ -5615,12 +5615,12 @@ async function saveCompanyProposalSmtp(){
 }
 
 async function loadCrmProposalData(){
- const [{data:p},{data:t}]=await Promise.all([
-  db.from('products').select('*').eq('active',true).order('name'),
-  db.from('crm_company_proposal_templates').select('id,name,subject,body,active').eq('company_id',currentCompanyForProposal()).eq('active',true).order('name')
- ]);
  const dc=crmDealCompaniesCache?.[0]||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId);
  const currentCompanyId=dc?.company_id||crmSelectedCompanyId;
+ const [{data:p},{data:t}]=await Promise.all([
+  db.from('products').select('*').eq('active',true).order('name'),
+  db.from('crm_company_proposal_templates').select('id,name,subject,body,active').eq('company_id',currentCompanyId).eq('active',true).order('name')
+ ]);
  crmProposalProducts=(p||[]).filter(x=>!x.company_id||x.company_id===currentCompanyId);crmProposalTemplates=t||[];
  const ts=document.getElementById('crmProposalTemplate');
  if(ts)ts.innerHTML=crmProposalTemplates.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('');
