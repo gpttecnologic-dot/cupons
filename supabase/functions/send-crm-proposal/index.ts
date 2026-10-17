@@ -98,20 +98,37 @@ serve(async (req) => {
     if (ownersError) throw ownersError
     const productOwnerNameById = new Map((productOwners || []).map((company: any) => [String(company.id), company.name]))
 
+    const requestedAccessoryIds = [...new Set(normalizedItems.flatMap((item: any) => item.accessory_ids))]
+    const { data: accessoryProducts, error: accessoryProductsError } = requestedAccessoryIds.length
+      ? await admin.from('products').select('id,name,company_id,parent_product_id,product_type,active,default_setup,default_recurring').in('id', requestedAccessoryIds)
+      : { data: [], error: null }
+    if (accessoryProductsError) throw accessoryProductsError
+    const linkedAccessoryProducts = accessoryProducts || []
+    const accessoriesForProduct = (product: any) => {
+      const inline = Array.isArray(product.accessories) ? product.accessories.filter((option: any) => option?.active !== false) : []
+      const linked = linkedAccessoryProducts.filter((option: any) => option.product_type === 'accessory' &&
+        option.active !== false && String(option.parent_product_id) === String(product.id) &&
+        String(option.company_id) === String(dc.company_id)).map((option: any) => ({
+          id: option.id, label: option.name, setup: Number(option.default_setup || 0),
+          recurring: Number(option.default_recurring || 0), active: option.active,
+        }))
+      return [...inline, ...linked]
+    }
+
     for (const item of normalizedItems as any[]) {
       const row: any = companyProductById.get(item.product_id)
       const product = row?.products
       const productCompanyId = String(product?.company_id || '')
-      if (!row || !product || product.active === false ||
+      if (!row || !product || product.product_type === 'accessory' || product.active === false || productCompanyId !== String(dc.company_id) ||
         (!canAccessAllCompanies && !allowedCompanyIds.has(productCompanyId))) {
-        return json({ error: 'Produto inativo ou pertencente a uma empresa sem acesso para este usuário' }, 400)
+        return json({ error: 'Produto inativo, sem acesso ou pertencente a outra empresa' }, 400)
       }
       const maxDiscount = Number(product.max_discount_percent || 0)
       if (item.discount_percent > maxDiscount) {
         return json({ error: 'O desconto de ' + product.name + ' excede o limite de ' + maxDiscount + '%' }, 400)
       }
       const variants = Array.isArray(product.variants) ? product.variants.filter((option: any) => option?.active !== false) : []
-      const accessories = Array.isArray(product.accessories) ? product.accessories.filter((option: any) => option?.active !== false) : []
+      const accessories = accessoriesForProduct(product)
       const variant = variants.find((option: any) => String(option.id) === item.variant_id)
       if (variants.length && !variant) return json({ error: 'Selecione uma potência válida para ' + product.name }, 400)
       if (!variants.length && item.variant_id) return json({ error: 'A potência enviada não pertence ao produto ' + product.name }, 400)
@@ -123,7 +140,7 @@ serve(async (req) => {
       const product = row?.products
       const maxDiscount = Number(product.max_discount_percent || 0)
       const variants = Array.isArray(product.variants) ? product.variants.filter((option: any) => option?.active !== false) : []
-      const accessories = Array.isArray(product.accessories) ? product.accessories.filter((option: any) => option?.active !== false) : []
+      const accessories = accessoriesForProduct(product)
       const variant = variants.find((option: any) => String(option.id) === item.variant_id)
       const selectedAccessories = item.accessory_ids.map((id: string) => accessories.find((option: any) => String(option.id) === id))
       const variantSetup = variant ? Number(variant.setup || 0) : Number(row.setup_value || 0)

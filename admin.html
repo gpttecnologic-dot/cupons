@@ -740,7 +740,8 @@ body{overflow-x:hidden}
       <div class="modal-overlay" id="productModal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);align-items:center;justify-content:center;padding:1rem"><div class="modal" style="max-width:650px;width:min(650px,96vw);position:relative;z-index:100000">
         <div class="modal-title" id="productModalTitle">Novo produto</div>
         <input type="hidden" id="productId">
-        <div><label class="form-label">Empresa</label><select class="filter-sel" id="productCompany" style="width:100%;margin-bottom:.65rem"><option value="">Selecione a empresa</option></select></div>
+        <div><label class="form-label">Empresa</label><select class="filter-sel" id="productCompany" style="width:100%;margin-bottom:.65rem" onchange="renderProductParentOptions()"><option value="">Selecione a empresa</option></select></div>
+        <div id="productTypeFields" style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.6rem"><div><label class="form-label">Tipo de cadastro</label><select class="filter-sel" id="productType" style="width:100%" onchange="updateProductTypeFields()"><option value="product">Produto</option><option value="accessory">Acessório</option></select></div><div id="productParentWrap" style="display:none"><label class="form-label">Produto vinculado</label><select class="filter-sel" id="productParent" style="width:100%"><option value="">Selecione um produto</option></select></div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
           <div><label class="form-label">Nome</label><input class="swap-modal-input" id="productName"></div>
           <div><label class="form-label">Categoria</label><input class="swap-modal-input" id="productCategory" placeholder="Software, Consultoria..."></div>
@@ -1348,7 +1349,7 @@ body{overflow-x:hidden}
     <div class="crm-modal-section" id="crmProposalSection">
       <div class="crm-modal-section-title"><span>✉️ Proposta por e-mail</span></div>
       <div><label class="form-label">Tipo</label><select class="filter-sel" id="crmProposalType" style="width:100%;margin-bottom:.65rem"><option value="client">Cliente / Corporação</option><option value="partnership">Parceria</option></select></div>
-      <label class="form-label">Produtos disponíveis no CRM</label>
+      <label class="form-label">Empresa da proposta</label><select class="filter-sel" id="crmProposalCompany" style="width:100%;margin-bottom:.65rem" onchange="changeCrmProposalCompany(this.value)"></select><label class="form-label">Produtos disponíveis nesta empresa</label>
       <div id="crmProposalProducts" style="display:grid;gap:.5rem;margin-bottom:.7rem"></div>
       <div style="font-size:11px;color:var(--text3);margin:-.2rem 0 .7rem">Selecione produtos das empresas liberadas no seu CRM, informe quantidade e desconto. Produtos com variações permitem escolher potência e vários acessórios; os valores são calculados por unidade e multiplicados pela quantidade.</div>
       <label class="form-label">Modelo</label><select class="filter-sel" id="crmProposalTemplate" style="width:100%;margin-bottom:.65rem"></select>
@@ -5464,9 +5465,9 @@ let productsCache = [];
 let productCompaniesCache = [];
 let productVariantsDraft = [];
 let productAccessoriesDraft = [];
-function productUsesOptions(name){const id=document.getElementById('productId')?.value,existing=productsCache.find(x=>x.id===id);return String(name||'').trim().toLowerCase()==='gerador'||productVariantsDraft.length>0||productAccessoriesDraft.length>0||!!existing?.variants?.length||!!existing?.accessories?.length;}
+function productUsesOptions(name){if(document.getElementById('productType')?.value==='accessory')return false;const id=document.getElementById('productId')?.value,existing=productsCache.find(x=>x.id===id);return String(name||'').trim().toLowerCase()==='gerador'||productVariantsDraft.length>0||productAccessoriesDraft.length>0||!!existing?.variants?.length||!!existing?.accessories?.length;}
 function setProductOptionSections(name){
-  const show=productUsesOptions(name);
+  const show=document.getElementById('productType')?.value!=='accessory'&&productUsesOptions(name);
   document.getElementById('productVariantsSection')?.style.setProperty('display',show?'block':'none');
   document.getElementById('productAccessoriesSection')?.style.setProperty('display',show?'block':'none');
 }
@@ -5483,7 +5484,18 @@ document.getElementById('productName')?.addEventListener('input',e=>setProductOp
 function renderProductCompanyOptions(selected=''){
   const el=document.getElementById('productCompany');if(!el)return;
   el.innerHTML='<option value="">Selecione a empresa</option>'+productCompaniesCache.map(c=>`<option value="${c.id}" ${String(c.id)===String(selected)?'selected':''}>${esc(c.name)}</option>`).join('');
-  el.value=selected||'';
+  el.value=selected||'';renderProductParentOptions();
+}
+function renderProductParentOptions(selected=''){
+ const el=document.getElementById('productParent');if(!el)return;
+ const companyId=document.getElementById('productCompany')?.value;
+ const options=productsCache.filter(p=>p.product_type!=='accessory'&&String(p.company_id)===String(companyId)&&String(p.id)!==String(document.getElementById('productId')?.value));
+ el.innerHTML='<option value="">Selecione um produto</option>'+options.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');el.value=selected||'';
+}
+function updateProductTypeFields(){
+ const accessory=document.getElementById('productType')?.value==='accessory';
+ const parent=document.getElementById('productParentWrap');if(parent)parent.style.display=accessory?'block':'none';
+ setProductOptionSections(document.getElementById('productName')?.value||'');
 }
 async function loadProducts(){
   const [{data,error},{data:companies,error:companyError}]=await Promise.all([
@@ -5502,8 +5514,8 @@ function openNewProductModal(ev){
   if(modal.parentElement!==document.body) document.body.appendChild(modal);
   const values={productId:'',productName:'',productCategory:'',productDescription:'',productSetup:'0',productRecurring:'0',productPeriod:'monthly',productMaxDiscount:'0'};
   Object.entries(values).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.value=value;});
-  productVariantsDraft=[];productAccessoriesDraft=[];setProductOptionSections('');renderProductOptionEditors();
-  renderProductCompanyOptions('');
+  productVariantsDraft=[];productAccessoriesDraft=[];document.getElementById('productType').value='product';document.getElementById('productParent').value='';setProductOptionSections('');renderProductOptionEditors();
+  renderProductCompanyOptions('');updateProductTypeFields();
   [['productActive',true],['productCoupons',false],['productPartnerVisibility',false]].forEach(([id,v])=>{const el=document.getElementById(id);if(el)el.checked=v;});
   const title=document.getElementById('productModalTitle');if(title)title.textContent='Novo produto';
   modal.classList.add('show');
@@ -5527,8 +5539,8 @@ function newProduct(){
   setVal('productRecurring','0');
   setVal('productPeriod','monthly');
   setVal('productMaxDiscount','0');
-  productVariantsDraft=[];productAccessoriesDraft=[];setProductOptionSections('');renderProductOptionEditors();
-  renderProductCompanyOptions('');
+  productVariantsDraft=[];productAccessoriesDraft=[];document.getElementById('productType').value='product';document.getElementById('productParent').value='';setProductOptionSections('');renderProductOptionEditors();
+  renderProductCompanyOptions('');updateProductTypeFields();
   setChecked('productActive',true);
   setChecked('productCoupons',false);
   setChecked('productPartnerVisibility',false);
@@ -5550,10 +5562,10 @@ function openEditProductModal(id,ev){
   const modal=document.getElementById('productModal');
   if(!modal){alert('Erro: modal de produto não encontrado.');return false;}
   if(modal.parentElement!==document.body) document.body.appendChild(modal);
-  const values={productId:p.id,productName:p.name||'',productCategory:p.category||'',productDescription:p.description||'',productSetup:p.default_setup||0,productRecurring:p.default_recurring||0,productPeriod:p.recurring_period||'monthly',productMaxDiscount:p.max_discount_percent||0};
+  const values={productId:p.id,productName:p.name||'',productCategory:p.category||'',productDescription:p.description||'',productSetup:p.default_setup||0,productRecurring:p.default_recurring||0,productPeriod:p.recurring_period||'monthly',productMaxDiscount:p.max_discount_percent||0,productType:p.product_type||'product'};
   Object.entries(values).forEach(([field,value])=>{const el=document.getElementById(field);if(el)el.value=value;});
   productVariantsDraft=Array.isArray(p.variants)?structuredClone(p.variants):[];productAccessoriesDraft=Array.isArray(p.accessories)?structuredClone(p.accessories):[];setProductOptionSections(p.name);renderProductOptionEditors();
-  renderProductCompanyOptions(p.company_id||'');
+  renderProductCompanyOptions(p.company_id||'');renderProductParentOptions(p.parent_product_id||'');updateProductTypeFields();
   [['productActive',!!p.active],['productCoupons',!!p.uses_coupons],['productPartnerVisibility',!!p.partner_visibility]].forEach(([field,v])=>{const el=document.getElementById(field);if(el)el.checked=v;});
   const title=document.getElementById('productModalTitle');if(title)title.textContent='Editar produto';
   modal.classList.add('show');
@@ -5566,7 +5578,7 @@ function openEditProductModal(id,ev){
 window.openEditProductModal=openEditProductModal;
 function editProduct(id){openEditProductModal(id);}
 function closeProductModal(){const modal=document.getElementById('productModal');if(!modal)return;modal.classList.remove('show');modal.style.display='';}
-async function saveProduct(){if(!isSystemAdmin){toast('Somente Master pode alterar produtos.','error');return;}const id=document.getElementById('productId').value;const name=document.getElementById('productName').value.trim(),usesOptions=productUsesOptions(name);const cleanOptions=(rows,label)=>{const out=rows.filter(x=>String(x.label||'').trim()).map(x=>({...x,label:String(x.label).trim(),setup:Number(x.setup||0),recurring:Number(x.recurring||0),active:x.active!==false}));if(out.some(x=>!Number.isFinite(x.setup)||x.setup<0||!Number.isFinite(x.recurring)||x.recurring<0))throw new Error(`Valores inválidos em ${label}.`);const names=out.map(x=>x.label.toLowerCase());if(new Set(names).size!==names.length)throw new Error(`Não repita nomes em ${label}.`);return out;};let variants=[],accessories=[];try{variants=usesOptions?cleanOptions(productVariantsDraft,'potências'):[];accessories=usesOptions?cleanOptions(productAccessoriesDraft,'acessórios'):[];}catch(e){toast(e.message,'error');return;}const payload={name,company_id:document.getElementById('productCompany').value||null,category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),max_discount_percent:Number(document.getElementById('productMaxDiscount').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,variants,accessories,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}if(!payload.company_id){toast('Selecione a empresa do produto.','error');return;}if(!Number.isFinite(payload.max_discount_percent)||payload.max_discount_percent<0||payload.max_discount_percent>100){toast('O desconto máximo deve estar entre 0% e 100%.','error');return;}if(usesOptions&&!variants.length){toast('Cadastre ao menos uma potência.','error');return;}const {error}=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);if(error){toast('Erro ao salvar produto: '+error.message,'error');return;}closeProductModal();toast('Produto salvo.','success');loadProducts();}
+async function saveProduct(){if(!isSystemAdmin){toast('Somente Master pode alterar produtos.','error');return;}const id=document.getElementById('productId').value;const name=document.getElementById('productName').value.trim(),usesOptions=productUsesOptions(name);const cleanOptions=(rows,label)=>{const out=rows.filter(x=>String(x.label||'').trim()).map(x=>({...x,label:String(x.label).trim(),setup:Number(x.setup||0),recurring:Number(x.recurring||0),active:x.active!==false}));if(out.some(x=>!Number.isFinite(x.setup)||x.setup<0||!Number.isFinite(x.recurring)||x.recurring<0))throw new Error(`Valores inválidos em ${label}.`);const names=out.map(x=>x.label.toLowerCase());if(new Set(names).size!==names.length)throw new Error(`Não repita nomes em ${label}.`);return out;};let variants=[],accessories=[];try{variants=usesOptions?cleanOptions(productVariantsDraft,'potências'):[];accessories=usesOptions?cleanOptions(productAccessoriesDraft,'acessórios'):[];}catch(e){toast(e.message,'error');return;}const productType=document.getElementById('productType').value||'product',parentProductId=document.getElementById('productParent').value||null;const payload={name,product_type:productType,parent_product_id:productType==='accessory'?parentProductId:null,company_id:document.getElementById('productCompany').value||null,category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),max_discount_percent:Number(document.getElementById('productMaxDiscount').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,variants,accessories,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}if(!payload.company_id){toast('Selecione a empresa do produto.','error');return;}if(productType==='accessory'){const parent=productsCache.find(p=>p.id===parentProductId);if(!parent||parent.product_type==='accessory'||String(parent.company_id)!==String(payload.company_id)){toast('Selecione um produto da mesma empresa para vincular o acessório.','error');return;}}if(!Number.isFinite(payload.max_discount_percent)||payload.max_discount_percent<0||payload.max_discount_percent>100){toast('O desconto máximo deve estar entre 0% e 100%.','error');return;}if(usesOptions&&!variants.length){toast('Cadastre ao menos uma potência.','error');return;}const {error}=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);if(error){toast('Erro ao salvar produto: '+error.message,'error');return;}closeProductModal();toast('Produto salvo.','success');loadProducts();}
 
 // ─── PERMISSÕES ────────────────────────────────────────────────────────────
 // "Administrador" geral (system_admins) enxerga todas as abas do sistema.
@@ -5675,11 +5687,12 @@ async function applyPermissionGating() {
   goTab('crm');
 }
 
-let crmProposalProducts=[],crmProposalTemplates=[],crmCompanyProducts=[],crmProposalAllowedCompanyIds=new Set();
+let crmProposalProducts=[],crmProposalTemplates=[],crmCompanyProducts=[],crmProposalAllowedCompanyIds=new Set(),crmProposalCompanyLinkId=null;
 
 function currentCrmDealCompanyLink(){
- return crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId)||crmDealOtherLinks[0]||null;
+ return crmDealOtherLinks.find(x=>String(x.id)===String(crmProposalCompanyLinkId))||crmDealOtherLinks.find(x=>x.id===crmEditingLinkId)||crmDealOtherLinks.find(x=>x.company_id===crmSelectedCompanyId)||crmDealOtherLinks[0]||null;
 }
+function changeCrmProposalCompany(linkId){crmProposalCompanyLinkId=linkId||null;loadCrmProposalData();}
 
 function currentCompanyForProposal(){return crmSelectedCompanyId || crmCompanies?.[0]?.id || null}
 let companyProposalTemplates=[];
@@ -5735,6 +5748,13 @@ async function saveCompanyProposalSmtp(){
 async function loadCrmProposalData(){
  const dc=currentCrmDealCompanyLink();
  const currentCompanyId=dc?.company_id||crmSelectedCompanyId;
+ const companySelector=document.getElementById("crmProposalCompany");
+ if(companySelector){
+  const linkedCompanies=crmDealOtherLinks.map(link=>({id:link.id,name:link.companies?.name||crmCompanies.find(c=>String(c.id)===String(link.company_id))?.name||"Empresa"}));
+  companySelector.innerHTML=linkedCompanies.length?linkedCompanies.map(link=>"<option value=\""+esc(link.id)+"\">"+esc(link.name)+"</option>").join(""):"<option value=\"\">Vincule o negócio a uma empresa</option>";
+  if(dc?.id)companySelector.value=String(dc.id);
+  companySelector.disabled=linkedCompanies.length<2;
+ }
  const [{data:p},{data:t},{data:authResult}]=await Promise.all([
   db.from('products').select('*').eq('active',true).order('name'),
   db.from('crm_company_proposal_templates').select('id,name,subject,body,active').eq('company_id',currentCompanyId).eq('active',true).order('name'),
@@ -5744,7 +5764,7 @@ async function loadCrmProposalData(){
  crmProposalAllowedCompanyIds=new Set();
  if(crmIsAdmin||isSystemAdmin)crmProposalAllowedCompanyIds=new Set((crmCompanies||[]).map(c=>String(c.id)));
  else if(userId){const {data:accessRows}=await db.from('user_company_access').select('company_id').eq('user_id',userId);crmProposalAllowedCompanyIds=new Set((accessRows||[]).map(x=>String(x.company_id)));}
- crmProposalProducts=(p||[]).filter(x=>crmProposalAllowedCompanyIds.has(String(x.company_id))).map(x=>({...x,proposalCompanyName:crmCompanies.find(c=>String(c.id)===String(x.company_id))?.name||''}));crmProposalTemplates=t||[];
+ const proposalProducts=(p||[]).filter(x=>x.product_type!=='accessory'&&String(x.company_id)===String(currentCompanyId)&&crmProposalAllowedCompanyIds.has(String(x.company_id)));const productIds=proposalProducts.map(x=>x.id);let linkedAccessories=[];if(productIds.length){const {data:accessoryRows}=await db.from('products').select('id,name,company_id,parent_product_id,active,default_setup,default_recurring').eq('product_type','accessory').eq('company_id',currentCompanyId).eq('active',true).in('parent_product_id',productIds);linkedAccessories=accessoryRows||[];}const accessoriesByParent=new Map();for(const accessory of linkedAccessories){const options=accessoriesByParent.get(accessory.parent_product_id)||[];options.push({id:accessory.id,label:accessory.name,setup:Number(accessory.default_setup||0),recurring:Number(accessory.default_recurring||0),active:accessory.active});accessoriesByParent.set(accessory.parent_product_id,options);}crmProposalProducts=proposalProducts.map(x=>({...x,accessories:[...(Array.isArray(x.accessories)?x.accessories:[]),...(accessoriesByParent.get(x.id)||[])],proposalCompanyName:crmCompanies.find(c=>String(c.id)===String(x.company_id))?.name||''}));crmProposalTemplates=t||[];
  const ts=document.getElementById('crmProposalTemplate');
  if(ts)ts.innerHTML=crmProposalTemplates.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')||'<option value="">Nenhum modelo ativo cadastrado para esta empresa</option>';
  await loadCrmCompanyProducts();
@@ -5764,7 +5784,7 @@ function renderCrmCompanyProducts(dealCompanyId){
  const selectedIds=new Set(crmCompanyProducts.map(x=>x.product_id));
  const available=crmProposalProducts.filter(p=>!selectedIds.has(p.id));
  const canAdd=!!dealCompanyId;
- const selector=`<div style="display:flex;gap:.45rem;align-items:center"><select class="filter-sel" id="crmProposalProductSelect" style="flex:1;min-width:0" ${canAdd?'':'disabled'}><option value="">Selecione um produto</option>${available.map(p=>`<option value="${p.id}">${esc(p.proposalCompanyName)} · ${esc(p.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmProposalProduct('${dealCompanyId}')" ${available.length&&canAdd?'':'disabled'}>+ Adicionar</button></div>`;
+ const selector=`<div style="display:flex;gap:.45rem;align-items:center"><select class="filter-sel" id="crmProposalProductSelect" size="6" style="flex:1;min-width:0;height:8rem;max-height:8rem;overflow-y:auto;overscroll-behavior:contain" ${canAdd?'':'disabled'}><option value="">Selecione um produto</option>${available.map(p=>`<option value="${p.id}">${esc(p.proposalCompanyName)} · ${esc(p.name)}</option>`).join('')}</select><button type="button" class="btn btn-secondary btn-sm" onclick="addCrmProposalProduct('${dealCompanyId}')" ${available.length&&canAdd?'':'disabled'}>+ Adicionar</button></div>`;
  const cards=crmProposalProducts.filter(p=>selectedIds.has(p.id)).map(p=>{
   const row=crmCompanyProducts.find(x=>x.product_id===p.id),checked=true;
   const setup=row?.setup_value??(p.default_setup||0),rec=row?.recurring_value??(p.default_recurring||0);
@@ -5782,7 +5802,7 @@ function renderCrmCompanyProducts(dealCompanyId){
    </div>${variantControl}${accessoryControl}<div style="display:grid;grid-template-columns:repeat(3,minmax(90px,1fr));gap:.4rem;margin-top:.5rem"><label style="font-size:10px;color:var(--text3)">Setup por unidade (R$)<input class="swap-modal-input crm-prod-setup" data-product="${p.id}" type="number" min="0" step=".01" value="${hasVariant?'':setup}" placeholder="Setup R$" style="margin:.2rem 0 0;min-width:0;width:100%"></label><label style="font-size:10px;color:var(--text3)">Contrato (meses)<input class="swap-modal-input crm-prod-contract" data-product="${p.id}" type="number" min="1" step="1" value="${Number(p.contract_months||12)}" placeholder="Meses" style="margin:.2rem 0 0;min-width:0;width:100%"></label><label style="font-size:10px;color:var(--text3)">Mensal por unidade (R$)<input class="swap-modal-input crm-prod-recurring" data-product="${p.id}" type="number" min="0" step=".01" value="${hasVariant?'':rec}" placeholder="Mensal R$" style="margin:.2rem 0 0;min-width:0;width:100%"></label></div><div class="crm-prod-option-summary" data-product="${p.id}" style="font-size:11px;color:var(--text3);margin-top:.35rem">${hasVariant?'Escolha uma potência para carregar os valores configurados.':''}</div>
   </div>`;
  }).join('');
- el.innerHTML=selector+(cards||(!canAdd?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Salve o negócio nesta empresa para adicionar produtos à proposta.</div>':crmProposalProducts.length?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Selecione um produto para incluir na proposta.</div>':'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Nenhum produto ativo encontrado nas empresas liberadas para seu acesso ao CRM.</div>'));
+ el.innerHTML=selector+(cards||(!canAdd?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Salve o negócio nesta empresa para adicionar produtos à proposta.</div>':crmProposalProducts.length?'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Selecione um produto para incluir na proposta.</div>':'<div style="font-size:12px;color:var(--text3);margin-top:.5rem">Nenhum produto ativo cadastrado para esta empresa.</div>'));
 }
 function updateCrmProposalProduct(productId){
  const p=crmProposalProducts.find(x=>x.id===productId);if(!p)return;
@@ -6121,6 +6141,7 @@ async function openCrmDealModal(dealId, initialStageId) {
   document.getElementById('crmNewCommentBody').value = '';
   crmDealOtherLinks = [];
   crmEditingLinkId = null;
+  crmProposalCompanyLinkId = null;
   crmDealCompanyLabelIds = new Set();
   crmAttachmentsCache = [];
   crmChecklistsCache = [];
@@ -6153,6 +6174,7 @@ async function openCrmDealModal(dealId, initialStageId) {
     crmDealOtherLinks = links || [];
     const mine = crmDealOtherLinks.find(l => l.company_id === crmSelectedCompanyId);
     crmEditingLinkId = mine ? mine.id : null;
+    crmProposalCompanyLinkId = mine?.id || crmDealOtherLinks[0]?.id || null;
     if (mine) {
       document.getElementById('crmDueDate').value = mine.due_date || '';
       document.getElementById('crmDelivered').checked = !!mine.delivered_at;
@@ -6510,8 +6532,10 @@ async function addCrmDealCompanyLink() {
   if (error) { toast('Erro: ' + error.message, 'error'); return; }
   const { data: links } = await db.from('crm_deal_companies').select('id,company_id,stage_id,value,owner_user_id,companies(id,name)').eq('deal_id', crmEditingDealId);
   crmDealOtherLinks = links || [];
+  if(!crmProposalCompanyLinkId)crmProposalCompanyLinkId=crmDealOtherLinks.find(l=>l.id===crmEditingLinkId)?.id||crmDealOtherLinks[0]?.id||null;
   toast('Vinculado.', 'success');
   renderCrmDealCompaniesSection();
+  await loadCrmProposalData();
 }
 
 function removeCrmDealCompanyLink(companyId) {
@@ -6521,8 +6545,10 @@ function removeCrmDealCompanyLink(companyId) {
     const { error } = await db.from('crm_deal_companies').delete().eq('id', link.id);
     if (error) { toast('Erro: ' + error.message, 'error'); return; }
     crmDealOtherLinks = crmDealOtherLinks.filter(l => l.id !== link.id);
+    if(String(crmProposalCompanyLinkId)===String(link.id))crmProposalCompanyLinkId=crmDealOtherLinks.find(l=>l.company_id===crmSelectedCompanyId)?.id||crmDealOtherLinks[0]?.id||null;
     toast('Desvinculado.', 'info');
     renderCrmDealCompaniesSection();
+    loadCrmProposalData();
     loadCrmBoard();
   }, '✕ Desvincular');
 }
