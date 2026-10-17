@@ -5540,7 +5540,7 @@ function updateProductTypeFields(){
  setProductOptionSections(document.getElementById('productName')?.value||'');
  renderProductLinkedAccessories();
 }
-async async function getProductAccess(){
+async function getProductAccess(){
  const {data:{user}}=await db.auth.getUser();if(!user)return {userId:null,global:false,canManage:false,companyIds:[]};
  const [{data:master},{data:crmAdmin},{data:links},{data:readonly}]=await Promise.all([
   db.from('system_admins').select('user_id').eq('user_id',user.id).maybeSingle(),
