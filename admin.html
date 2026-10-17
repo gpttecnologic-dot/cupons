@@ -1985,7 +1985,9 @@ async function loadCampaigns() {
 async function loadEmailTemplates() {
   const { data, error } = await db.from('email_templates').select('*').order('purpose').order('name');
   if (error) { toast('Erro ao carregar modelos: ' + error.message, 'error', 6000); return; }
-  allEmailTemplates = data || [];
+  // Modelos antigos de proposta permanecem arquivados no banco, mas não
+  // pertencem a uma empresa e não devem aparecer nas campanhas gerais.
+  allEmailTemplates = (data || []).filter(t => t.purpose !== 'proposal' && !String(t.key || '').startsWith('crm_proposal'));
   renderEmailTemplates();
   populateCampaignTemplateSelect();
 }
