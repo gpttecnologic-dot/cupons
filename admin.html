@@ -741,7 +741,7 @@ body{overflow-x:hidden}
         <div class="modal-title" id="productModalTitle">Novo produto</div>
         <input type="hidden" id="productId">
         <div><label class="form-label">Empresa</label><select class="filter-sel" id="productCompany" style="width:100%;margin-bottom:.65rem" onchange="renderProductParentOptions()"><option value="">Selecione a empresa</option></select></div>
-        <div id="productTypeFields" style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.6rem"><div><label class="form-label">Tipo de cadastro</label><select class="filter-sel" id="productType" style="width:100%" onchange="updateProductTypeFields()"><option value="product">Produto</option><option value="accessory">Acessório</option></select></div><div id="productParentWrap" style="display:none"><label class="form-label">Produto vinculado</label><select class="filter-sel" id="productParent" style="width:100%"><option value="">Selecione um produto</option></select></div></div>
+        <div id="productTypeFields" style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.6rem"><div><label class="form-label">Tipo de cadastro</label><select class="filter-sel" id="productType" style="width:100%" onchange="updateProductTypeFields()"><option value="product">Produto</option><option value="accessory">Acessório</option></select></div><div id="productParentWrap" style="display:none"><label class="form-label">Produto vinculado</label><select class="filter-sel" id="productParent" multiple size="5" style="width:100%"><option value="">Selecione um ou mais produtos</option></select><small style="color:var(--text3)">Use Ctrl (Windows) ou Command (Mac) para selecionar vários produtos.</small></div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem">
           <div><label class="form-label">Nome</label><input class="swap-modal-input" id="productName"></div>
           <div><label class="form-label">Categoria</label><input class="swap-modal-input" id="productCategory" placeholder="Software, Consultoria..."></div>
@@ -5493,14 +5493,17 @@ document.addEventListener('input',e=>{const el=e.target.closest('[data-option-ki
 document.getElementById('productName')?.addEventListener('input',e=>setProductOptionSections(e.target.value));
 function renderProductCompanyOptions(selected=''){
   const el=document.getElementById('productCompany');if(!el)return;
-  el.innerHTML='<option value="">Selecione a empresa</option>'+productCompaniesCache.map(c=>`<option value="${c.id}" ${String(c.id)===String(selected)?'selected':''}>${esc(c.name)}</option>`).join('');
-  el.value=selected||'';renderProductParentOptions();
+  const selectedCompany=String(selected||'');
+  el.innerHTML='<option value="">Selecione a empresa</option>'+productCompaniesCache.map(c=>`<option value="${c.id}" ${String(c.id)===selectedCompany?'selected':''}>${esc(c.name)}</option>`).join('');
+  el.value=selectedCompany;renderProductParentOptions();
 }
-function renderProductParentOptions(selected=''){
+function renderProductParentOptions(selected=[]){
  const el=document.getElementById('productParent');if(!el)return;
  const companyId=document.getElementById('productCompany')?.value;
+ const selectedIds=new Set((Array.isArray(selected)?selected:[selected]).filter(Boolean).map(String));
  const options=productsCache.filter(p=>p.product_type!=='accessory'&&String(p.company_id)===String(companyId)&&String(p.id)!==String(document.getElementById('productId')?.value));
- el.innerHTML='<option value="">Selecione um produto</option>'+options.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');el.value=selected||'';
+ el.innerHTML=options.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')||'<option value="" disabled>Nenhum produto disponível nesta empresa</option>';
+ [...el.options].forEach(o=>o.selected=selectedIds.has(String(o.value)));
 }
 function renderProductLinkedAccessories(){
  const section=document.getElementById('productLinkedAccessoriesSection');
@@ -5514,7 +5517,7 @@ function renderProductLinkedAccessories(){
  if(add)add.disabled=!productId;
  if(!list)return;
  if(!productId){list.innerHTML='<div style="font-size:11px;color:var(--text3)">Salve o produto para cadastrar acessórios vinculados.</div>';return;}
- const children=productsCache.filter(p=>p.product_type==='accessory'&&String(p.parent_product_id)===String(productId));
+ const children=productsCache.filter(p=>p.product_type==='accessory'&&(p.parent_product_ids||[p.parent_product_id]).some(id=>String(id)===String(productId)));
  list.innerHTML=children.length?children.map(a=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.5rem .65rem;background:var(--bg3);border-radius:6px;flex-wrap:wrap">
    <div><div style="font-size:12px;font-weight:600">${esc(a.name)}</div><div style="font-size:10px;color:var(--text3)">Setup: R$ ${Number(a.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Mensal: R$ ${Number(a.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · ${a.active?'Ativo':'Inativo'}</div></div>
    <button type="button" class="btn btn-ghost btn-sm" onclick="openEditProductModal('${a.id}',event)">Editar</button>
@@ -5537,15 +5540,37 @@ function updateProductTypeFields(){
  setProductOptionSections(document.getElementById('productName')?.value||'');
  renderProductLinkedAccessories();
 }
+async async function getProductAccess(){
+ const {data:{user}}=await db.auth.getUser();if(!user)return {userId:null,global:false,canManage:false,companyIds:[]};
+ const [{data:master},{data:crmAdmin},{data:links},{data:readonly}]=await Promise.all([
+  db.from('system_admins').select('user_id').eq('user_id',user.id).maybeSingle(),
+  db.from('crm_admins').select('user_id').eq('user_id',user.id).maybeSingle(),
+  db.from('user_company_access').select('company_id').eq('user_id',user.id),
+  db.from('crm_readonly_consultants').select('user_id').eq('user_id',user.id).maybeSingle()
+ ]);
+ const global=!!master||!!crmAdmin,companyIds=(links||[]).map(x=>String(x.company_id));
+ return {userId:user.id,global,companyIds,canManage:global||(!readonly&&companyIds.length>0)};
+}
 async function loadProducts(){
-  const [{data,error},{data:companies,error:companyError}]=await Promise.all([
-    db.from('products').select('*').order('name'),
-    db.from('companies').select('id,name').order('name')
-  ]);
-  if(error||companyError){toast('Erro ao carregar produtos ou empresas: '+(error?.message||companyError?.message),'error');return;}
-  productsCache=data||[];productCompaniesCache=companies||[];
-  const list=document.getElementById('productsList');
-  if(list)list.innerHTML=productsCache.length?productsCache.map(p=>{const company=productCompaniesCache.find(c=>c.id===p.company_id),optionInfo=productUsesOptions(p.name)?` · ${Array.isArray(p.variants)?p.variants.filter(x=>x.active!==false).length:0} potências · ${Array.isArray(p.accessories)?p.accessories.filter(x=>x.active!==false).length:0} acessórios`:'';return `<div class="ref-item"><div style="flex:1"><div style="font-weight:700">${esc(p.name)} ${p.active?'':'<span class="badge">Inativo</span>'}</div><div style="font-size:11px;color:var(--text3)">${esc(company?.name||'Empresa não definida')} · ${esc(p.category||'Sem categoria')} · Setup R$ ${Number(p.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Recorrência R$ ${Number(p.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Desconto máximo ${Number(p.max_discount_percent||0).toLocaleString('pt-BR')}%${optionInfo} · ${p.uses_coupons?'Usa cupons':'Sem cupons'} · ${p.partner_visibility?'Visível ao parceiro':'Interno'}</div></div><button class="btn btn-secondary btn-sm" type="button" onclick="openEditProductModal('${p.id}',event)">Editar</button></div>`;}).join(''):'<div class="empty-state"><div class="empty-title">Nenhum produto cadastrado</div></div>';
+ const access=await getProductAccess();
+ const [{data,error},{data:companies,error:companyError},{data:links,error:linksError}]=await Promise.all([
+  db.from('products').select('*').order('name'),
+  db.from('companies').select('id,name').order('name'),
+  db.from('product_accessory_links').select('product_id,accessory_id')
+ ]);
+ if(error||companyError||linksError){toast('Erro ao carregar produtos ou empresas: '+(error?.message||companyError?.message||linksError?.message),'error');return;}
+ const allowed=new Set(access.companyIds);
+ productCompaniesCache=(companies||[]).filter(c=>access.global||allowed.has(String(c.id)));
+ productsCache=(data||[]).filter(p=>access.global||allowed.has(String(p.company_id)));
+ const parentIdsByAccessory=new Map();
+ (links||[]).forEach(link=>{const ids=parentIdsByAccessory.get(String(link.accessory_id))||[];ids.push(String(link.product_id));parentIdsByAccessory.set(String(link.accessory_id),ids);});
+ productsCache.forEach(p=>{p.parent_product_ids=parentIdsByAccessory.get(String(p.id))||((p.parent_product_id)?[String(p.parent_product_id)]:[]);});
+ const nav=document.getElementById('nav-products');if(nav)nav.classList.toggle('hidden',!access.canManage);
+ const settings=document.querySelector('.sb-settings-wrap');
+ if(settings&&access.canManage){settings.classList.remove('hidden');}
+ const newBtn=document.getElementById('newProductBtn');if(newBtn)newBtn.style.display=access.canManage?'':'none';
+ const list=document.getElementById('productsList');
+ if(list)list.innerHTML=productsCache.length?productsCache.map(p=>{const company=productCompaniesCache.find(c=>c.id===p.company_id),optionInfo=productUsesOptions(p.name)?` · ${Array.isArray(p.variants)?p.variants.filter(x=>x.active!==false).length:0} potências · ${Array.isArray(p.accessories)?p.accessories.filter(x=>x.active!==false).length:0} opções`:'';return `<div class="ref-item"><div style="flex:1"><div style="font-weight:700">${esc(p.name)} ${p.active?'':'<span class="badge">Inativo</span>'}</div><div style="font-size:11px;color:var(--text3)">${esc(company?.name||'Empresa não definida')} · ${esc(p.category||'Sem categoria')} · Setup R$ ${Number(p.default_setup||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Recorrência R$ ${Number(p.default_recurring||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} · Desconto máximo ${Number(p.max_discount_percent||0).toLocaleString('pt-BR')}%${optionInfo} · ${p.uses_coupons?'Usa cupons':'Sem cupons'} · ${p.partner_visibility?'Visível ao parceiro':'Interno'}</div></div><button class="btn btn-secondary btn-sm" type="button" onclick="openEditProductModal('${p.id}',event)">Editar</button><button class="btn btn-ghost btn-sm" type="button" onclick="deleteProduct('${p.id}',event)">Excluir</button></div>`;}).join(''):'<div class="empty-state"><div class="empty-title">Nenhum produto cadastrado</div></div>';
 }
 function openNewProductModal(ev){
   if(ev){ev.preventDefault();ev.stopPropagation();}
@@ -5595,7 +5620,7 @@ document.addEventListener('click',function(e){
   const btn=e.target.closest('#newProductBtn');
   if(btn){e.preventDefault();newProduct();}
 });
-function openEditProductModal(id,ev){
+async function openEditProductModal(id,ev){
   if(ev){ev.preventDefault();ev.stopPropagation();}
   const p=productsCache.find(x=>x.id===id);
   if(!p){toast('Produto não encontrado.','error');return false;}
@@ -5605,7 +5630,9 @@ function openEditProductModal(id,ev){
   const values={productId:p.id,productName:p.name||'',productCategory:p.category||'',productDescription:p.description||'',productSetup:p.default_setup||0,productRecurring:p.default_recurring||0,productPeriod:p.recurring_period||'monthly',productMaxDiscount:p.max_discount_percent||0,productType:p.product_type||'product'};
   Object.entries(values).forEach(([field,value])=>{const el=document.getElementById(field);if(el)el.value=value;});
   productVariantsDraft=Array.isArray(p.variants)?structuredClone(p.variants):[];productAccessoriesDraft=Array.isArray(p.accessories)?structuredClone(p.accessories):[];setProductOptionSections(p.name);renderProductOptionEditors();
-  renderProductCompanyOptions(p.company_id||'');renderProductParentOptions(p.parent_product_id||'');updateProductTypeFields();
+  renderProductCompanyOptions(p.company_id||'');
+  if(p.product_type==='accessory'){const {data:links}=await db.from('product_accessory_links').select('product_id').eq('accessory_id',p.id);renderProductParentOptions((links||[]).map(x=>x.product_id));}
+  updateProductTypeFields();
   [['productActive',!!p.active],['productCoupons',!!p.uses_coupons],['productPartnerVisibility',!!p.partner_visibility]].forEach(([field,v])=>{const el=document.getElementById(field);if(el)el.checked=v;});
   const title=document.getElementById('productModalTitle');if(title)title.textContent='Editar produto';
   modal.classList.add('show');
@@ -5618,7 +5645,10 @@ function openEditProductModal(id,ev){
 window.openEditProductModal=openEditProductModal;
 function editProduct(id){openEditProductModal(id);}
 function closeProductModal(){const modal=document.getElementById('productModal');if(!modal)return;modal.classList.remove('show');modal.style.display='';}
-async function saveProduct(){if(!isSystemAdmin){toast('Somente Master pode alterar produtos.','error');return;}const id=document.getElementById('productId').value;const name=document.getElementById('productName').value.trim(),usesOptions=productUsesOptions(name);const cleanOptions=(rows,label)=>{const out=rows.filter(x=>String(x.label||'').trim()).map(x=>({...x,label:String(x.label).trim(),setup:Number(x.setup||0),recurring:Number(x.recurring||0),active:x.active!==false}));if(out.some(x=>!Number.isFinite(x.setup)||x.setup<0||!Number.isFinite(x.recurring)||x.recurring<0))throw new Error(`Valores inválidos em ${label}.`);const names=out.map(x=>x.label.toLowerCase());if(new Set(names).size!==names.length)throw new Error(`Não repita nomes em ${label}.`);return out;};let variants=[],accessories=[];try{variants=usesOptions?cleanOptions(productVariantsDraft,'potências'):[];accessories=usesOptions?cleanOptions(productAccessoriesDraft,'acessórios'):[];}catch(e){toast(e.message,'error');return;}const productType=document.getElementById('productType').value||'product',parentProductId=document.getElementById('productParent').value||null;const payload={name,product_type:productType,parent_product_id:productType==='accessory'?parentProductId:null,company_id:document.getElementById('productCompany').value||null,category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),max_discount_percent:Number(document.getElementById('productMaxDiscount').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,variants,accessories,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}if(!payload.company_id){toast('Selecione a empresa do produto.','error');return;}if(productType==='accessory'){const parent=productsCache.find(p=>p.id===parentProductId);if(!parent||parent.product_type==='accessory'||String(parent.company_id)!==String(payload.company_id)){toast('Selecione um produto da mesma empresa para vincular o acessório.','error');return;}}if(!Number.isFinite(payload.max_discount_percent)||payload.max_discount_percent<0||payload.max_discount_percent>100){toast('O desconto máximo deve estar entre 0% e 100%.','error');return;}if(usesOptions&&!variants.length){toast('Cadastre ao menos uma potência.','error');return;}const {error}=id?await db.from('products').update(payload).eq('id',id):await db.from('products').insert(payload);if(error){toast('Erro ao salvar produto: '+error.message,'error');return;}closeProductModal();toast('Produto salvo.','success');loadProducts();}
+async function saveProduct(){
+const access=await getProductAccess();if(!access.canManage){toast('Seu perfil não pode gerenciar produtos.','error');return;}
+const id=document.getElementById('productId').value;const name=document.getElementById('productName').value.trim(),usesOptions=productUsesOptions(name);const cleanOptions=(rows,label)=>{const out=rows.filter(x=>String(x.label||'').trim()).map(x=>({...x,label:String(x.label).trim(),setup:Number(x.setup||0),recurring:Number(x.recurring||0),active:x.active!==false}));if(out.some(x=>!Number.isFinite(x.setup)||x.setup<0||!Number.isFinite(x.recurring)||x.recurring<0))throw new Error(`Valores inválidos em ${label}.`);const names=out.map(x=>x.label.toLowerCase());if(new Set(names).size!==names.length)throw new Error(`Não repita nomes em ${label}.`);return out;};let variants=[],accessories=[];try{variants=usesOptions?cleanOptions(productVariantsDraft,'potências'):[];accessories=usesOptions?cleanOptions(productAccessoriesDraft,'acessórios'):[];}catch(e){toast(e.message,'error');return;}const productType=document.getElementById('productType').value||'product',parentProductIds=[...document.getElementById('productParent').selectedOptions].map(o=>o.value).filter(Boolean),parentProductId=parentProductIds[0]||null;const payload={name,product_type:productType,parent_product_id:productType==='accessory'?parentProductId:null,company_id:document.getElementById('productCompany').value||null,category:document.getElementById('productCategory').value.trim()||null,description:document.getElementById('productDescription').value.trim()||null,default_setup:Number(document.getElementById('productSetup').value||0),default_recurring:Number(document.getElementById('productRecurring').value||0),max_discount_percent:Number(document.getElementById('productMaxDiscount').value||0),recurring_period:document.getElementById('productPeriod').value,active:document.getElementById('productActive').checked,uses_coupons:document.getElementById('productCoupons').checked,partner_visibility:document.getElementById('productPartnerVisibility').checked,variants,accessories,updated_at:new Date().toISOString()};if(!payload.name){toast('Informe o nome do produto.','error');return;}if(!payload.company_id){toast('Selecione a empresa do produto.','error');return;}if(productType==='accessory'){const parents=parentProductIds.map(id=>productsCache.find(p=>String(p.id)===String(id)));if(!parents.length||parents.some(parent=>!parent||parent.product_type==='accessory'||String(parent.company_id)!==String(payload.company_id))){toast('Selecione um ou mais produtos da mesma empresa para vincular o acessório.','error');return;}}if(!access.global&&!access.companyIds.includes(String(payload.company_id))){toast('Você só pode gerenciar produtos das empresas vinculadas à sua conta.','error');return;}if(!Number.isFinite(payload.max_discount_percent)||payload.max_discount_percent<0||payload.max_discount_percent>100){toast('O desconto máximo deve estar entre 0% e 100%.','error');return;}if(usesOptions&&!variants.length){toast('Cadastre ao menos uma potência.','error');return;}const productResult=id?await db.from('products').update(payload).eq('id',id).select('id').single():await db.from('products').insert(payload).select('id').single();if(productResult.error){toast('Erro ao salvar produto: '+productResult.error.message,'error');return;}const savedId=productResult.data.id;if(productType==='accessory'){const {error:deleteLinksError}=await db.from('product_accessory_links').delete().eq('accessory_id',savedId);if(deleteLinksError){toast('Produto salvo, mas não foi possível atualizar os vínculos: '+deleteLinksError.message,'error');return;}const {error:insertLinksError}=await db.from('product_accessory_links').insert(parentProductIds.map(product_id=>({product_id,accessory_id:savedId,company_id:payload.company_id})));if(insertLinksError){toast('Produto salvo, mas não foi possível salvar os vínculos: '+insertLinksError.message,'error');return;}}else{await db.from('product_accessory_links').delete().eq('accessory_id',savedId);}closeProductModal();toast('Produto salvo.','success');loadProducts();}
+async function deleteProduct(id,ev){if(ev){ev.preventDefault();ev.stopPropagation();}const access=await getProductAccess();const product=productsCache.find(p=>String(p.id)===String(id));if(!product||!access.canManage||(!access.global&&!access.companyIds.includes(String(product.company_id)))){toast('Você não pode excluir este produto.','error');return;}if(!confirm('Excluir o produto “'+product.name+'”? Essa ação também remove os vínculos de acessórios.'))return;const {error}=await db.from('products').delete().eq('id',id);if(error){toast('Erro ao excluir produto: '+error.message,'error');return;}toast('Produto excluído.','success');await loadProducts();}
 
 // ─── PERMISSÕES ────────────────────────────────────────────────────────────
 // "Administrador" geral (system_admins) enxerga todas as abas do sistema.
@@ -5688,6 +5718,10 @@ async function applyPermissionGating() {
     ? await db.from('user_company_access').select('company_id').eq('user_id', crmUserId).limit(1)
     : { data: [] };
   const isCompanyOnlyOperator = !isSystemAdmin && !!companyLinks?.length && !myTabAccess.length;
+  const {data:crmAdminRole}=await db.from('crm_admins').select('user_id').eq('user_id',crmUserId).maybeSingle();
+  const isReadonlyCompanyUser=!!(await db.from('crm_readonly_consultants').select('user_id').eq('user_id',crmUserId).maybeSingle()).data;
+  const canManageProducts=!!crmAdminRole||isSystemAdmin||(!isReadonlyCompanyUser&&!!companyLinks?.length);
+  const productsNav=document.getElementById('nav-products');if(productsNav)productsNav.classList.toggle('hidden',!canManageProducts);
   const canSeePartner = !isCompanyOnlyOperator && (isSystemAdmin || myReferralAccess.length > 0);
   document.getElementById('nav-partner').classList.toggle('hidden', !canSeePartner);
   document.getElementById('sbSecParceiro').classList.toggle('hidden', !canSeePartner);
@@ -5695,10 +5729,9 @@ async function applyPermissionGating() {
   if (settingsWrap) {
     const hasSettingsAccess = ['permissions','companies','products','smtp']
       .some(id => !document.getElementById('nav-' + id)?.classList.contains('hidden'));
-    settingsWrap.classList.toggle('hidden', !hasSettingsAccess || isCompanyOnlyOperator);
-    if (!hasSettingsAccess || isCompanyOnlyOperator) closeSettingsMenu();
+    settingsWrap.classList.toggle('hidden', !hasSettingsAccess || (isCompanyOnlyOperator&&!canManageProducts));
+    if (!hasSettingsAccess || (isCompanyOnlyOperator&&!canManageProducts)) closeSettingsMenu();
   }
-  const {data:crmAdminRole}=await db.from('crm_admins').select('user_id').eq('user_id',crmUserId).maybeSingle();
   ['proposal-mails','proposal-smtp'].forEach(id=>document.getElementById('nav-'+id)?.classList.toggle('hidden',isCrmConsultant||(!isSystemAdmin&&!crmAdminRole&&!companyLinks?.length)));
   const slaNav=document.getElementById('nav-sla'); if(slaNav) slaNav.classList.toggle('hidden', !(isSystemAdmin||myTabAccess.includes('sla')));
   await loadNotifications(false);
