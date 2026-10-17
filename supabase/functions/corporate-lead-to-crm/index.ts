@@ -24,34 +24,61 @@ serve(async (req) => {
   try {
     const { data: readonly } = await admin.from('crm_readonly_consultants').select('user_id').eq('user_id', user.id).maybeSingle()
     if (readonly) return json({ error: 'Usuário possui acesso somente de leitura' }, 403)
-    const { corporate_lead_id } = await req.json()
-    if (!corporate_lead_id || typeof corporate_lead_id !== 'string') return json({ error: 'Pedido corporativo inválido' }, 400)
 
-    // This user-scoped read enforces the existing corporate tab policy.
-    const { data: lead, error: leadError } = await userClient.from('corporate_leads')
-      .select('id,name,email,phone,referral_id,quantidade_licencas,crm_deal_company_id')
-      .eq('id', corporate_lead_id).maybeSingle()
-    if (leadError || !lead) return json({ error: 'Pedido não encontrado ou sem acesso à aba Corporativo' }, 403)
-    if (lead.crm_deal_company_id) return json({ success: true, already_sent: true, crm_deal_company_id: lead.crm_deal_company_id })
+    const { corporate_lead_id, corporate_client_user_id } = await req.json()
+    const isLead = typeof corporate_lead_id === 'string' && !!corporate_lead_id
+    const isClient = typeof corporate_client_user_id === 'string' && !!corporate_client_user_id
+    if (isLead === isClient) return json({ error: 'Informe um pedido ou cliente corporativo válido' }, 400)
+
+    let source: any
+    let sourceTable: 'corporate_leads' | 'users'
+    let issuedLicenses = 0
+    if (isLead) {
+      sourceTable = 'corporate_leads'
+      const { data, error } = await userClient.from('corporate_leads')
+        .select('id,name,email,phone,referral_id,quantidade_licencas,crm_deal_company_id')
+        .eq('id', corporate_lead_id).maybeSingle()
+      if (error || !data) return json({ error: 'Pedido não encontrado ou sem acesso à aba Corporativo' }, 403)
+      source = data
+      issuedLicenses = Number(data.quantidade_licencas || 0)
+    } else {
+      sourceTable = 'users'
+      const { data, error } = await userClient.from('users')
+        .select('id,name,email,phone,referral_id,segmento,crm_deal_company_id')
+        .eq('id', corporate_client_user_id).eq('segmento', 'corporativo').maybeSingle()
+      if (error || !data) return json({ error: 'Cliente não encontrado ou sem acesso à lista Clientes Corporativos' }, 403)
+      source = data
+      const { count, error: countError } = await admin.from('coupons')
+        .select('id', { count: 'exact', head: true })
+        .eq('users_id', data.id).in('status', ['delivered', 'redeemed'])
+      if (countError) throw countError
+      issuedLicenses = count || 0
+    }
+    if (source.crm_deal_company_id) {
+      return json({ success: true, already_sent: true, crm_deal_company_id: source.crm_deal_company_id })
+    }
 
     const [{ data: company }, { data: referral }] = await Promise.all([
       admin.from('companies').select('id,name').ilike('name', '12ia').maybeSingle(),
-      lead.referral_id ? admin.from('referrals').select('name').eq('id', lead.referral_id).maybeSingle() : Promise.resolve({ data: null }),
+      source.referral_id ? admin.from('referrals').select('name').eq('id', source.referral_id).maybeSingle() : Promise.resolve({ data: null }),
     ])
     if (!company) return json({ error: 'Empresa 12IA não encontrada no CRM' }, 500)
     const { data: stages } = await admin.from('crm_stages').select('id,name').eq('company_id', company.id).order('position')
     const stage = stages?.find((item: any) => item.name === 'Nutrição de Leads (início do funil)') || stages?.[0]
     if (!stage) return json({ error: 'O funil da 12IA não possui etapas cadastradas' }, 500)
 
+    const clientTitle = isClient ? 'Cliente corporativo' : 'Pedido corporativo'
+    const sourceLabel = isClient ? 'Clientes Corporativos' : 'Corporativo'
+    const licenseLabel = isClient ? 'Licenças emitidas' : 'Licenças solicitadas'
     const dealId = crypto.randomUUID()
     const { error: dealError } = await admin.from('crm_deals').insert({
       id: dealId,
-      title: `Pedido corporativo — ${lead.name}`,
-      contact_name: lead.name,
-      contact_email: lead.email,
-      contact_phone: lead.phone,
-      referral_id: lead.referral_id,
-      notes: `Enviado da aba Corporativo. Quantidade solicitada: ${lead.quantidade_licencas} licenças.${referral?.name ? ` Parceiro de origem: ${referral.name}.` : ''}`,
+      title: `${clientTitle} — ${source.name}`,
+      contact_name: source.name,
+      contact_email: source.email,
+      contact_phone: source.phone,
+      referral_id: source.referral_id,
+      notes: `Enviado da seção ${sourceLabel}. ${licenseLabel}: ${issuedLicenses}.${referral?.name ? ` Parceiro de origem: ${referral.name}.` : ''}`,
       created_by: user.id,
     })
     if (dealError) throw dealError
@@ -69,17 +96,16 @@ serve(async (req) => {
       throw linkError
     }
 
-    // Claim the source lead exactly once. If a second click raced, remove
-    // the unused CRM rows and return the winner's link.
-    const { data: claimed, error: claimError } = await admin.from('corporate_leads')
+    // Claim the source row exactly once. Clean up if a second click raced.
+    const { data: claimed, error: claimError } = await admin.from(sourceTable)
       .update({ crm_deal_company_id: dealCompanyId })
-      .eq('id', lead.id).is('crm_deal_company_id', null).select('id').maybeSingle()
+      .eq('id', source.id).is('crm_deal_company_id', null).select('id').maybeSingle()
     if (claimError || !claimed) {
       await admin.from('crm_deal_companies').delete().eq('id', dealCompanyId)
       await admin.from('crm_deals').delete().eq('id', dealId)
-      const { data: current } = await admin.from('corporate_leads').select('crm_deal_company_id').eq('id', lead.id).maybeSingle()
+      const { data: current } = await admin.from(sourceTable).select('crm_deal_company_id').eq('id', source.id).maybeSingle()
       if (current?.crm_deal_company_id) return json({ success: true, already_sent: true, crm_deal_company_id: current.crm_deal_company_id })
-      throw claimError || new Error('Não foi possível vincular o pedido ao CRM')
+      throw claimError || new Error('Não foi possível vincular o registro ao CRM')
     }
 
     return json({ success: true, crm_deal_company_id: dealCompanyId, company_name: company.name, stage_name: stage.name })

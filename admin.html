@@ -4792,7 +4792,7 @@ async function loadCorporateClients() {
 
   const { data, error } = await db
     .from('users')
-    .select('id,name,email,phone,cpf,referral_id,created_at')
+    .select('id,name,email,phone,cpf,referral_id,created_at,crm_deal_company_id')
     .eq('segmento', 'corporativo')
     .order('created_at', { ascending: false });
 
@@ -4851,6 +4851,9 @@ function renderCorporateClients() {
     <td data-label="Cliente desde">${fmtDate(u.created_at)}</td>
     <td class="sticky-actions">
       <div class="btns">
+        ${u.crm_deal_company_id
+          ? `<span class="badge b-distributed">✓ Enviado ao CRM 12IA</span>`
+          : `<button class="btn btn-primary btn-sm" onclick="sendCorporateClientToCrm('${u.id}')">Enviar para CRM 12IA</button>`}
         <button class="btn btn-ghost btn-sm" onclick="verCuponsUsuario('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Ver os links de cupom vinculados a esta pessoa">🔗 Ver cupons</button>
         <button class="btn btn-ghost btn-sm" onclick="voltarParaVarejo('${u.id}','${(u.name||'').replace(/'/g,"\\'")}')" title="Volta esse cliente para Varejo — decisão manual, o sistema nunca rebaixa sozinho">↩ Voltar para Varejo</button>
       </div>
@@ -4860,6 +4863,22 @@ function renderCorporateClients() {
   body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
     <th>Nome</th><th>E-mail</th><th>Telefone</th><th>CPF</th><th>Parceiro</th><th>Licenças</th><th>Cliente desde</th><th class="sticky-actions"></th>
   </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+async function sendCorporateClientToCrm(userId) {
+  const client = allCorporateClients.find(item => item.id === userId);
+  if (!client) { toast('Cliente corporativo não encontrado.', 'error'); return; }
+  if (client.crm_deal_company_id) { toast('Esse cliente já foi enviado ao CRM 12IA.', 'info'); return; }
+  if (!confirm(`Enviar ${client.name} (${client.couponsIssued} licenças emitidas) para o CRM da 12IA?`)) return;
+  const { data, error } = await db.functions.invoke('corporate-lead-to-crm', {
+    body: { corporate_client_user_id: userId }
+  });
+  if (error || !data?.success) {
+    toast('Erro ao enviar para o CRM: ' + (data?.error || error?.message || 'falha na integração'), 'error', 7000);
+    return;
+  }
+  toast(data.already_sent ? 'Esse cliente já estava no CRM da 12IA.' : 'Cliente enviado ao CRM da 12IA.', data.already_sent ? 'info' : 'success');
+  await loadCorporateClients();
 }
 
 // A promoção automática (11ª licença) é só de ida — o trigger nunca rebaixa
