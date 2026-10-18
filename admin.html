@@ -1490,7 +1490,7 @@ body{overflow-x:hidden}
 
     <div class="crm-modal-section" style="border-top:none;padding-top:0;margin-top:0">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;margin-bottom:.5rem">
-        <input type="checkbox" id="permEditIsAdmin"> ADM Empresa
+        <input type="checkbox" id="permEditIsAdmin"> <span id="permEditIsAdminLabel">ADM Empresa</span>
       </label>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
         <input type="checkbox" id="permEditIsSystemAdmin"> Master
@@ -7050,6 +7050,8 @@ function openPermEdit(userId) {
   permEditingUserId = userId;
   document.getElementById('permEditEmail').textContent = m.email;
   document.getElementById('permEditIsAdmin').checked = !!m.is_admin;
+  const adminRoleLabel = document.getElementById('permEditIsAdminLabel');
+  if (adminRoleLabel) adminRoleLabel.textContent = m.is_admin && !m.is_system_admin && !(m.companies || []).length ? 'Perfil Executivo' : 'ADM Empresa';
   document.getElementById('permEditIsSystemAdmin').checked = !!m.is_system_admin;
   document.getElementById('permEditIsSystemAdmin').closest('label').classList.toggle('hidden', !crmMembersCallerIsSystemAdmin);
 
