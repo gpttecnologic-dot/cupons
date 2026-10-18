@@ -6995,6 +6995,7 @@ function renderPermPeopleList() {
     const badges = [];
     if (m.is_system_admin) badges.push('<span class="ref-badge">Master</span>');
     else if (m.is_admin && !m.companies?.length) badges.push('<span class="ref-badge">Perfil Executivo</span>');
+    else if (m.is_consultant) badges.push('<span class="ref-badge">Consultor</span>');
     else if (m.companies?.length) badges.push('<span class="ref-badge">ADM Empresa</span>');
     const chips = [
       ...m.companies.map(c => `<span class="crm-chip">🏢 ${esc(c.name)}</span>`),
