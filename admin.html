@@ -998,6 +998,18 @@ body{overflow-x:hidden}
           <label class="form-label">Nome do modelo</label><input class="swap-modal-input" id="proposalTemplateName" placeholder="Ex.: Proposta comercial" style="margin-bottom:.7rem">
           <label class="form-label">Assunto</label><input class="swap-modal-input" id="proposalTemplateSubject" placeholder="Assunto do e-mail" style="margin-bottom:.7rem">
           <label class="form-label">Corpo do e-mail</label><textarea class="swap-modal-input" id="proposalTemplateBody" style="min-height:180px" placeholder="Escreva a mensagem da proposta"></textarea>
+          <div style="font-size:11px;color:var(--text3);margin:.55rem 0 .35rem">Clique em uma tag para inseri-la no ponto do cursor:</div>
+          <div style="display:flex;gap:.45rem;flex-wrap:wrap;margin-bottom:.8rem">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="insertProposalTag('{{empresa}}')">{{empresa}}</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="insertProposalTag('{{contato}}')">{{contato}}</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="insertProposalTag('{{produtos}}')">{{produtos}}</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="insertProposalTag('{{produtos_detalhes}}')">{{produtos_detalhes}}</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="insertProposalTag('{{setup}}')">{{setup}}</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="insertProposalTag('{{mensal}}')">{{mensal}}</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="insertProposalTag('{{recorrencia}}')">{{recorrencia}}</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="insertProposalTag('{{prazo_contrato}}')">{{prazo_contrato}}</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="insertProposalTag('{{responsavel_nome}}')">{{responsavel_nome}}</button>
+          </div>
           <div style="display:flex;gap:.6rem;margin-top:.8rem"><button class="btn btn-primary" onclick="saveCompanyProposalTemplate()">Salvar modelo</button><button class="btn btn-secondary" onclick="closeCompanyProposalForm()">Cancelar</button></div>
         </div>
       </div>
@@ -5822,6 +5834,16 @@ async function loadCompanyProposalSettings(tab){
   v('proposalSmtpOwn').classList.toggle('hidden',m.mode!=='own');
  }
  }catch(e){toast(String(e),'error')}
+}
+function insertProposalTag(tag){
+ const textarea=document.getElementById('proposalTemplateBody');
+ if(!textarea)return;
+ const start=Number.isInteger(textarea.selectionStart)?textarea.selectionStart:textarea.value.length;
+ const end=Number.isInteger(textarea.selectionEnd)?textarea.selectionEnd:start;
+ textarea.value=textarea.value.slice(0,start)+tag+textarea.value.slice(end);
+ textarea.focus();
+ const caret=start+tag.length;
+ textarea.setSelectionRange(caret,caret);
 }
 function clearCompanyProposalTemplate(){['proposalTemplateId','proposalTemplateName','proposalTemplateSubject','proposalTemplateBody'].forEach(id=>document.getElementById(id).value='')}
 function openCompanyProposalForm(){clearCompanyProposalTemplate();document.getElementById('proposalTemplateFormTitle').textContent='Novo modelo de proposta';document.getElementById('proposalTemplateForm').classList.remove('hidden')}
