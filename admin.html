@@ -6026,7 +6026,9 @@ async function loadCrmBoard() {
 // do Dashboard de cupons, cada um com seus próprios números.
 function isCrmWonStage(stageId) {
   const s=crmStages.find(x=>String(x.id)===String(stageId)); const n=normalizeUserSearch(s?.name||'');
-  return n.includes('fechamento') || n.includes('fechado ganho') || n==='ganho' || n.includes('ganho');
+  const closedWord=/(^|\\s)fechad[oa]s?(\\s|$)/.test(n);
+  const lostWord=/(^|\\s)(perdid[oa]s?|cancelad[oa]s?)(\\s|$)/.test(n);
+  return n.includes('ganho') || (closedWord && !lostWord);
 }
 function isCrmClosedStage(stageId) {
   const s=crmStages.find(x=>String(x.id)===String(stageId)); const n=normalizeUserSearch(s?.name||'');
