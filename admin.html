@@ -215,8 +215,15 @@ td.primary{color:var(--text);font-weight:500}
 .crm-board{display:flex;gap:.9rem;overflow-x:auto;padding-bottom:.75rem;align-items:flex-start}
 .crm-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);width:270px;min-width:270px;display:flex;flex-direction:column;max-height:calc(100vh - 210px)}
 .crm-col.drag-over{border-color:var(--accent);background:rgba(124,106,247,.05)}
+.crm-col.stage-dragging{opacity:.45}
+.crm-col.stage-drop-target{border-color:var(--accent);box-shadow:inset 4px 0 0 var(--accent)}
+.crm-stage-drag-handle{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:18px;height:24px;color:var(--text3);cursor:grab;touch-action:none;user-select:none;font-size:15px;letter-spacing:-3px;opacity:.6}
+.crm-stage-drag-handle:hover{color:var(--accent);opacity:1}
+.crm-stage-drag-handle:active{cursor:grabbing}
+.crm-card.drop-before{box-shadow:inset 0 3px 0 var(--accent)}
+.crm-card.drop-after{box-shadow:inset 0 -3px 0 var(--accent)}
 .crm-col-head{display:flex;align-items:center;justify-content:space-between;padding:.75rem .875rem;border-bottom:1px solid var(--border);gap:.4rem}
-.crm-col-title{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crm-col-title{flex:1;min-width:0;font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .crm-col-count{font-size:10px;color:var(--text3);background:var(--bg3);border-radius:100px;padding:1px 7px;flex-shrink:0}
 .crm-col-actions{display:flex;gap:2px;flex-shrink:0}
 .crm-col-actions button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 4px;border-radius:4px}
@@ -5458,6 +5465,9 @@ let crmSelectedCompanyId = null;
 let crmStages = [];
 let crmLinks = [];
 let crmDragId = null;
+let crmStageDragId = null;
+let crmCardDropSide = 'after';
+let crmReordering = false;
 let crmEditingDealId = null, crmEditingLinkId = null, crmNewDealInitialStage = null;
 let crmDealOtherLinks = [];
 let crmMembersCache = [];
@@ -6093,7 +6103,7 @@ function renderCrmBoard(dealCompanyCount) {
         const overdue = new Date(l.due_date + 'T23:59:59') < new Date();
         dueHtml = `<span class="crm-card-due${overdue ? ' overdue' : ''}">📅 ${new Date(l.due_date + 'T00:00:00').toLocaleDateString('pt-BR')}</span>`;
       }
-      return `<div class="crm-card" draggable="true" data-link-id="${l.id}" ondragstart="crmCardDragStart(event)" ondragend="crmCardDragEnd(event)" onclick="openCrmDealModal('${d.id}')">
+      return `<div class="crm-card" draggable="true" data-link-id="${l.id}" ondragstart="crmCardDragStart(event)" ondragend="crmCardDragEnd(event)" ondragover="crmCardDragOver(event)" ondragleave="crmCardDragLeave(event)" ondrop="crmCardDrop(event)" onclick="openCrmDealModal('${d.id}')">
         ${labelsHtml}
         <div class="crm-card-title">${esc(d.title || '(sem nome)')}</div>
         <div class="crm-card-meta">
@@ -6106,6 +6116,7 @@ function renderCrmBoard(dealCompanyCount) {
     }).join('');
     return `<div class="crm-col" data-stage-id="${s.id}" ondragover="crmColDragOver(event)" ondragleave="crmColDragLeave(event)" ondrop="crmColDrop(event)">
       <div class="crm-col-head">
+        ${crmIsAdmin ? `<span class="crm-stage-drag-handle" draggable="true" title="Arraste para reordenar a etapa" aria-label="Arraste para reordenar a etapa" ondragstart="crmStageDragStart(event,'${s.id}')" ondragend="crmStageDragEnd(event)">⠿</span>` : ''}
         <div class="crm-col-title">${esc(s.name)}</div>
         <div style="display:flex;align-items:center;gap:6px">
           <div class="crm-col-count">${items.length}</div>
@@ -6123,34 +6134,120 @@ function renderCrmBoard(dealCompanyCount) {
   document.getElementById('crmBoardWrap').innerHTML = `<div class="crm-board">${cols}<div style="min-width:180px"><button class="btn btn-secondary btn-sm" onclick="addCrmStage()" style="width:100%">+ Etapa</button></div></div>`;
 }
 
-// ── Drag & drop de cartões entre colunas ────────────────────────────────────
+// ── Drag & drop de cartões e ordenação das etapas ────────────────────────────
 function crmCardDragStart(e) {
   crmDragId = e.currentTarget.dataset.linkId;
   e.currentTarget.classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', crmDragId);
 }
 function crmCardDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
+  e.currentTarget.classList.remove('dragging', 'drop-before', 'drop-after');
+  document.querySelectorAll('.crm-card.drop-before,.crm-card.drop-after').forEach(el => el.classList.remove('drop-before','drop-after'));
+  document.querySelectorAll('.crm-col.drag-over').forEach(el => el.classList.remove('drag-over'));
+  crmDragId = null;
+  crmCardDropSide = 'after';
+}
+function crmStageDragStart(e, stageId) {
+  if (!crmIsAdmin) { e.preventDefault(); return; }
+  crmStageDragId = stageId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', 'stage:' + stageId);
+  requestAnimationFrame(() => e.target.closest('.crm-col')?.classList.add('stage-dragging'));
+}
+function crmStageDragEnd(e) {
+  document.querySelectorAll('.crm-col.stage-dragging,.crm-col.stage-drop-target').forEach(el => el.classList.remove('stage-dragging','stage-drop-target'));
+  crmStageDragId = null;
+}
+function crmCardDragOver(e) {
+  if (!crmDragId || crmStageDragId) return;
+  e.preventDefault(); e.stopPropagation();
+  const card = e.currentTarget, rect = card.getBoundingClientRect();
+  crmCardDropSide = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+  card.classList.toggle('drop-before', crmCardDropSide === 'before');
+  card.classList.toggle('drop-after', crmCardDropSide === 'after');
+}
+function crmCardDragLeave(e) {
+  if (e.currentTarget.contains(e.relatedTarget)) return;
+  e.currentTarget.classList.remove('drop-before','drop-after');
+}
+function crmCardDrop(e) {
+  if (!crmDragId || crmStageDragId) return;
+  e.preventDefault(); e.stopPropagation();
+  const target = e.currentTarget;
+  const targetStageId = target.closest('.crm-col')?.dataset.stageId;
+  const targetLinkId = target.dataset.linkId;
+  const side = crmCardDropSide;
+  target.classList.remove('drop-before','drop-after');
+  crmPlaceCard(targetStageId, targetLinkId, side);
 }
 function crmColDragOver(e) {
   e.preventDefault();
-  e.currentTarget.classList.add('drag-over');
+  const col = e.currentTarget;
+  col.classList.toggle('stage-drop-target', !!crmStageDragId && col.dataset.stageId !== crmStageDragId);
+  col.classList.toggle('drag-over', !!crmDragId && !crmStageDragId);
 }
 function crmColDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
+  if (e.currentTarget.contains(e.relatedTarget)) return;
+  e.currentTarget.classList.remove('drag-over','stage-drop-target');
 }
 async function crmColDrop(e) {
   e.preventDefault();
-  const stageId = e.currentTarget.dataset.stageId;
-  e.currentTarget.classList.remove('drag-over');
+  const targetStageId = e.currentTarget.dataset.stageId;
+  e.currentTarget.classList.remove('drag-over','stage-drop-target');
+  if (crmStageDragId) { await crmReorderStage(crmStageDragId, targetStageId); return; }
   if (!crmDragId) return;
-  const link = crmLinks.find(l => String(l.id) === String(crmDragId));
+  const targetCard = e.target.closest('.crm-card');
+  await crmPlaceCard(targetStageId, targetCard?.dataset.linkId || null, targetCard ? crmCardDropSide : 'after');
+}
+async function crmPlaceCard(targetStageId, targetLinkId, side) {
+  if (crmReordering || !crmDragId || !targetStageId) return;
+  const moved = crmLinks.find(l => String(l.id) === String(crmDragId));
+  if (!moved || (String(moved.stage_id) === String(targetStageId) && String(moved.id) === String(targetLinkId))) return;
+  crmReordering = true;
+  const sourceStageId = moved.stage_id;
+  const targetItems = crmLinks.filter(l => String(l.stage_id) === String(targetStageId) && String(l.id) !== String(moved.id));
+  let insertAt = targetItems.length;
+  if (targetLinkId && String(targetLinkId) !== String(moved.id)) {
+    const targetIndex = targetItems.findIndex(l => String(l.id) === String(targetLinkId));
+    if (targetIndex >= 0) insertAt = targetIndex + (side === 'after' ? 1 : 0);
+  }
+  targetItems.splice(insertAt, 0, moved);
+  const updates = targetItems.map((l, position) => {
+    const update = { position };
+    if (String(l.id) === String(moved.id) && String(sourceStageId) !== String(targetStageId)) {
+      update.stage_id = targetStageId;
+      update.delivered_at = isCrmWonStage(targetStageId) ? (moved.delivered_at || new Date().toISOString()) : null;
+    }
+    return db.from('crm_deal_companies').update(update).eq('id', l.id).eq('company_id', crmSelectedCompanyId);
+  });
+  if (String(sourceStageId) !== String(targetStageId)) {
+    crmLinks.filter(l => String(l.stage_id) === String(sourceStageId) && String(l.id) !== String(moved.id)).forEach((l, position) => {
+      updates.push(db.from('crm_deal_companies').update({ position }).eq('id', l.id).eq('company_id', crmSelectedCompanyId));
+    });
+  }
+  const results = await Promise.all(updates);
+  const failed = results.find(r => r.error);
+  crmReordering = false;
   crmDragId = null;
-  if (!link || link.stage_id === stageId) return;
-  const deliveredAt = isCrmWonStage(stageId) ? (link.delivered_at || new Date().toISOString()) : null;
-  const { error } = await db.from('crm_deal_companies').update({ stage_id: stageId, delivered_at: deliveredAt }).eq('id', link.id);
-  if (error) { toast('Erro ao mover: ' + error.message, 'error'); return; }
-  loadCrmBoard();
+  if (failed) toast('Erro ao ordenar negócios: ' + failed.error.message, 'error');
+  await loadCrmBoard();
+}
+async function crmReorderStage(sourceStageId, targetStageId) {
+  if (!crmIsAdmin || crmReordering || !sourceStageId || !targetStageId || String(sourceStageId) === String(targetStageId)) return;
+  crmReordering = true;
+  const next = [...crmStages].sort((a,b) => Number(a.position)-Number(b.position));
+  const from = next.findIndex(s => String(s.id) === String(sourceStageId));
+  const to = next.findIndex(s => String(s.id) === String(targetStageId));
+  if (from < 0 || to < 0) { crmReordering = false; return; }
+  const [stage] = next.splice(from, 1);
+  next.splice(to, 0, stage);
+  const results = await Promise.all(next.map((s, position) => db.from('crm_stages').update({ position }).eq('id', s.id).eq('company_id', crmSelectedCompanyId)));
+  const failed = results.find(r => r.error);
+  crmReordering = false;
+  if (failed) toast('Erro ao reordenar etapas: ' + failed.error.message, 'error');
+  else toast('Ordem das etapas atualizada.', 'success');
+  await loadCrmBoard();
 }
 
 // ── Etapas (colunas) ────────────────────────────────────────────────────────
