@@ -6706,6 +6706,8 @@ async function saveCrmDeal() {
     if (contactsErr) { toast('Negócio salvo, mas houve erro nos contatos adicionais: '+contactsErr.message,'error',6000); return; }
   }
 
+  // Persiste os valores de setup e mensalidade dos produtos selecionados junto com o negócio.
+  if (!(await saveCrmCompanyProductValues())) return;
   toast('Negócio salvo.', 'success');
   closeCrmDealModal();
   loadCrmBoard();
