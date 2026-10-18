@@ -6025,16 +6025,20 @@ async function loadCrmBoard() {
 // Dashboard específico do CRM (negócios/conversão) — propositalmente separado
 // do Dashboard de cupons, cada um com seus próprios números.
 function isCrmWonStage(stageId) {
-  const s=crmStages.find(x=>x.id===stageId); const n=normalizeUserSearch(s?.name||'');
+  const s=crmStages.find(x=>String(x.id)===String(stageId)); const n=normalizeUserSearch(s?.name||'');
   return n.includes('fechamento') || n.includes('fechado ganho') || n==='ganho' || n.includes('ganho');
+}
+function isCrmClosedStage(stageId) {
+  const s=crmStages.find(x=>String(x.id)===String(stageId)); const n=normalizeUserSearch(s?.name||'');
+  return n.includes('fechado') || n.includes('perdido') || n.includes('cancelado');
 }
 async function renderCrmStats() {
   const today=new Date(), nearLimit=new Date(Date.now()+24*60*60*1000);
-  // Fechamento é etapa do funil, não conclusão. Só delivered_at encerra a negociação.
-  const open=crmLinks.filter(l=>!l.delivered_at);
+  // Ganho/perda na etapa encerra o negócio; o campo entregue também fecha manualmente.
+  const open=crmLinks.filter(l=>!l.delivered_at&&!isCrmClosedStage(l.stage_id));
   let pipelineValue=0,overdue=0,nearDue=0;
   open.forEach(l=>{pipelineValue+=Number(l.value)||0;if(l.due_date){const d=new Date(l.due_date+'T23:59:59');if(d<today)overdue++;else if(d<=nearLimit)nearDue++;}});
-  const won=crmLinks.filter(l=>!!l.delivered_at);
+  const won=crmLinks.filter(l=>!!l.delivered_at||isCrmWonStage(l.stage_id));
   const wonValue=won.reduce((a,l)=>a+(Number(l.value)||0),0);
   const dcIds=crmLinks.map(l=>l.id);
   let proposals=[];
@@ -6048,7 +6052,7 @@ async function renderCrmStats() {
   document.getElementById('crmStatPipeline').textContent=fmtMoney(pipelineValue)||'R$ 0,00';
   document.getElementById('crmStatProposals').textContent=proposals.length;
   document.getElementById('crmStatWon').textContent=won.length;
-  document.getElementById('crmStatWonValue').textContent=fmtMoney(wonValue)||'R$ 0,00';
+  document.getElementById('crmStatWonValue').textContent='Total contratado (setup incluído): '+(fmtMoney(wonValue)||'R$ 0,00');
   
   
   document.getElementById('crmStatOverdue').textContent=overdue;
@@ -6079,7 +6083,9 @@ function renderCrmBoard(dealCompanyCount) {
       const labels = (l.crm_deal_company_labels || []).map(x => x.crm_labels).filter(Boolean);
       const labelsHtml = labels.length ? `<div class="crm-card-labels">${labels.map(lb => `<span class="crm-label-chip" style="background:${lb.color}" title="${esc(lb.name)}"></span>`).join('')}</div>` : '';
       let dueHtml = '';
-      if (l.delivered_at) {
+      if (isCrmWonStage(l.stage_id)) {
+        dueHtml = `<span class="crm-card-due delivered">✓ Fechado / ganho</span>`;
+      } else if (l.delivered_at) {
         dueHtml = `<span class="crm-card-due delivered">✓ Entregue</span>`;
       } else if (l.due_date) {
         const overdue = new Date(l.due_date + 'T23:59:59') < new Date();
@@ -6139,7 +6145,8 @@ async function crmColDrop(e) {
   const link = crmLinks.find(l => String(l.id) === String(crmDragId));
   crmDragId = null;
   if (!link || link.stage_id === stageId) return;
-  const { error } = await db.from('crm_deal_companies').update({ stage_id: stageId }).eq('id', link.id);
+  const deliveredAt = isCrmWonStage(stageId) ? (link.delivered_at || new Date().toISOString()) : null;
+  const { error } = await db.from('crm_deal_companies').update({ stage_id: stageId, delivered_at: deliveredAt }).eq('id', link.id);
   if (error) { toast('Erro ao mover: ' + error.message, 'error'); return; }
   loadCrmBoard();
 }
@@ -6669,7 +6676,7 @@ async function saveCrmDeal() {
     const stageId = stageSel ? stageSel.value : crmNewDealInitialStage;
     const value = valInp && valInp.value ? parseFloat(valInp.value.replace(',', '.')) : null;
     const ownerUserId = ownerSel && ownerSel.value ? ownerSel.value : null;
-    const deliveredAt = deliveredChecked ? new Date().toISOString() : null;
+    const deliveredAt = deliveredChecked || isCrmWonStage(stageId) ? new Date().toISOString() : null;
     const { error: linkErr } = await db.from('crm_deal_companies').insert({ deal_id: dealId, company_id: crmSelectedCompanyId, stage_id: stageId, value, due_date: dueDate, delivered_at: deliveredAt, owner_user_id: ownerUserId, position: 0 });
     if (linkErr) toast('Negócio criado, mas erro ao vincular à empresa: ' + linkErr.message, 'error');
   } else {
@@ -6683,9 +6690,14 @@ async function saveCrmDeal() {
       const value = valInp && valInp.value ? parseFloat(valInp.value.replace(',', '.')) : null;
       const ownerUserId = ownerSel && ownerSel.value ? ownerSel.value : null;
       const existingMine = crmDealOtherLinks.find(l => l.id === crmEditingLinkId);
-      const deliveredAt = deliveredChecked ? (existingMine?.delivered_at || new Date().toISOString()) : null;
-      if (crmEditingLinkId) await db.from('crm_deal_companies').update({ stage_id: stageId, value, due_date: dueDate, delivered_at: deliveredAt, owner_user_id: ownerUserId }).eq('id', crmEditingLinkId);
-      else await db.from('crm_deal_companies').insert({ deal_id: dealId, company_id: crmSelectedCompanyId, stage_id: stageId, value, due_date: dueDate, delivered_at: deliveredAt, owner_user_id: ownerUserId, position: 0 });
+      const deliveredAt = deliveredChecked || isCrmWonStage(stageId) ? (existingMine?.delivered_at || new Date().toISOString()) : null;
+      if (crmEditingLinkId) {
+        const { error: linkError } = await db.from('crm_deal_companies').update({ stage_id: stageId, value, due_date: dueDate, delivered_at: deliveredAt, owner_user_id: ownerUserId }).eq('id', crmEditingLinkId);
+        if (linkError) { toast('Negócio salvo, mas não foi possível atualizar o fechamento: ' + linkError.message, 'error'); return; }
+      } else {
+        const { error: linkError } = await db.from('crm_deal_companies').insert({ deal_id: dealId, company_id: crmSelectedCompanyId, stage_id: stageId, value, due_date: dueDate, delivered_at: deliveredAt, owner_user_id: ownerUserId, position: 0 });
+        if (linkError) { toast('Negócio salvo, mas não foi possível vincular à empresa: ' + linkError.message, 'error'); return; }
+      }
     }
     for (const l of crmDealOtherLinks.filter(x => x.company_id !== crmSelectedCompanyId)) {
       const sSel = document.getElementById('crmStage_' + l.company_id);
@@ -6695,7 +6707,9 @@ async function saveCrmDeal() {
       const stageId = sSel.value;
       const value = vInp && vInp.value ? parseFloat(vInp.value.replace(',', '.')) : null;
       const ownerUserId = oSel && oSel.value ? oSel.value : null;
-      await db.from('crm_deal_companies').update({ stage_id: stageId, value, owner_user_id: ownerUserId }).eq('id', l.id);
+      const deliveredAt = isCrmWonStage(stageId) ? (l.delivered_at || new Date().toISOString()) : null;
+      const { error: otherLinkError } = await db.from('crm_deal_companies').update({ stage_id: stageId, value, delivered_at: deliveredAt, owner_user_id: ownerUserId }).eq('id', l.id);
+      if (otherLinkError) { toast('Negócio salvo, mas não foi possível atualizar uma das empresas: ' + otherLinkError.message, 'error'); return; }
     }
   }
 
