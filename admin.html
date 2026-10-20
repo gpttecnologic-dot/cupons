@@ -201,9 +201,6 @@ td.primary{color:var(--text);font-weight:500}
 @keyframes spin{to{transform:rotate(360deg)}}
 .hidden{display:none!important}
 /* Consultor: menus e ações de escrita não são exibidos. O banco também bloqueia gravações. */
-.crm-consultant #tab-crm button:not([data-consultant-allow]),.crm-consultant #tab-crm [draggable="true"],.crm-consultant #tab-crm .crm-add-btn{pointer-events:none!important;opacity:.45!important}
-.crm-consultant #tab-crm input:not([type="search"]),.crm-consultant #tab-crm textarea{pointer-events:none!important}
-.crm-consultant #tab-crm .btn-primary{display:none!important}
 .dbtn{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:3px 10px;font-size:11px;color:var(--text2);cursor:pointer;font-family:inherit}
 .dbtn:hover{background:var(--bg4)}
 .dbtn.active{background:rgba(124,106,247,.15);color:var(--accent-light);border-color:rgba(124,106,247,.3)}
@@ -1087,7 +1084,7 @@ body{overflow-x:hidden}
             <input class="swap-modal-input" id="permNewEmail" type="email" placeholder="e-mail@exemplo.com" style="margin:0">
             <select class="filter-sel" id="permNewRole" onchange="renderNewOperatorCompanies()" style="margin:0">
               <option value="company_admin">ADM Empresa</option>
-              <option value="consultor">Consultor (somente leitura)</option>
+              <option value="consultor">Consultor — operacional</option>
               <option value="perfil_executivo">Perfil Executivo</option>
               <option value="master">Master</option>
             </select>
@@ -5809,8 +5806,8 @@ async function applyPermissionGating() {
     : { data: [] };
   const isCompanyOnlyOperator = !isSystemAdmin && !!companyLinks?.length && !myTabAccess.length;
   const {data:crmAdminRole}=await db.from('crm_admins').select('user_id').eq('user_id',crmUserId).maybeSingle();
-  const isReadonlyCompanyUser=!!(await db.from('crm_readonly_consultants').select('user_id').eq('user_id',crmUserId).maybeSingle()).data;
-  const canManageProducts=!!crmAdminRole||isSystemAdmin||(!isReadonlyCompanyUser&&!!companyLinks?.length);
+  
+  const canManageProducts=!!crmAdminRole||isSystemAdmin||(!isCrmConsultant&&!!companyLinks?.length);
   const productsNav=document.getElementById('nav-products');if(productsNav)productsNav.classList.toggle('hidden',!canManageProducts);const companyProductsNav=document.getElementById('nav-company-products');if(companyProductsNav)companyProductsNav.classList.toggle('hidden',!canManageProducts);
   const canSeePartner = !isCompanyOnlyOperator && (isSystemAdmin || myReferralAccess.length > 0);
   document.getElementById('nav-partner').classList.toggle('hidden', !canSeePartner);
