@@ -1850,7 +1850,9 @@ async function openCrmSupportModal(){
  const available=(companies||[]).filter(x=>masters||admins||ids.has(x.id));
  sel.innerHTML=available.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
  if(available.some(x=>x.id===crmSelectedCompanyId))sel.value=crmSelectedCompanyId;
- document.getElementById('crmSupportModal').classList.add('show');
+ const modal=document.getElementById('crmSupportModal');
+ if(modal.parentElement!==document.body)document.body.appendChild(modal);
+ modal.classList.remove('hidden');modal.classList.add('show');
 }
 async function submitCrmSupportRequest(){
  const title=document.getElementById('crmSupportTitle').value.trim();
@@ -6408,8 +6410,8 @@ async function openCrmDealModal(dealId, initialStageId) {
   await loadCrmLabelsCatalog();
 
   if (dealId) {
-    const { data: deal, error } = await db.from('crm_deals').select('*').eq('id', dealId).single();
-    if (error || !deal) { toast('Não foi possível abrir esse negócio.', 'error'); return; }
+    const { data: deal, error } = await db.from('crm_deals').select('*').eq('id', dealId).maybeSingle();
+    if (error || !deal) { toast('Não foi possível abrir a negociação: '+(error?.message||'verifique se há acesso à empresa vinculada.'),'error',7000); return; }
     document.getElementById('crmTitle').value = deal.title || '';
     document.getElementById('crmContactName').value = deal.contact_name || '';
     document.getElementById('crmContactPhone').value = deal.contact_phone || '';
@@ -6442,7 +6444,8 @@ async function openCrmDealModal(dealId, initialStageId) {
   await renderCrmDealCompaniesSection();
   renderCrmDealExtrasSections(!!crmEditingLinkId);
   updateCrmProposalPartnershipVisibility();
-  document.getElementById('crmDealModal').classList.add('show');
+  const dealModal=document.getElementById('crmDealModal');if(dealModal.parentElement!==document.body)document.body.appendChild(dealModal);
+  dealModal.classList.remove('hidden');dealModal.classList.add('show');
   setTimeout(()=>loadCrmProposalData().catch(error=>{const el=document.getElementById('crmProposalProducts');if(el)el.innerHTML=`<div style="font-size:12px;color:var(--danger)">Erro ao carregar os produtos da proposta: ${esc(error?.message||String(error))}</div>`;}),0);
 }
 function closeCrmDealModal() {
