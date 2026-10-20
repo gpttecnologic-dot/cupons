@@ -958,7 +958,8 @@ body{overflow-x:hidden}
         <div class="page-header">
           <div class="page-header-left"><div class="page-title">Negócios</div><div class="page-sub">Quadro por empresa — cada cliente pode estar em mais de uma ao mesmo tempo</div></div>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-            <button class="btn btn-secondary btn-sm" onclick="loadCrm()">↺ Atualizar</button>
+            <button class="btn btn-secondary btn-sm" onclick="openCrmSupportModal()">+ Abrir chamado</button>
+             <button class="btn btn-secondary btn-sm" onclick="loadCrm()">↺ Atualizar</button>
           </div>
         </div>
         <div class="tbl-wrap" style="padding:1rem 1.25rem;margin-bottom:1rem">
@@ -1029,6 +1030,18 @@ body{overflow-x:hidden}
        <label class="form-label">Nome remetente</label><input class="swap-modal-input" id="proposalSmtpFromName">
        </div><button class="btn btn-primary" style="margin-top:1rem" onclick="saveCompanyProposalSmtp()">Salvar configuração SMTP</button>
        </div>
+      </div>
+      <!-- CHAMADO DE SUPORTE DO CRM -->
+      <div class="modal-overlay" id="crmSupportModal">
+        <div class="modal" style="max-width:560px">
+          <div class="modal-title">Abrir chamado de suporte</div>
+          <p style="font-size:12px;color:var(--text3);margin-bottom:1rem">Suporte: resposta em até 24 horas comerciais. Bug: atendimento prioritário em até 3 horas comerciais, de segunda a sexta, das 9h às 18h (Brasília).</p>
+          <label class="form-label">Empresa</label><select class="filter-sel" id="crmSupportCompany" style="width:100%;margin-bottom:.75rem"></select>
+          <label class="form-label">Tipo de solicitação</label><select class="filter-sel" id="crmSupportCategory" style="width:100%;margin-bottom:.75rem"><option value="support">Dúvida ou suporte — 24 horas comerciais</option><option value="bug">Erro / bug — 3 horas comerciais</option></select>
+          <label class="form-label">Assunto</label><input class="swap-modal-input" id="crmSupportTitle" maxlength="180" placeholder="Descreva brevemente o problema">
+          <label class="form-label">Descrição</label><textarea class="swap-modal-input" id="crmSupportDescription" maxlength="5000" style="min-height:120px" placeholder="Explique o ocorrido e como reproduzir o erro"></textarea>
+          <div class="modal-footer"><button class="btn btn-secondary" onclick="document.getElementById('crmSupportModal').classList.remove('show')">Cancelar</button><button class="btn btn-primary" id="crmSupportSubmit" onclick="submitCrmSupportRequest()">Enviar chamado</button></div>
+        </div>
       </div>
       <!-- SLA -->
       <div id="tab-sla" class="hidden">
@@ -1823,6 +1836,38 @@ async function loadNotifications(proactive=false){
   const badge=document.getElementById('notifCount');badge.textContent=n.length>99?'99+':n.length;badge.classList.toggle('hidden',!n.length);
   document.getElementById('notifList').innerHTML=n.length?n.map(x=>'<div class="notif-item" onclick="openNotification(\''+x.tab+'\')"><div class="notif-item-title"><span class="notif-dot '+(x.danger?'danger':'')+'"></span>'+esc(x.title)+'</div><div class="notif-item-sub">'+esc(x.sub)+'</div></div>').join(''):'<div class="notif-item-sub" style="padding:1rem">Nenhuma pendência dentro das suas permissões.</div>';
   if(proactive&&n.length)showNotificationReminder(n.length,n.filter(x=>x.danger).length);
+}
+async function openCrmSupportModal(){
+ const sel=document.getElementById('crmSupportCompany');
+ const {data:{user}}=await db.auth.getUser();
+ const [{data:masters},{data:admins},{data:links},{data:companies}]=await Promise.all([
+  db.from('system_admins').select('user_id').eq('user_id',user.id).maybeSingle(),
+  db.from('crm_admins').select('user_id').eq('user_id',user.id).maybeSingle(),
+  db.from('user_company_access').select('company_id').eq('user_id',user.id),
+  db.from('companies').select('id,name').order('name')
+ ]);
+ const ids=new Set((links||[]).map(x=>x.company_id));
+ const available=(companies||[]).filter(x=>masters||admins||ids.has(x.id));
+ sel.innerHTML=available.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('');
+ if(available.some(x=>x.id===crmSelectedCompanyId))sel.value=crmSelectedCompanyId;
+ document.getElementById('crmSupportModal').classList.add('show');
+}
+async function submitCrmSupportRequest(){
+ const title=document.getElementById('crmSupportTitle').value.trim();
+ const description=document.getElementById('crmSupportDescription').value.trim();
+ const company_id=document.getElementById('crmSupportCompany').value;
+ const category=document.getElementById('crmSupportCategory').value;
+ if(!company_id||title.length<5||description.length<10){toast('Escolha a empresa e informe assunto e descrição completos.','error');return}
+ const btn=document.getElementById('crmSupportSubmit');btn.disabled=true;
+ try{
+  const {data,error}=await db.from('crm_support_requests').insert({company_id,category,title,description}).select('id,due_at').single();
+  if(error)throw error;
+  document.getElementById('crmSupportModal').classList.remove('show');
+  document.getElementById('crmSupportTitle').value='';
+  document.getElementById('crmSupportDescription').value='';
+  toast('Chamado aberto. Prazo: '+new Date(data.due_at).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}),'success',9000);
+ }catch(e){toast('Erro ao abrir chamado: '+(e.message||String(e)),'error',8000)}
+ finally{btn.disabled=false}
 }
 // ─── SLA ──────────────────────────────────────────────────────────────────────
 const SLA_STAGES=[['new','Novo'],['analysis','Em análise'],['in_progress','Em atendimento'],['waiting_client','Aguardando cliente'],['resolved','Resolvido'],['closed','Encerrado']];
