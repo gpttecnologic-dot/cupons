@@ -1068,6 +1068,7 @@ body{overflow-x:hidden}
           <div style="display:flex;gap:.5rem"><button class="btn btn-primary btn-sm" onclick="createSlaTicket()">Criar chamado</button><button class="btn btn-secondary btn-sm" onclick="openSlaForm(false)">Cancelar</button></div>
         </div>
         <div id="slaBoard" style="display:flex;gap:1rem;overflow-x:auto;align-items:flex-start;padding-bottom:1rem"></div>
+        <div class="tbl-wrap" style="padding:1rem;margin-top:1rem"><div class="tbl-title" style="margin-bottom:.5rem">Chamados abertos pelo CRM</div><div id="crmSupportQueue">Carregando...</div></div>
       </div>
 
       <!-- PESSOAS E PERMISSÕES -->
@@ -1888,6 +1889,19 @@ async function loadSla(){
   slaTickets=t||[]; slaSettings=Object.fromEntries((s||[]).map(x=>[x.priority,x]));
   document.getElementById('slaCompany').innerHTML='<option value="">Sem empresa vinculada</option>'+((companies||[]).map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join(''));
   renderSla();
+  loadCrmSupportQueue();
+}
+async function loadCrmSupportQueue(){
+ const el=document.getElementById('crmSupportQueue');if(!el)return;
+ const {data,error}=await db.from('crm_support_requests').select('id,company_id,category,title,description,status,created_at,due_at,companies(name)').order('created_at',{ascending:false}).limit(100);
+ if(error){el.textContent='Não foi possível carregar os chamados: '+error.message;return}
+ const rows=data||[];
+ el.innerHTML=rows.length?'<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Empresa</th><th>Assunto</th><th>Tipo</th><th>Aberto</th><th>Prazo</th><th>Status</th></tr></thead><tbody>'+rows.map(x=>'<tr><td>'+esc(x.companies?.name||'—')+'</td><td title="'+esc(x.description)+'">'+esc(x.title)+'</td><td>'+(x.category==='bug'?'Bug':'Suporte')+'</td><td>'+new Date(x.created_at).toLocaleString('pt-BR')+'</td><td>'+new Date(x.due_at).toLocaleString('pt-BR')+'</td><td><select class="filter-sel" onchange="updateCrmSupportStatus(\''+x.id+'\',this.value)">'+[['new','Novo'],['in_progress','Em atendimento'],['waiting_user','Aguardando operador'],['resolved','Resolvido'],['closed','Encerrado']].map(([v,label])=>'<option value="'+v+'"'+(x.status===v?' selected':'')+'>'+label+'</option>').join('')+'</select></td></tr>').join('')+'</tbody></table></div>':'<div class="empty-state">Nenhum chamado registrado.</div>';
+}
+async function updateCrmSupportStatus(id,status){
+ const {error}=await db.from('crm_support_requests').update({status,updated_at:new Date().toISOString()}).eq('id',id);
+ if(error)toast('Erro ao atualizar chamado: '+error.message,'error');else toast('Chamado atualizado','success');
+ loadCrmSupportQueue();
 }
 function renderSla(){
   const now=Date.now(), open=slaTickets.filter(x=>!['resolved','closed'].includes(x.status));
