@@ -1578,6 +1578,7 @@ const _inviteFlow = /type=invite|type=recovery/.test(window.location.hash);
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 let allCoupons = [], allReleaseRequests = [], allUsers = [], allRefOpts = [], allWaitlist = [];
+let allReleaseNotices = [];
 let couponPage = 0, couponPageSize = 20;
 let releasePage = 0, releasePageSize = 20;
 let userPage = 0, userPageSize = 20;
@@ -3402,10 +3403,18 @@ async function loadReleaseQueue() {
     return;
   }
   allReleaseRequests = data || [];
+  const { data:noticeData, error:noticeError } = await db.functions.invoke('coupon-release-notifications', {body:{action:'list'}});
+  if(noticeError || noticeData?.error) {
+    console.error('Erro ao carregar informativos de cupons',noticeError||noticeData?.error);
+    allReleaseNotices=[];
+    toast('Não foi possível carregar os avisos informativos.','error');
+  } else {
+    allReleaseNotices=noticeData?.notifications||[];
+  }
   releasePage = 0;
   renderReleaseQueue();
   const badge=document.getElementById('releaseQueueCount');
-  if(badge) badge.textContent=String(allReleaseRequests.length);
+  if(badge) badge.textContent=String(allReleaseRequests.length+allReleaseNotices.length);
 }
 
 function renderReleaseQueue() {
@@ -3426,8 +3435,22 @@ function renderReleaseQueue() {
   );
   requests.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
 
+  let notices=allReleaseNotices.filter(n=>!n.acknowledged_at);
+  if(q) notices=notices.filter(n=>[n.request?.name,n.request?.email,n.request?.phone,n.message].some(v=>normalizeUserSearch(v||'').includes(q)));
+  const noticesHtml=notices.length ? `<section style="padding:1rem 1.25rem;border-bottom:1px solid var(--border)">
+    <div style="font-weight:700;margin-bottom:.75rem">Avisos informativos (${notices.length})</div>
+    ${notices.map(n=>`<div style="padding:.875rem;margin-bottom:.5rem;border:1px solid var(--border);border-radius:10px;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+      <div style="min-width:230px;flex:1">
+        <span class="badge">Informativo · nenhuma aprovação necessária</span>
+        <div style="font-weight:650;margin-top:.5rem">${esc(n.request?.name||'Cadastro')}</div>
+        <div style="font-size:12px;color:var(--text3)">${esc(n.request?.email||'')} · ${fmtDate(n.created_at)}</div>
+        <div style="font-size:13px;margin-top:.5rem">${esc(n.message||'')}</div>
+      </div>
+      <button class="btn btn-success btn-sm" onclick="ackReleaseNotice('${n.id}')">OK · Ciente</button>
+    </div>`).join('')}
+  </section>` : '';
   if(!requests.length){
-    body.innerHTML = '<div class="empty-state"><div class="empty-icon">🧑‍💼</div><div class="empty-title">Nenhuma solicitação aguardando liberação</div><div class="empty-sub">Nenhum cupom está reservado enquanto a fila está vazia.</div></div>';
+    body.innerHTML = noticesHtml + '<div class="empty-state"><div class="empty-icon">🧑‍💼</div><div class="empty-title">Nenhuma solicitação aguardando liberação</div><div class="empty-sub">Nenhum cupom está reservado enquanto a fila está vazia.</div></div>';
     return;
   }
 
@@ -3461,7 +3484,7 @@ function renderReleaseQueue() {
     </div>
   </div>`:'';
 
-  body.innerHTML=`<div style="padding:.875rem 1.25rem;background:rgba(124,106,247,.08);border-bottom:1px solid rgba(124,106,247,.15);font-size:13px;color:#a78bfa">
+  body.innerHTML=noticesHtml+`<div style="padding:.875rem 1.25rem;background:rgba(124,106,247,.08);border-bottom:1px solid rgba(124,106,247,.15);font-size:13px;color:#a78bfa">
     <strong>${total}</strong> solicitação(ões) aguardando sua decisão. O cupom de teste fica reservado por no máximo 24 horas.
   </div>
   <div style="overflow-x:auto"><table class="data-table"><thead><tr>
@@ -3469,6 +3492,15 @@ function renderReleaseQueue() {
   </tr></thead><tbody>${rows}</tbody></table></div>${pager}`;
 }
 
+async function ackReleaseNotice(id) {
+  const {data,error}=await db.functions.invoke('coupon-release-notifications',{body:{action:'acknowledge',notification_id:id}});
+  if(error||data?.error||!data?.success){toast(data?.error||error?.message||'Falha ao confirmar aviso.','error',6000);return;}
+  allReleaseNotices=allReleaseNotices.filter(n=>n.id!==id);
+  const badge=document.getElementById('releaseQueueCount');
+  if(badge)badge.textContent=String(allReleaseRequests.length+allReleaseNotices.length);
+  toast('Aviso registrado como ciente.','success');
+  renderReleaseQueue();
+}
 async function prepararCupomFila(id, trocar=false) {
   const { data, error } = await db.functions.invoke('coupon-manual-release', {
     body: { action: trocar ? 'swap' : 'prepare', request_id:id }
