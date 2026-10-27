@@ -4334,7 +4334,7 @@ async function verCuponsUsuario(userId, userName) {
   document.getElementById('viewCouponsModal').classList.add('show');
 
   const { data, error } = await db.from('coupons')
-    .select('id,link,status,distributed_at')
+    .select('id,link,status,manual_release_status,distributed_at')
     .eq('users_id', userId)
     .order('distributed_at', { ascending: true });
 
@@ -4371,7 +4371,7 @@ async function verCuponsUsuario(userId, userName) {
     </div>
   `).join('');
 
-  const sendable = viewCouponsList.filter(c => c.status === 'delivered' || c.status === 'redeemed');
+  const sendable = viewCouponsList.filter(c => c.status === 'delivered' || c.status === 'redeemed' || (c.status === 'reserved' && c.manual_release_status === 'pending'));
   document.getElementById('viewCouponsSendBtn').disabled = !sendable.length;
 }
 
@@ -4399,8 +4399,8 @@ function closeViewCouponsModal() {
 // "coupon_ids" (array) — veja o comentário no topo do arquivo .ts.
 async function enviarEmailCupons() {
   if (!viewCouponsUserId) return;
-  const ids = viewCouponsList.filter(c => c.status === 'delivered' || c.status === 'redeemed').map(c => c.id);
-  if (!ids.length) { toast('Nenhum cupom entregue para enviar por e-mail.', 'error'); return; }
+  const ids = viewCouponsList.filter(c => c.status === 'delivered' || c.status === 'redeemed' || (c.status === 'reserved' && c.manual_release_status === 'pending')).map(c => c.id);
+  if (!ids.length) { toast('Nenhum cupom vinculado elegível para reenvio.', 'error'); return; }
 
   openConfirm(
     'Enviar e-mail com os cupons',
@@ -4409,7 +4409,7 @@ async function enviarEmailCupons() {
       const { data, error } = await db.functions.invoke('send-coupon-email', {
         body: { user_id: viewCouponsUserId, coupon_ids: ids, template_key: 'coupon_reminder' }
       });
-      if (error) { toast('Erro ao enviar e-mail: ' + (error.message || error), 'error', 7000); return; }
+      if (error || data?.error || data?.success === false) { toast('Erro ao enviar e-mail: ' + (data?.error || error?.message || error), 'error', 7000); return; }
       toast(ids.length === 1 ? 'E-mail enviado com o link!' : `E-mail enviado com os ${ids.length} links!`, 'success', 5000);
     },
     '✉ Enviar e-mail'
