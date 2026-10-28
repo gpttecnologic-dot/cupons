@@ -621,6 +621,14 @@ async function submitForm() {
     btn.disabled = false;
     btn.innerHTML = '🎫 Resgatar meu cupom';
 
+    if (verification?.status === 'already_submitted') {
+      showErr(verification.message || 'Cadastro já enviado. Aguarde o recebimento do e-mail.');
+      return;
+    }
+    if (verification?.status === 'code_already_sent' && !verification.verification_id) {
+      showErr(verification.message || 'Um código já foi enviado. Consulte o e-mail utilizado no primeiro cadastro.');
+      return;
+    }
     if (verificationErr || !verification?.verification_id) {
       showErr(verification?.error || 'Não foi possível enviar o código de confirmação. Tente novamente.');
       return;
@@ -631,7 +639,7 @@ async function submitForm() {
     document.getElementById('f-code').value = '';
     document.getElementById('verifyAlert').classList.add('hidden');
     document.getElementById('verify-msg').textContent =
-      `Enviamos um código de 6 dígitos para ${email}. Digite-o abaixo para liberar o cupom.`;
+      verification?.status === 'code_already_sent' ? verification.message : `Enviamos um código de 6 dígitos para ${email}. Digite-o abaixo para liberar o cupom.`;
     showState('stateVerify');
     return;
 
