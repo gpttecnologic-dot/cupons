@@ -90,6 +90,15 @@ async function sendMail(cfg:any,to:string,subject:string,text:string){
   return {ok:false,error:'Nenhum servidor de e-mail configurado.'}
 }
 
+async function releaseDirectCoupon(sb:any,requestId:string) {
+  const {data:auto,error:autoError}=await sb.functions.invoke('coupon-auto-release',{body:{request_id:requestId}})
+  if(autoError||!auto?.success||!auto.coupon_id)return {success:false as const}
+  const {data:secrets,error:secretError}=await sb.rpc('get_coupon_secrets',{p_coupon_ids:[auto.coupon_id]})
+  const secret=(secrets||[]).find((row:any)=>String(row.coupon_id)===String(auto.coupon_id))||(secrets||[])[0]
+  const link=!secretError && /^https:\/\/[^\s]+$/i.test(String(secret?.link||'')) ? String(secret.link) : ''
+  return {success:true as const,auto,link}
+}
+
 Deno.serve(async req=>{
   if(req.method==='OPTIONS') return new Response('ok',{headers:cors(req)})
   if(req.method!=='POST') return out(req,{error:'Método não permitido.'},405)
