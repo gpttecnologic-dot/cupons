@@ -220,7 +220,7 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
           <button class="btn btn-outline" type="button" onclick="copyDirectCoupon()">Copiar link</button>
         </div>
       </div>
-      <p style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6;margin-top:1rem">O link também foi enviado ao e-mail informado. Caso não encontre a mensagem, verifique as pastas de spam ou lixo eletrônico.</p>
+      <p style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6;margin-top:1rem">O link também foi enviado ao e-mail associado ao cadastro. Caso não encontre a mensagem, verifique as pastas de spam ou lixo eletrônico.</p>
     </div>
 
     <!-- JÁ CADASTRADO -->
@@ -616,7 +616,7 @@ if (couponEmailInput) {
   couponEmailInput.addEventListener('blur', updateCouponEmailHint);
 }
 
-function showDirectCouponSuccess(data, email) {
+function showDirectCouponSuccess(data) {
   const link = String(data?.coupon_link || '');
   currentLink = /^https:\/\/[^\s]+$/i.test(link) ? link : '';
   document.getElementById('successTitle').textContent = 'Cupom liberado!';
@@ -719,7 +719,7 @@ async function submitForm() {
     btn.innerHTML = '🎫 Resgatar meu cupom';
 
     if (verification?.status === 'released') {
-      showDirectCouponSuccess(verification, email);
+      showDirectCouponSuccess(verification);
       return;
     }
     if (verification?.status === 'already_submitted') {
