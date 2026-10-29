@@ -207,10 +207,20 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
     <div id="stateSuccess" class="hidden">
       <div class="success-box">
         <div class="success-icon">✉️</div>
-        <div class="success-title">Cadastro realizado!</div>
+        <div class="success-title" id="successTitle">Cadastro realizado!</div>
         <div class="success-msg" id="s-msg"></div>
       </div>
-      <p style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6">Caso não encontre o e-mail, verifique também as pastas de spam ou lixo eletrônico.</p>
+      <div id="directCouponBox" class="hidden">
+        <div class="link-box">
+          <div class="link-label">Seu link de cupom</div>
+          <a id="directCouponUrl" class="link-url" href="#" target="_blank" rel="noopener noreferrer"></a>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button" onclick="openDirectCoupon()">Abrir cupom</button>
+          <button class="btn btn-outline" type="button" onclick="copyDirectCoupon()">Copiar link</button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6;margin-top:1rem">O link também foi enviado ao e-mail informado. Caso não encontre a mensagem, verifique as pastas de spam ou lixo eletrônico.</p>
     </div>
 
     <!-- JÁ CADASTRADO -->
@@ -606,6 +616,26 @@ if (couponEmailInput) {
   couponEmailInput.addEventListener('blur', updateCouponEmailHint);
 }
 
+function showDirectCouponSuccess(data, email) {
+  const link = String(data?.coupon_link || '');
+  currentLink = /^https:\/\/[^\s]+$/i.test(link) ? link : '';
+  document.getElementById('successTitle').textContent = 'Cupom liberado!';
+  document.getElementById('s-msg').textContent = currentLink
+    ? `Seu cupom foi enviado para ${email}. Você também pode abrir ou copiar o link abaixo.`
+    : `Seu cupom foi liberado e enviado para ${email}.`;
+  const box = document.getElementById('directCouponBox');
+  const url = document.getElementById('directCouponUrl');
+  box.classList.toggle('hidden', !currentLink);
+  if (currentLink) {
+    url.href = currentLink;
+    url.textContent = currentLink;
+  } else {
+    url.removeAttribute('href');
+    url.textContent = '';
+  }
+  showState('stateSuccess');
+}
+
 async function submitForm() {
   const now = Date.now();
   if (now - lastSubmit < 3000) { showErr('Aguarde alguns segundos.'); return; }
@@ -696,6 +726,18 @@ async function submitForm() {
       showErr(verification.message || 'Um código já foi enviado. Consulte o e-mail utilizado no primeiro cadastro.');
       return;
     }
+    if (verification?.status === 'released') {
+      showDirectCouponSuccess(verification, email);
+      return;
+    }
+    if (verification?.status === 'already_submitted') {
+      showErr(verification.message || 'Cadastro já enviado. Aguarde o recebimento do e-mail.');
+      return;
+    }
+    if (verification?.status === 'code_already_sent' && !verification.verification_id) {
+      showErr(verification.message || 'Um código já foi enviado. Consulte o e-mail utilizado no primeiro cadastro.');
+      return;
+    }
     if (verificationErr || !verification?.verification_id) {
       showErr(verification?.error || 'Não foi possível enviar o código de confirmação. Tente novamente.');
       return;
@@ -751,6 +793,9 @@ async function verifyEmailCode() {
     }
 
     pendingVerificationId = '';
+    document.getElementById('successTitle').textContent = 'Cadastro realizado!';
+    document.getElementById('directCouponBox').classList.add('hidden');
+    currentLink = '';
     if (data?.status === 'pending_manual_approval') {
       document.getElementById('s-msg').textContent =
         `E-mail confirmado. Seu pedido foi recebido e está aguardando liberação manual pela equipe. O cupom só será enviado após essa aprovação.`;
@@ -767,6 +812,8 @@ async function verifyEmailCode() {
   }
 }
 
+function openDirectCoupon() { if (currentLink) window.open(currentLink, '_blank', 'noopener'); }
+function copyDirectCoupon() { if (currentLink) navigator.clipboard.writeText(currentLink).then(() => showToast('Link copiado!')); }
 function openLink()  { window.open(currentLink, '_blank'); }
 function openAlreadyLink() { window.open(alreadyLink, '_blank'); }
 function copyLink()  { navigator.clipboard.writeText(currentLink).then(() => showToast('Link copiado!')); }
