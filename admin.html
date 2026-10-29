@@ -6127,7 +6127,7 @@ async function loadCrmBoard() {
   document.getElementById('crmBoardWrap').innerHTML = '<div class="empty-state"><div class="empty-title">Carregando...</div></div>';
   const [{ data: stages, error: sErr }, { data: links, error: lErr }] = await Promise.all([
     db.from('crm_stages').select('id,name,position').eq('company_id', crmSelectedCompanyId).order('position'),
-    db.from('crm_deal_companies').select('id,company_id,stage_id,value,position,due_date,delivered_at,updated_at,crm_deals(id,title,contact_name,contact_email,contact_phone,notes,created_at),crm_deal_company_labels(crm_labels(id,name,color))').eq('company_id', crmSelectedCompanyId).order('position'),
+    db.from('crm_deal_companies').select('id,company_id,stage_id,value,position,due_date,delivered_at,updated_at,owner_user_id,crm_deals(id,title,contact_name,contact_email,contact_phone,notes,created_at),crm_deal_company_labels(crm_labels(id,name,color))').eq('company_id', crmSelectedCompanyId).order('position'),
   ]);
   if (sErr || lErr) { toast('Erro ao carregar quadro: ' + (sErr || lErr).message, 'error'); return; }
   crmStages = stages || [];
@@ -6222,6 +6222,7 @@ function renderCrmBoard(dealCompanyCount) {
           ${d.contact_name ? `<span>👤 ${esc(d.contact_name)}</span>` : ''}
           ${d.contact_phone ? `<span>📞 ${esc(d.contact_phone)}</span>` : ''}
         </div>
+        <div class="crm-card-meta crm-card-owner">Responsável: ${esc(crmProfiles.find(p => p.user_id === l.owner_user_id)?.display_name || crmProfiles.find(p => p.user_id === l.owner_user_id)?.email || 'Sem responsável')}</div>
         ${l.value ? `<div class="crm-card-value">${fmtMoney(l.value)}</div>` : ''}
         ${(dueHtml || multi) ? `<div>${dueHtml}${multi}</div>` : ''}
       </div>`;
