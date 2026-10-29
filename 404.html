@@ -604,7 +604,9 @@ const couponEmailInput = document.getElementById('f-email');
 if (couponEmailInput) {
   couponEmailInput.addEventListener('input', updateCouponEmailHint);
   couponEmailInput.addEventListener('blur', updateCouponEmailHint);
-}\n\nasync function submitForm() {
+}
+
+async function submitForm() {
   const now = Date.now();
   if (now - lastSubmit < 3000) { showErr('Aguarde alguns segundos.'); return; }
 
