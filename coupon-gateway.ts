@@ -200,6 +200,9 @@ Deno.serve(async req=>{
         if(previousError)return out(req,{error:'Não foi possível verificar seu cadastro.'},503)
         if(previous?.length){
           if(partnerNoEmailCode && previous[0].status==='pending' && previous[0].referral_id===referralId){
+            await sb.from('events').insert({event_type:'coupon_gateway_request',metadata:{
+              source:'coupon_gateway_direct_retry',ip_hash:ipHash||null,device_hash:deviceHash,email_domain:email.split('@')[1]||null,referral_id:referralId
+            }})
             const retried=await releaseDirectCoupon(sb,previous[0].id)
             if(retried.success)return out(req,{success:true,status:'released',release_request_id:previous[0].id,coupon_id:retried.auto.coupon_id,user_id:retried.auto.user_id,coupon_link:retried.link})
             await sb.from('events').insert({event_type:'automatic_release_failed',metadata:{source:'coupon_gateway_direct',release_request_id:previous[0].id,referral_id:referralId,ip_hash:ipHash||null}})
