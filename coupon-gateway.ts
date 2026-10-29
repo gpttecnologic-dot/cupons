@@ -90,6 +90,15 @@ async function sendMail(cfg:any,to:string,subject:string,text:string){
   return {ok:false,error:'Nenhum servidor de e-mail configurado.'}
 }
 
+async function releaseDirectCoupon(sb:any,requestId:string) {
+  const {data:auto,error:autoError}=await sb.functions.invoke('coupon-auto-release',{body:{request_id:requestId}})
+  if(autoError||!auto?.success||!auto.coupon_id)return {success:false as const}
+  const {data:secrets,error:secretError}=await sb.rpc('get_coupon_secrets',{p_coupon_ids:[auto.coupon_id]})
+  const secret=(secrets||[]).find((row:any)=>String(row.coupon_id)===String(auto.coupon_id))||(secrets||[])[0]
+  const link=!secretError && /^https:\/\/[^\s]+$/i.test(String(secret?.link||'')) ? String(secret.link) : ''
+  return {success:true as const,auto,link}
+}
+
 Deno.serve(async req=>{
   if(req.method==='OPTIONS') return new Response('ok',{headers:cors(req)})
   if(req.method!=='POST') return out(req,{error:'Método não permitido.'},405)
@@ -122,6 +131,7 @@ Deno.serve(async req=>{
     if(action==='request'){
       const name=String(body.name||'').trim().slice(0,160)
       const email=normEmail(body.email)
+      if(email.endsWith('@maxxspace.com'))return out(req,{error:'Benefício indisponível para este domínio.'},403)
       const phone=normPhone(body.phone)
       const cpf=normCpf(body.cpf)
       const referralId=String(body.referral_id||'')
@@ -147,14 +157,19 @@ Deno.serve(async req=>{
       const sinceHour=new Date(Date.now()-60*60*1000).toISOString()
       const since5=new Date(Date.now()-5*60*1000).toISOString()
 
-      const [{count:emailHour},{count:global5},{data:recentEvents}] = await Promise.all([
+      const partnerName=String(ref.name||'').trim().toLowerCase()
+      const partnerNoEmailCode=['clubemutua','dynamus'].includes(partnerName)
+      const [{count:emailHour},{count:directRequestEmailHour},{count:global5},{data:recentEvents}] = await Promise.all([
         sb.from('email_coupon_verifications').select('id',{count:'exact',head:true}).eq('email',email).gte('created_at',sinceHour),
+        partnerNoEmailCode
+          ? sb.from('coupon_release_requests').select('id',{count:'exact',head:true}).eq('email',email).eq('referral_id',referralId).gte('created_at',sinceHour)
+          : Promise.resolve({count:0}),
         sb.from('events').select('id',{count:'exact',head:true}).eq('event_type','coupon_gateway_request').gte('created_at',since5),
         sb.from('events').select('metadata,created_at').eq('event_type','coupon_gateway_request').gte('created_at',sinceHour).order('created_at',{ascending:false}).limit(500)
       ])
 
       if((global5||0)>=40) return out(req,{error:'Muitas solicitações no momento. Tente novamente em alguns minutos.'},429)
-      if((emailHour||0)>=3) return out(req,{error:'Limite de solicitações atingido para este e-mail. Tente novamente mais tarde.'},429)
+      if((emailHour||0)+(directRequestEmailHour||0)>=3) return out(req,{error:'Limite de solicitações atingido para este e-mail. Tente novamente mais tarde.'},429)
 
       let ipCount=0, deviceCount=0
       for(const row of recentEvents||[]){
@@ -169,12 +184,72 @@ Deno.serve(async req=>{
         return out(req,{error:'Muitas solicitações. Tente novamente mais tarde.'},429)
       }
 
-      const {data:recent}=await sb.from('email_coupon_verifications')
-        .select('created_at').eq('email',email).order('created_at',{ascending:false}).limit(1)
-      if(recent?.length && Date.now()-new Date(recent[0].created_at).getTime()<60000){
-        return out(req,{error:'Aguarde 1 minuto antes de solicitar um novo código.'},429)
+      if(!partnerNoEmailCode){
+        // Reutiliza um código ativo para impedir reenvios e preservar a janela de 10 minutos.
+        const partnerWithCpf=['clubemutua','dynamus'].includes(partnerName)
+        const {data:openCodes,error:openError}=await sb.from('email_coupon_verifications')
+          .select('id,email,phone,cpf,expires_at,verified_at').eq('referral_id',referralId)
+          .gt('expires_at',new Date().toISOString()).is('verified_at',null)
+          .order('created_at',{ascending:true}).limit(100)
+        if(openError)return out(req,{error:'Não foi possível verificar o código anterior.'},503)
+        const digits=(v:string)=>String(v||'').replace(/[^0-9]/g,'')
+        const previous=(openCodes||[]).find((v:any)=>
+          (partnerWithCpf && cpf.length===11 && digits(v.cpf)===cpf) ||
+          (!partnerWithCpf && (String(v.email||'').trim().toLowerCase()===email ||
+             (digits(phone).length>=10 && digits(v.phone)===digits(phone)))))
+        if(previous){
+          return out(req,{success:true,status:'code_already_sent',
+            ...(String(previous.email||'').trim().toLowerCase()===email ? {verification_id:previous.id} : {}),
+            message:'Enviamos um código para seu e-mail. Utilize o código recebido. Ele é válido por 10 minutos.'})
+        }
       }
 
+      if(cpf.length===11){
+        const {data:previous,error:previousError}=await sb.from('coupon_release_requests').select('id,status,referral_id').eq('cpf',cpf).in('status',['pending','released']).order('created_at',{ascending:true}).limit(1)
+        if(previousError)return out(req,{error:'Não foi possível verificar seu cadastro.'},503)
+        if(previous?.length){
+          if(partnerNoEmailCode && previous[0].status==='pending' && previous[0].referral_id===referralId){
+            await sb.from('events').insert({event_type:'coupon_gateway_request',metadata:{
+              source:'coupon_gateway_direct_retry',ip_hash:ipHash||null,device_hash:deviceHash,email_domain:email.split('@')[1]||null,referral_id:referralId
+            }})
+            const retried=await releaseDirectCoupon(sb,previous[0].id)
+            if(retried.success)return out(req,{success:true,status:'released',release_request_id:previous[0].id,coupon_id:retried.auto.coupon_id,user_id:retried.auto.user_id,coupon_link:retried.link})
+            await sb.from('events').insert({event_type:'automatic_release_failed',metadata:{source:'coupon_gateway_direct',release_request_id:previous[0].id,referral_id:referralId,ip_hash:ipHash||null}})
+            return out(req,{error:'Não foi possível concluir a liberação agora. Sua solicitação foi preservada; tente novamente em alguns minutos.',status:'auto_release_failed'},503)
+          }
+          return out(req,{success:true,status:'already_submitted',message:'Cadastro já enviado. Aguarde o recebimento do e-mail.'})
+        }
+      }
+      if(partnerNoEmailCode && cpf.length===11){
+        const {data:cpfUsers,error:cpfError}=await sb.from('users').select('id,cpf').not('cpf','is',null)
+        if(cpfError)return out(req,{error:'Não foi possível verificar seu CPF. Tente novamente.'},503)
+        const original=(cpfUsers||[]).find((u:any)=>String(u.cpf||'').replace(/[^0-9]/g,'')===cpf)
+        if(original){
+          const {data:duplicate,error:duplicateError}=await sb.from('coupon_release_requests').insert({
+            name,email,phone,cpf,referral_id:referralId,quantidade_licencas:qtd,
+            status:'rejected',user_id:original.id,decided_at:new Date().toISOString()
+          }).select('id').single()
+          if(duplicateError||!duplicate)return out(req,{error:'Este CPF já possui cadastro. Nenhum novo cupom foi liberado.',status:'duplicate_cpf'},409)
+          await sb.from('coupon_release_notifications').upsert({
+            release_request_id:duplicate.id,user_id:original.id,action_taken:'existing_coupon_found',
+            message:'Nao liberado: CPF ja cadastrado anteriormente. Cadastro original preservado; nenhum novo cupom emitido.'
+          },{onConflict:'release_request_id'})
+          return out(req,{error:'Este CPF já possui cadastro. Nenhum novo cupom foi liberado.',status:'duplicate_cpf',release_request_id:duplicate.id},409)
+        }
+      }
+      if(partnerNoEmailCode){
+        const {data:releaseReq,error:releaseError}=await sb.from('coupon_release_requests').insert({
+          name,email,phone,cpf:cpf||null,referral_id:referralId,quantidade_licencas:qtd,status:'pending'
+        }).select('id').single()
+        if(releaseError||!releaseReq)return out(req,{error:'Não foi possível registrar sua solicitação.'},500)
+        await sb.from('events').insert({event_type:'coupon_gateway_request',metadata:{
+          source:'coupon_gateway_direct',ip_hash:ipHash||null,device_hash:deviceHash,email_domain:email.split('@')[1]||null,referral_id:referralId
+        }})
+        const released=await releaseDirectCoupon(sb,releaseReq.id)
+        if(released.success)return out(req,{success:true,status:'released',release_request_id:releaseReq.id,coupon_id:released.auto.coupon_id,user_id:released.auto.user_id,coupon_link:released.link})
+        await sb.from('events').insert({event_type:'automatic_release_failed',metadata:{source:'coupon_gateway_direct',release_request_id:releaseReq.id,referral_id:referralId,ip_hash:ipHash||null}})
+        return out(req,{error:'Não foi possível concluir a liberação agora. Sua solicitação foi preservada; tente novamente em alguns minutos.',status:'auto_release_failed'},503)
+      }
       const code=secureCode()
       const codeHash=await sha256(code)
       const expiresAt=new Date(Date.now()+10*60*1000).toISOString()
@@ -208,10 +283,24 @@ Deno.serve(async req=>{
 
       const {data:vr}=await sb.from('email_coupon_verifications').select('*').eq('id',verificationId).maybeSingle()
       if(!vr) return out(req,{error:'Validação não encontrada.'},404)
+      if(String(vr.email||'').trim().toLowerCase().endsWith('@maxxspace.com'))return out(req,{error:'Benefício indisponível para este domínio.'},403)
 
-      const {data:ref}=await sb.from('referrals').select('id,active').eq('id',vr.referral_id).maybeSingle()
+      const {data:ref}=await sb.from('referrals').select('id,name,active').eq('id',vr.referral_id).maybeSingle()
       if(!ref?.active) return out(req,{error:'Origem indisponível.'},403)
-      if(vr.verified_at) return out(req,{error:'Este código já foi utilizado.'},409)
+      if(vr.verified_at){
+        const {data:prior}=await sb.from('coupon_release_requests').select('id,status,coupon_id,user_id').eq('verification_id',verificationId).maybeSingle()
+        if(prior?.status==='released')return out(req,{success:true,status:'released',release_request_id:prior.id,coupon_id:prior.coupon_id,user_id:prior.user_id})
+        if(prior?.status==='pending'){
+          const partner=String(ref.name||'').trim().toLowerCase()
+          if(['clubemutua','oabma','oabrs','dynamus'].includes(partner)){
+            const {data:auto,error:autoError}=await sb.functions.invoke('coupon-auto-release',{body:{request_id:prior.id}})
+            if(!autoError&&auto?.success)return out(req,{success:true,status:'released',release_request_id:prior.id,coupon_id:auto.coupon_id,user_id:auto.user_id})
+            return out(req,{error:'Código já confirmado; falha ao concluir envio. Não solicite outro código. Tente novamente.',status:'auto_release_failed'},503)
+          }
+          return out(req,{success:true,status:'pending_manual_approval',release_request_id:prior.id})
+        }
+        return out(req,{error:'Este código já foi utilizado. Solicite um novo código.',status:'verification_used'},409)
+      }
       if(new Date(vr.expires_at).getTime()<Date.now()) return out(req,{error:'Código expirado. Solicite outro.'},410)
       if((vr.attempts||0)>=5) return out(req,{error:'Muitas tentativas. Solicite outro código.'},429)
 
@@ -219,6 +308,34 @@ Deno.serve(async req=>{
       if(received!==vr.code_hash){
         await sb.from('email_coupon_verifications').update({attempts:(vr.attempts||0)+1}).eq('id',verificationId)
         return out(req,{error:'Código incorreto.'},400)
+      }
+
+      const cpfInRequest=String(vr.cpf||'').replace(/[^0-9]/g,'')
+      if(cpfInRequest.length===11){
+        const {data:previous,error:previousError}=await sb.from('coupon_release_requests').select('id').eq('cpf',cpfInRequest).in('status',['pending','released']).order('created_at',{ascending:true}).limit(1)
+        if(previousError)return out(req,{error:'Não foi possível verificar seu cadastro.'},503)
+        if(previous?.length)return out(req,{success:true,status:'already_submitted',message:'Cadastro já enviado. Aguarde o recebimento do e-mail.'})
+      }
+      // CPF ja cadastrado: conservar primeiro usuario e registrar tentativa sem liberar cupom.
+      const cpfDigits=String(vr.cpf||'').replace(/[^0-9]/g,'')
+      if(cpfDigits.length===11){
+        const {data:cpfUsers,error:cpfErr}=await sb.from('users').select('id,name,email,cpf').not('cpf','is',null)
+        if(cpfErr)return out(req,{error:'Nao foi possivel validar o CPF. Tente novamente.'},503)
+        const original=(cpfUsers||[]).find((u:any)=>String(u.cpf||'').replace(/[^0-9]/g,'')===cpfDigits)
+        if(original){
+          const {data:duplicate,error:dupErr}=await sb.from('coupon_release_requests').insert({
+            verification_id:verificationId,name:vr.name,email:vr.email,phone:vr.phone,cpf:vr.cpf,
+            referral_id:vr.referral_id,quantidade_licencas:vr.quantidade_licencas,
+            status:'rejected',user_id:original.id,decided_at:new Date().toISOString()
+          }).select('id').single()
+          if(dupErr||!duplicate)return out(req,{error:'CPF ja cadastrado. Nenhum novo cupom foi liberado.'},409)
+          await sb.from('email_coupon_verifications').update({verified_at:new Date().toISOString()}).eq('id',verificationId).is('verified_at',null)
+          await sb.from('coupon_release_notifications').upsert({
+            release_request_id:duplicate.id,user_id:original.id,action_taken:'existing_coupon_found',
+            message:'Nao liberado: CPF ja cadastrado anteriormente. Cadastro original preservado; nenhum novo cupom emitido. Verificar tentativa duplicada.'
+          },{onConflict:'release_request_id'})
+          return out(req,{error:'Este CPF ja possui cadastro. Nenhum novo cupom foi liberado.',status:'duplicate_cpf',release_request_id:duplicate.id},409)
+        }
       }
 
       const {data:releaseReq,error:releaseErr}=await sb.from('coupon_release_requests').insert({
@@ -240,10 +357,22 @@ Deno.serve(async req=>{
         return out(req,{error:'Não foi possível concluir a confirmação do e-mail.'},500)
       }
 
+      const h=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',hour:'2-digit',hourCycle:'h23'}).format(new Date()))
+      const referralName=String(ref.name||'').trim().toLowerCase()
+      const isAlwaysAutoReleasePartner=['clubemutua','oabma','oabrs','dynamus'].includes(referralName)
+      if(isAlwaysAutoReleasePartner){
+        const {data:auto,error:autoError}=await sb.functions.invoke('coupon-auto-release',{body:{request_id:releaseReq.id}})
+        if(!autoError && auto?.success) return out(req,{success:true,status:'released',release_request_id:releaseReq.id,coupon_id:auto.coupon_id,user_id:auto.user_id})
+        let reason=String(auto?.error||'Não foi possível concluir a liberação automática.')
+        try{if(autoError?.context?.json){const detail=await autoError.context.json();reason=String(detail?.error||reason)}}catch(_){}
+        console.error('auto_release_failed',{release_request_id:releaseReq.id,reason})
+        // Preservar pedido confirmado para nova tentativa segura.
+        await sb.from('events').insert({event_type:'automatic_release_failed',metadata:{release_request_id:releaseReq.id,referral_id:vr.referral_id,reason}})
+        return out(req,{error:'Não foi possível concluir a liberação automática: '+reason,status:'auto_release_failed'},409)
+      }
       await sb.from('events').insert({event_type:'manual_release_pending',metadata:{
         source:'coupon_gateway_v8',release_request_id:releaseReq.id,email_verified:true,referral_id:vr.referral_id,ip_hash:ipHash||null
       }})
-
       return out(req,{success:true,status:'pending_manual_approval',release_request_id:releaseReq.id})
     }
 
