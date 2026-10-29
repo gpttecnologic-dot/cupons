@@ -621,8 +621,8 @@ function showDirectCouponSuccess(data, email) {
   currentLink = /^https:\/\/[^\s]+$/i.test(link) ? link : '';
   document.getElementById('successTitle').textContent = 'Cupom liberado!';
   document.getElementById('s-msg').textContent = currentLink
-    ? `Seu cupom foi enviado para ${email}. Você também pode abrir ou copiar o link abaixo.`
-    : `Seu cupom foi liberado e enviado para ${email}.`;
+    ? 'Seu cupom foi enviado ao e-mail do cadastro. Você também pode abrir ou copiar o link abaixo.'
+    : 'Seu cupom foi liberado e enviado ao e-mail associado ao cadastro.';
   const box = document.getElementById('directCouponBox');
   const url = document.getElementById('directCouponUrl');
   box.classList.toggle('hidden', !currentLink);
