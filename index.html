@@ -718,14 +718,6 @@ async function submitForm() {
     btn.disabled = false;
     btn.innerHTML = '🎫 Resgatar meu cupom';
 
-    if (verification?.status === 'already_submitted') {
-      showErr(verification.message || 'Cadastro já enviado. Aguarde o recebimento do e-mail.');
-      return;
-    }
-    if (verification?.status === 'code_already_sent' && !verification.verification_id) {
-      showErr(verification.message || 'Um código já foi enviado. Consulte o e-mail utilizado no primeiro cadastro.');
-      return;
-    }
     if (verification?.status === 'released') {
       showDirectCouponSuccess(verification, email);
       return;
