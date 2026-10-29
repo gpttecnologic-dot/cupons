@@ -24,6 +24,23 @@ function out(req:Request,data:unknown,status=200){
   })
 }
 function normEmail(v:string){return String(v||'').trim().toLowerCase()}
+const EMAIL_DOMAIN_TYPO_MAP:Record<string,string>={
+  'gemuio.com':'gmail.com','gmeuio.com':'gmail.com','gmeil.com':'gmail.com','gmial.com':'gmail.com','gamil.com':'gmail.com','gmai.com':'gmail.com','gmaill.com':'gmail.com','gmail.con':'gmail.com',
+  'hotmial.com':'hotmail.com','hotmai.com':'hotmail.com','hotmal.com':'hotmail.com',
+  'outlok.com':'outlook.com','outloo.com':'outlook.com','outlook.con':'outlook.com',
+  'yahho.com':'yahoo.com','yaho.com':'yahoo.com','yahoo.con':'yahoo.com',
+  'icloud.con':'icloud.com','icould.com':'icloud.com'
+}
+function couponEmailDomainSuggestion(email:string){
+  const at=email.lastIndexOf('@')
+  if(at<=0 || email.indexOf('@')!==at)return ''
+  const domain=email.slice(at+1).toLowerCase()
+  const suggested=EMAIL_DOMAIN_TYPO_MAP[domain]
+  return suggested ? email.slice(0,at)+'@'+suggested : ''
+}
+function isCouponEmailValid(email:string){
+  return email.length<=254 && /^[A-Z0-9._%+-]+@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,63}$/i.test(email)
+}
 function normPhone(v:string){return String(v||'').replace(/\D/g,'')}
 function normCpf(v:string){return String(v||'').replace(/\D/g,'')}
 function uuidish(v:string){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)}
@@ -111,7 +128,11 @@ Deno.serve(async req=>{
       const qtd=Number(body.quantidade_licencas||2)
       const device=String(body.device_id||'').slice(0,200)
 
-      if(name.length<2 || name.length>160 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      if(/[\s,]/.test(email)) return out(req,{error:'O e-mail não pode conter espaços ou vírgulas.'},400)
+      const emailSuggestion=couponEmailDomainSuggestion(email)
+      if(emailSuggestion) return out(req,{error:'Confira o domínio do e-mail. Você quis dizer '+emailSuggestion+'?'},400)
+      if(!isCouponEmailValid(email)) return out(req,{error:'Informe um e-mail válido, como nome@gmail.com.'},400)
+      if(name.length<2 || name.length>160 ||
          phone.length<10 || phone.length>13 || !uuidish(referralId) ||
          !Number.isInteger(qtd) || qtd<1 || qtd>10 || !uuidish(device)){
         return out(req,{error:'Dados inválidos.'},400)

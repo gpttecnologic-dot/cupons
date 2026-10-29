@@ -158,7 +158,8 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
 
       <div class="fg"><label>Nome completo <span>*</span></label><input type="text" id="f-name" placeholder="Seu nome completo" autocomplete="name" /></div>
       <div class="fg"><label>Telefone / WhatsApp <span>*</span></label><input type="tel" id="f-phone" placeholder="(11) 99999-9999" autocomplete="tel" /></div>
-      <div class="fg"><label>E-mail <span>*</span></label><input type="email" id="f-email" placeholder="seu@email.com" autocomplete="email" /></div>
+      <div class="fg"><label>E-mail <span>*</span></label><input type="email" id="f-email" placeholder="seu@email.com" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="emailHint" /></div>
+      <small id="emailHint" aria-live="polite" style="display:block;margin:-.45rem 0 .85rem;font-size:12px;color:var(--text2)">Você pode usar o e-mail salvo no navegador ou colar o endereço aqui.</small>
       <div class="fg hidden" id="cpfField"><label>CPF <span>*</span></label><input type="text" id="f-cpf" placeholder="000.000.000-00" inputmode="numeric" maxlength="14" autocomplete="off" /></div>
       <!-- A indicação não é mais escolhida pela pessoa: ela vem sempre do
       link usado pra acessar o formulário (?ref=NomeDaIndicação), gerado na
@@ -540,6 +541,71 @@ if (cpfInput) cpfInput.addEventListener('input', e => {
   e.target.value = d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 });
 
+const EMAIL_DOMAIN_TYPO_MAP = Object.freeze({
+  'gemuio.com':'gmail.com','gmeuio.com':'gmail.com','gmeil.com':'gmail.com','gmial.com':'gmail.com','gamil.com':'gmail.com','gmai.com':'gmail.com','gmaill.com':'gmail.com','gmail.con':'gmail.com',
+  'hotmial.com':'hotmail.com','hotmai.com':'hotmail.com','hotmal.com':'hotmail.com',
+  'outlok.com':'outlook.com','outloo.com':'outlook.com','outlook.con':'outlook.com',
+  'yahho.com':'yahoo.com','yaho.com':'yahoo.com','yahoo.con':'yahoo.com',
+  'icloud.con':'icloud.com','icould.com':'icloud.com'
+});
+function couponEmailDomainSuggestion(email) {
+  const at = email.lastIndexOf('@');
+  if (at <= 0 || email.indexOf('@') !== at) return '';
+  const domain = email.slice(at + 1).toLowerCase();
+  const suggestedDomain = EMAIL_DOMAIN_TYPO_MAP[domain];
+  return suggestedDomain ? email.slice(0, at) + '@' + suggestedDomain : '';
+}
+function isCouponEmailValid(email) {
+  return email.length <= 254 &&
+    /^[A-Z0-9._%+-]+@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,63}$/i.test(email);
+}
+function couponEmailError(email) {
+  if (/[\s,]/.test(email)) return 'O e-mail não pode conter espaços ou vírgulas.';
+  const suggestion = couponEmailDomainSuggestion(email);
+  if (suggestion) return 'Confira o domínio do e-mail. Você quis dizer ' + suggestion + '?';
+  if (!isCouponEmailValid(email)) return 'Informe um e-mail válido, como nome@gmail.com.';
+  return '';
+}
+function updateCouponEmailHint() {
+  const input = document.getElementById('f-email');
+  const hint = document.getElementById('emailHint');
+  if (!input || !hint) return;
+  const email = norm.email(input.value);
+  hint.replaceChildren();
+  hint.style.color = 'var(--text2)';
+  if (!email) {
+    hint.textContent = 'Você pode usar o e-mail salvo no navegador ou colar o endereço aqui.';
+    return;
+  }
+  const error = couponEmailError(email);
+  if (error) {
+    hint.style.color = 'var(--danger, #b42318)';
+    const suggestion = couponEmailDomainSuggestion(email);
+    if (suggestion && !/[\s,]/.test(email)) {
+      hint.append(document.createTextNode('Confira o domínio. Você quis dizer '));
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = suggestion;
+      button.style.cssText = 'border:0;background:none;color:var(--primary,#3157d5);text-decoration:underline;cursor:pointer;font:inherit;padding:0';
+      button.addEventListener('click', () => {
+        input.value = suggestion;
+        updateCouponEmailHint();
+        input.focus();
+      });
+      hint.append(button, document.createTextNode('?'));
+    } else {
+      hint.textContent = error;
+    }
+    return;
+  }
+  hint.textContent = 'O código de confirmação será enviado para este endereço.';
+}
+const couponEmailInput = document.getElementById('f-email');
+if (couponEmailInput) {
+  couponEmailInput.addEventListener('input', updateCouponEmailHint);
+  couponEmailInput.addEventListener('blur', updateCouponEmailHint);
+}
+
 async function submitForm() {
   const now = Date.now();
   if (now - lastSubmit < 3000) { showErr('Aguarde alguns segundos.'); return; }
@@ -555,7 +621,8 @@ async function submitForm() {
   hideErr();
   if (!name)             return showErr('Nome é obrigatório.');
   if (phone.length < 10) return showErr('Telefone/WhatsApp inválido.');
-  if (!email.includes('@')) return showErr('E-mail inválido.');
+  const emailError = couponEmailError(email);
+  if (emailError) { updateCouponEmailHint(); showErr(emailError); document.getElementById('f-email').focus(); return; }
   if (currentReferralProtected && !isValidCpf(cpf)) return showErr('CPF obrigatório e inválido. Informe um CPF válido.');
   if (!referral)         return showErr('Link inválido. Recarregue a página ou peça um novo link.');
   if (!Number.isInteger(qtd) || qtd < 2) return showErr('Informe a quantidade de licenças (mínimo 2).');
