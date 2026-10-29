@@ -208,6 +208,23 @@ Deno.serve(async req=>{
           return out(req,{success:true,status:'already_submitted',message:'Cadastro já enviado. Aguarde o recebimento do e-mail.'})
         }
       }
+      if(partnerNoEmailCode && cpf.length===11){
+        const {data:cpfUsers,error:cpfError}=await sb.from('users').select('id,cpf').not('cpf','is',null)
+        if(cpfError)return out(req,{error:'Não foi possível verificar seu CPF. Tente novamente.'},503)
+        const original=(cpfUsers||[]).find((u:any)=>String(u.cpf||'').replace(/[^0-9]/g,'')===cpf)
+        if(original){
+          const {data:duplicate,error:duplicateError}=await sb.from('coupon_release_requests').insert({
+            name,email,phone,cpf,referral_id:referralId,quantidade_licencas:qtd,
+            status:'rejected',user_id:original.id,decided_at:new Date().toISOString()
+          }).select('id').single()
+          if(duplicateError||!duplicate)return out(req,{error:'Este CPF já possui cadastro. Nenhum novo cupom foi liberado.',status:'duplicate_cpf'},409)
+          await sb.from('coupon_release_notifications').upsert({
+            release_request_id:duplicate.id,user_id:original.id,action_taken:'existing_coupon_found',
+            message:'Nao liberado: CPF ja cadastrado anteriormente. Cadastro original preservado; nenhum novo cupom emitido.'
+          },{onConflict:'release_request_id'})
+          return out(req,{error:'Este CPF já possui cadastro. Nenhum novo cupom foi liberado.',status:'duplicate_cpf',release_request_id:duplicate.id},409)
+        }
+      }
       if(partnerNoEmailCode){
         const {data:releaseReq,error:releaseError}=await sb.from('coupon_release_requests').insert({
           name,email,phone,cpf:cpf||null,referral_id:referralId,quantidade_licencas:qtd,status:'pending'
