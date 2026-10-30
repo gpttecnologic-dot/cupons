@@ -4958,6 +4958,23 @@ async function loadCorporateClients() {
     return;
   }
 
+  // Quando o cliente veio de um pedido corporativo, usa a quantidade
+  // originalmente solicitada no lead. Para clientes promovidos manualmente
+  // ou pela 11ª licença, usa a quantidade registrada no próprio usuário.
+  let requestedByUser = {};
+  const { data: linkedLeads, error: linkedLeadsError } = await db
+    .from('corporate_leads')
+    .select('linked_user_id,quantidade_licencas,created_at')
+    .not('linked_user_id', 'is', null)
+    .order('created_at', { ascending: false });
+  if (!linkedLeadsError) {
+    (linkedLeads || []).forEach(lead => {
+      if (lead.linked_user_id && requestedByUser[lead.linked_user_id] === undefined) {
+        requestedByUser[lead.linked_user_id] = Number(lead.quantidade_licencas) || 0;
+      }
+    });
+  }
+
   const ids = (data || []).map(u => u.id);
   let countByUser = {};
   if (ids.length) {
@@ -4969,7 +4986,11 @@ async function loadCorporateClients() {
     });
   }
 
-  allCorporateClients = (data || []).map(u => ({ ...u, couponsIssued: countByUser[u.id] || 0 }));
+  allCorporateClients = (data || []).map(u => ({
+    ...u,
+    licensesRequested: requestedByUser[u.id] ?? (Number(u.quantidade_licencas) || 1),
+    couponsIssued: countByUser[u.id] || 0
+  }));
   renderCorporateClients();
 }
 
@@ -4997,7 +5018,7 @@ function renderCorporateClients() {
     <td data-label="Telefone">${esc(u.phone || '—')}</td>
     <td data-label="CPF" class="mono">${esc(u.cpf || '—')}</td>
     <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
-    <td data-label="Licenças solicitadas"><strong>${Number(u.quantidade_licencas) || 1}</strong></td>
+    <td data-label="Licenças solicitadas"><strong>${u.licensesRequested}</strong></td>
     <td data-label="Licenças emitidas"><strong>${u.couponsIssued}</strong></td>
     <td data-label="Cliente desde">${fmtDate(u.created_at)}</td>
     <td class="sticky-actions">
@@ -5020,7 +5041,7 @@ async function sendCorporateClientToCrm(userId) {
   const client = allCorporateClients.find(item => item.id === userId);
   if (!client) { toast('Cliente corporativo não encontrado.', 'error'); return; }
   if (client.crm_deal_company_id) { toast('Esse cliente já foi enviado ao CRM 12IA.', 'info'); return; }
-  if (!confirm(`Enviar ${client.name} (${Number(client.quantidade_licencas) || 1} solicitadas, ${client.couponsIssued} emitidas) para o CRM da 12IA?`)) return;
+  if (!confirm(`Enviar ${client.name} (${client.licensesRequested} solicitadas, ${client.couponsIssued} emitidas) para o CRM da 12IA?`)) return;
   const { data, error } = await db.functions.invoke('corporate-lead-to-crm', {
     body: { corporate_client_user_id: userId }
   });
