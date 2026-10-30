@@ -4349,8 +4349,13 @@ async function verCuponsUsuario(userId, userName) {
     const { data: secretResponse, error: secretErr } = await db.functions.invoke('admin-coupon-test-link', {
       body: { coupon_ids: ids, allow_linked: true }
     });
-    const realById = new Map((secretResponse?.links || []).map(item => [item.coupon_id, item.link]));
-    if (!secretErr) viewCouponsList = viewCouponsList.map(c => ({ ...c, real_link: realById.get(c.id) || '' }));
+    const realById = new Map((secretResponse?.links || [])
+      .filter(item => item?.coupon_id && /^https:\/\/chatgpt\.com\/p\/[A-Z0-9]+$/i.test(item.link || ''))
+      .map(item => [item.coupon_id, item.link]));
+    viewCouponsList = viewCouponsList.map(c => ({
+      ...c,
+      real_link: !secretErr ? (realById.get(c.id) || '') : ''
+    }));
   }
   if (!viewCouponsList.length) {
     document.getElementById('viewCouponsBody').innerHTML = '<div style="font-size:12px;color:var(--text3);padding:.5rem 0">Nenhum cupom vinculado a esse usuário no momento.</div>';
@@ -4358,13 +4363,16 @@ async function verCuponsUsuario(userId, userName) {
   }
 
   document.getElementById('viewCouponsBody').innerHTML = viewCouponsList.map(c => `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border)">
-      <div style="min-width:0">
-        <a href="${esc(c.link)}" target="_blank" rel="noopener" style="font-size:12px;word-break:break-all">${esc(c.link)}</a>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">${statusLabel(c.status)}${c.distributed_at ? ' · ' + fmtDate(c.distributed_at) : ''}</div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;padding:.6rem 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <div style="min-width:0;flex:1">
+        ${c.real_link
+          ? `<a href="${esc(c.real_link)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;word-break:break-all">${esc(c.real_link)}</a>`
+          : `<span style="font-size:12px;color:#f87171">Link real protegido indisponível</span>`}
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">${c.distributed_at ? fmtDate(c.distributed_at) : 'Sem data de entrega'}</div>
       </div>
-      <div style="display:flex;gap:.3rem;flex-shrink:0">
-        <button class="btn btn-ghost btn-sm btn-icon" onclick="copiarLinkCupomUsuario('${c.id}')" title="Copiar link real">📋</button>
+      <div style="display:flex;align-items:center;gap:.3rem;flex-shrink:0">
+        <span class="badge b-${esc(c.status)}">${statusLabel(c.status)}</span>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="copiarLinkCupomUsuario('${c.id}')" title="Copiar link real" ${c.real_link ? '' : 'disabled'}>📋</button>
         <button class="btn btn-ghost btn-sm btn-icon" onclick="trocarCupomUsuario('${viewCouponsUserId}','${c.id}','${(viewCouponsUserName||'').replace(/'/g,"\\'")}')" title="Trocar por outro cupom disponível — este é bloqueado permanentemente">🔄</button>
         <button class="btn btn-ghost btn-sm btn-icon" onclick="devolverCupomModal('${c.id}')" title="Devolver ao estoque — fica disponível pra vincular a outra pessoa depois">↩</button>
       </div>
