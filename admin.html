@@ -4684,7 +4684,21 @@ async function loadCorporateLeads() {
     return;
   }
 
-  allCorporateLeads = data || [];
+  const linkedUserIds = [...new Set((data || []).map(l => l.linked_user_id).filter(Boolean))];
+  const issuedByUser = {};
+  if (linkedUserIds.length) {
+    const coupons = await fetchInBatches('coupons', 'users_id,status', 'users_id', linkedUserIds);
+    coupons.forEach(c => {
+      if (c.status === 'delivered' || c.status === 'redeemed') {
+        issuedByUser[c.users_id] = (issuedByUser[c.users_id] || 0) + 1;
+      }
+    });
+  }
+
+  allCorporateLeads = (data || []).map(l => ({
+    ...l,
+    couponsIssued: l.linked_user_id ? (issuedByUser[l.linked_user_id] || 0) : 0
+  }));
   const pending = allCorporateLeads.filter(l => !l.contacted).length;
   document.getElementById('corpCount').textContent = pending || '0';
   renderCorporateLeads();
@@ -4714,7 +4728,8 @@ function renderCorporateLeads() {
     <td data-label="Telefone">${esc(l.phone || '—')}</td>
     <td data-label="CPF" class="mono">${esc(l.cpf || '—')}</td>
     <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(l.referral_id))}</span></td>
-    <td data-label="Licenças"><strong>${l.quantidade_licencas}</strong> licenças</td>
+    <td data-label="Licenças solicitadas"><strong>${Number(l.quantidade_licencas) || 0}</strong></td>
+    <td data-label="Licenças emitidas"><strong>${l.couponsIssued || 0}</strong></td>
     <td data-label="Cadastrado em">${fmtDate(l.created_at)}</td>
     <td data-label="E-mail comercial">
       <span class="badge ${l.notified ? 'b-distributed' : 'b-blocked'}" title="Se o e-mail automático avisando o comercial saiu ou não">
@@ -4743,7 +4758,7 @@ function renderCorporateLeads() {
   </tr>`).join('');
 
   body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
-    <th>Nome</th><th>E-mail</th><th>Telefone</th><th>CPF</th><th>Parceiro</th><th>Licenças</th>
+    <th>Nome</th><th>E-mail</th><th>Telefone</th><th>CPF</th><th>Parceiro</th><th>Licenças solicitadas</th><th>Licenças emitidas</th>
     <th>Cadastrado em</th><th>E-mail comercial</th><th>Status</th><th>Cupons</th><th class="sticky-actions"></th>
   </tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -4752,7 +4767,7 @@ async function sendCorporateLeadToCrm(leadId){
   const lead=allCorporateLeads.find(x=>x.id===leadId);
   if(!lead){toast('Pedido corporativo não encontrado.','error');return;}
   if(lead.crm_deal_company_id){toast('Esse pedido já foi enviado ao CRM 12IA.','info');return;}
-  if(!confirm(`Enviar o pedido de ${lead.name} (${lead.quantidade_licencas} licenças) para o CRM da 12IA?`))return;
+  if(!confirm(`Enviar o pedido de ${lead.name} (${lead.quantidade_licencas} solicitadas, ${lead.couponsIssued || 0} emitidas) para o CRM da 12IA?`))return;
   const {data,error}=await db.functions.invoke('corporate-lead-to-crm',{body:{corporate_lead_id:leadId}});
   if(error||!data?.success){toast('Erro ao enviar para o CRM: '+(data?.error||error?.message||'falha na integração'),'error',7000);return;}
   toast('Pedido enviado ao CRM da 12IA.','success');
@@ -4883,11 +4898,12 @@ async function deleteCorporateLead(id, name) {
 }
 function exportCorporateCSV() {
   if (!allCorporateLeads.length) { toast('Nenhum pedido corporativo para exportar.', 'error'); return; }
-  const h = 'Nome,E-mail,Telefone,CPF,Indicação,Licenças,Cadastrado em,Time avisado,Contatado\n';
+  const h = 'Nome,E-mail,Telefone,CPF,Indicação,Licenças solicitadas,Licenças emitidas,Cadastrado em,Time avisado,Contatado\n';
   const r = allCorporateLeads.map(l => [
     l.name, l.email, l.phone || '', l.cpf || '',
     refLabelById(l.referral_id),
     l.quantidade_licencas,
+    l.couponsIssued || 0,
     fmtDate(l.created_at),
     l.notified ? 'Sim' : 'Não',
     l.contacted ? 'Sim' : 'Não'
@@ -4914,11 +4930,21 @@ async function loadCorporateClients() {
     allRefOpts = data || [];
   }
 
-  const { data, error } = await db
+  let { data, error } = await db
     .from('users')
-    .select('id,name,email,phone,cpf,referral_id,created_at,crm_deal_company_id')
+    .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,created_at,crm_deal_company_id')
     .eq('segmento', 'corporativo')
     .order('created_at', { ascending: false });
+
+  if (error && /quantidade_licencas/i.test(error.message || '')) {
+    const retry = await db
+      .from('users')
+      .select('id,name,email,phone,cpf,referral_id,created_at,crm_deal_company_id')
+      .eq('segmento', 'corporativo')
+      .order('created_at', { ascending: false });
+    data = retry.data; error = retry.error;
+    (data || []).forEach(u => { u.quantidade_licencas = 1; });
+  }
 
   if (error) {
     // Coluna ainda não existe (SQL não rodado) — não quebra a tela, só
@@ -4971,7 +4997,8 @@ function renderCorporateClients() {
     <td data-label="Telefone">${esc(u.phone || '—')}</td>
     <td data-label="CPF" class="mono">${esc(u.cpf || '—')}</td>
     <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
-    <td data-label="Licenças"><strong>${u.couponsIssued}</strong> emitidas</td>
+    <td data-label="Licenças solicitadas"><strong>${Number(u.quantidade_licencas) || 1}</strong></td>
+    <td data-label="Licenças emitidas"><strong>${u.couponsIssued}</strong></td>
     <td data-label="Cliente desde">${fmtDate(u.created_at)}</td>
     <td class="sticky-actions">
       <div class="btns">
@@ -4985,7 +5012,7 @@ function renderCorporateClients() {
   </tr>`).join('');
 
   body.innerHTML = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
-    <th>Nome</th><th>E-mail</th><th>Telefone</th><th>CPF</th><th>Parceiro</th><th>Licenças</th><th>Cliente desde</th><th class="sticky-actions"></th>
+    <th>Nome</th><th>E-mail</th><th>Telefone</th><th>CPF</th><th>Parceiro</th><th>Licenças solicitadas</th><th>Licenças emitidas</th><th>Cliente desde</th><th class="sticky-actions"></th>
   </tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
@@ -4993,7 +5020,7 @@ async function sendCorporateClientToCrm(userId) {
   const client = allCorporateClients.find(item => item.id === userId);
   if (!client) { toast('Cliente corporativo não encontrado.', 'error'); return; }
   if (client.crm_deal_company_id) { toast('Esse cliente já foi enviado ao CRM 12IA.', 'info'); return; }
-  if (!confirm(`Enviar ${client.name} (${client.couponsIssued} licenças emitidas) para o CRM da 12IA?`)) return;
+  if (!confirm(`Enviar ${client.name} (${Number(client.quantidade_licencas) || 1} solicitadas, ${client.couponsIssued} emitidas) para o CRM da 12IA?`)) return;
   const { data, error } = await db.functions.invoke('corporate-lead-to-crm', {
     body: { corporate_client_user_id: userId }
   });
