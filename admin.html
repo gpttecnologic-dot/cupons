@@ -726,6 +726,24 @@ body{overflow-x:hidden}
             <button class="btn btn-primary" id="campSendBtn" onclick="sendCampaignNow()" disabled>📨 Enviar campanha</button>
           </div>
           <div id="campAudiencePreview" style="margin-top:.85rem"></div>
+
+          <div style="border-top:1px solid var(--border);margin-top:1.25rem;padding-top:1.1rem">
+            <div class="tbl-title" style="margin-bottom:.25rem">Enviar e-mail de teste</div>
+            <div class="tbl-sub" style="margin-bottom:.8rem">Envia o modelo selecionado para um único endereço, usando o parceiro escolhido nas tags.</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem;align-items:end">
+              <div>
+                <label for="campTestReferral" style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Parceiro</label>
+                <select class="filter-sel" id="campTestReferral" style="width:100%"><option value="">Selecione um parceiro...</option></select>
+              </div>
+              <div>
+                <label for="campTestEmail" style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">E-mail de destino</label>
+                <input type="email" class="search-input" id="campTestEmail" placeholder="nome@exemplo.com" autocomplete="email" inputmode="email" style="width:100%">
+              </div>
+              <div>
+                <button class="btn btn-secondary" id="campTestSendBtn" onclick="sendCampaignTestEmail()">✉ Enviar teste</button>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- HISTÓRICO -->
@@ -2083,6 +2101,7 @@ async function loadCampaigns() {
   const { data: refs, error: refErr } = await db.from('referrals').select('id,name').order('name');
   const rsel = document.getElementById('campReferral');
   const tplRsel = document.getElementById('tplReferral');
+  const testRsel = document.getElementById('campTestReferral');
   if (!refErr) {
     const current = rsel.value;
     rsel.innerHTML = '<option value="">Todos os parceiros</option>' +
@@ -2093,6 +2112,11 @@ async function loadCampaigns() {
     tplRsel.innerHTML = '<option value="">Geral (qualquer parceiro)</option>' +
       (refs || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
     tplRsel.value = tplCurrent;
+
+    const testCurrent = testRsel.value;
+    testRsel.innerHTML = '<option value="">Selecione um parceiro...</option>' +
+      (refs || []).map(r => `<option value="${r.id}">${esc(r.name)}</option>`).join('');
+    testRsel.value = testCurrent;
   }
 
   document.getElementById('campAudiencePreview').innerHTML = '';
@@ -2446,6 +2470,43 @@ async function sendCampaignNow() {
       loadCampaignLog();
     },
     '📨 Enviar agora'
+  );
+}
+
+async function sendCampaignTestEmail() {
+  const templateId = document.getElementById('campTemplate').value;
+  const referralId = document.getElementById('campTestReferral').value;
+  const emailInput = document.getElementById('campTestEmail');
+  const email = emailInput.value.trim();
+  if (!templateId) { toast('Selecione um modelo de e-mail.', 'error'); return; }
+  if (!referralId) { toast('Selecione o parceiro para preencher a tag.', 'error'); return; }
+  if (!emailInput.checkValidity() || !email) { toast('Digite um endereço de e-mail válido.', 'error'); emailInput.focus(); return; }
+
+  const template = allEmailTemplates.find(t => t.id === templateId);
+  const partner = [...document.getElementById('campTestReferral').selectedOptions][0]?.textContent || 'parceiro selecionado';
+  const btn = document.getElementById('campTestSendBtn');
+  openConfirm(
+    'Enviar e-mail de teste',
+    `Enviar "${template?.name || 'modelo selecionado'}" para ${email}, preenchendo o parceiro como "${partner}"? Este teste vai para apenas esse endereço.`,
+    async () => {
+      const originalLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
+      try {
+        const { data, error } = await db.functions.invoke('send-campaign-email', {
+          body: { template_id: templateId, test_email: email, referral_id: referralId }
+        });
+        if (error) throw error;
+        if (data?.failed) throw new Error(data.error || 'O servidor não conseguiu enviar o e-mail.');
+        toast('E-mail de teste enviado para ' + email + '.', 'success', 6000);
+      } catch (err) {
+        toast('Erro no envio de teste: ' + (err.message || String(err)), 'error', 7000);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    },
+    '✉ Enviar teste'
   );
 }
 
