@@ -292,7 +292,7 @@ Deno.serve(async req=>{
         if(prior?.status==='released')return out(req,{success:true,status:'released',release_request_id:prior.id,coupon_id:prior.coupon_id,user_id:prior.user_id})
         if(prior?.status==='pending'){
           const partner=String(ref.name||'').trim().toLowerCase()
-          if(['clubemutua','oabma','oabrs','dynamus'].includes(partner)){
+          if(['clubemutua','oabmg','oabma','oabrs','dynamus'].includes(partner)){
             const {data:auto,error:autoError}=await sb.functions.invoke('coupon-auto-release',{body:{request_id:prior.id}})
             if(!autoError&&auto?.success)return out(req,{success:true,status:'released',release_request_id:prior.id,coupon_id:auto.coupon_id,user_id:auto.user_id})
             return out(req,{error:'Código já confirmado; falha ao concluir envio. Não solicite outro código. Tente novamente.',status:'auto_release_failed'},503)
@@ -359,7 +359,7 @@ Deno.serve(async req=>{
 
       const h=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/Sao_Paulo',hour:'2-digit',hourCycle:'h23'}).format(new Date()))
       const referralName=String(ref.name||'').trim().toLowerCase()
-      const isAlwaysAutoReleasePartner=['clubemutua','oabma','oabrs','dynamus'].includes(referralName)
+      const isAlwaysAutoReleasePartner=['clubemutua','oabmg','oabma','oabrs','dynamus'].includes(referralName)
       if(isAlwaysAutoReleasePartner){
         const {data:auto,error:autoError}=await sb.functions.invoke('coupon-auto-release',{body:{request_id:releaseReq.id}})
         if(!autoError && auto?.success) return out(req,{success:true,status:'released',release_request_id:releaseReq.id,coupon_id:auto.coupon_id,user_id:auto.user_id})
