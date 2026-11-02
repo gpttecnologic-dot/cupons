@@ -683,7 +683,7 @@ body{overflow-x:hidden}
         <!-- NOVA CAMPANHA -->
         <div class="tbl-wrap" style="margin-bottom:1.5rem;padding:1.25rem">
           <div class="tbl-title" style="margin-bottom:.25rem">Nova campanha</div>
-          <div class="tbl-sub" style="margin-bottom:1rem">Escolha o modelo e o público. {nome} e {nome_completo} vêm do cadastro; {link}/{links} vêm dos cupons vinculados a cada pessoa.</div>
+          <div class="tbl-sub" style="margin-bottom:1rem">Escolha o modelo e o público. {nome} e {nome_completo} vêm do cadastro; {{nome_parceiro}} vem da indicação; {link}/{links} vêm dos cupons vinculados a cada pessoa.</div>
 
           <label style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:.4rem">Modelo</label>
           <select class="filter-sel" id="campTemplate" style="width:100%;max-width:420px;margin-bottom:1rem" onchange="onCampTemplateChange()"></select>
@@ -1279,12 +1279,13 @@ body{overflow-x:hidden}
       <div style="display:flex;gap:.35rem;flex-wrap:wrap">
         <button type="button" class="btn btn-ghost btn-sm" onclick="insertTagIntoBody('{nome}')">+ {nome}</button>
         <button type="button" class="btn btn-ghost btn-sm" onclick="insertTagIntoBody('{nome_completo}')">+ {nome_completo}</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="insertTagIntoBody('{{nome_parceiro}}')">+ {{nome_parceiro}}</button>
         <button type="button" class="btn btn-ghost btn-sm" onclick="insertTagIntoBody('{link}')">+ {link}</button>
         <button type="button" class="btn btn-ghost btn-sm" onclick="insertTagIntoBody('{links}')">+ {links}</button>
       </div>
     </div>
     <textarea id="tplBody" style="width:100%;height:150px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;color:var(--text);font-size:13px;font-family:inherit;resize:vertical;outline:none" placeholder="Olá {nome}!&#10;&#10;Seu link: {link}"></textarea>
-    <p style="font-size:11px;color:var(--text3);margin-top:.4rem">Use *texto* pra deixar em negrito. {link} = primeiro cupom vinculado; {links} = todos, um por linha.</p>
+    <p style="font-size:11px;color:var(--text3);margin-top:.4rem">Use *texto* pra deixar em negrito. {link} = primeiro cupom vinculado; {links} = todos, um por linha; {{nome_parceiro}} = nome do parceiro indicado.</p>
 
     <div style="margin-top:.85rem">
       <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:.35rem">PDF anexo (opcional)</label>
