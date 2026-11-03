@@ -4024,7 +4024,7 @@ function renderUsers() {
   const rows = page.map(u => `<tr>
     <td class="primary" data-label="Nome">${esc(u.name)}</td>
     <td data-label="E-mail">${esc(u.email)}</td>
-    <td data-label="Telefone"><div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span>${esc(u.phone || '—')}</span>${corporateWhatsAppAction(u.phone)}</div></td>
+    <td data-label="Telefone">${esc(u.phone || '—')}</td>
     <td data-label="CPF" class="mono">${esc(u.cpf || '—')}</td>
     <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
     <td data-label="Licenças">
@@ -5103,7 +5103,7 @@ function renderCorporateClients() {
   const rows = list.map(u => `<tr>
     <td class="primary" data-label="Nome">${esc(u.name)}</td>
     <td data-label="E-mail">${esc(u.email)}</td>
-    <td data-label="Telefone">${esc(u.phone || '—')}</td>
+    <td data-label="Telefone"><div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span>${esc(u.phone || '—')}</span>${corporateWhatsAppAction(u.phone)}</div></td>
     <td data-label="CPF" class="mono">${esc(u.cpf || '—')}</td>
     <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
     <td data-label="Licenças solicitadas"><strong>${u.licensesRequested}</strong></td>
