@@ -4024,7 +4024,7 @@ function renderUsers() {
   const rows = page.map(u => `<tr>
     <td class="primary" data-label="Nome">${esc(u.name)}</td>
     <td data-label="E-mail">${esc(u.email)}</td>
-    <td data-label="Telefone">${esc(u.phone || '—')}</td>
+    <td data-label="Telefone"><div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span>${esc(u.phone || '—')}</span>${corporateWhatsAppAction(u.phone)}</div></td>
     <td data-label="CPF" class="mono">${esc(u.cpf || '—')}</td>
     <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(u.referral_id))}</span></td>
     <td data-label="Licenças">
@@ -4774,6 +4774,24 @@ async function loadCorporateLeads() {
   renderCorporateLeads();
 }
 
+function corporateWhatsAppAction(phone) {
+  const digits = String(phone || '').replace(/\\D/g, '');
+  if (!digits) return '';
+
+  // Registros locais de 10/11 dígitos recebem o código do Brasil; números
+  // que já incluem o país permanecem como estão.
+  const number = digits.startsWith('55') && (digits.length === 12 || digits.length === 13)
+    ? digits
+    : (digits.length === 10 || digits.length === 11)
+      ? '55' + digits
+      : digits.length >= 10 && digits.length <= 15
+        ? digits
+        : '';
+  if (!number) return '';
+
+  return `<a class="btn btn-success btn-sm" href="https://wa.me/${number}" target="_blank" rel="noopener noreferrer" aria-label="Conversar pelo WhatsApp">WhatsApp</a>`;
+}
+
 function renderCorporateLeads() {
   const body = document.getElementById('corporateBody');
   const searchEl = document.getElementById('corporateSearch');
@@ -4795,7 +4813,7 @@ function renderCorporateLeads() {
   const rows = list.map(l => `<tr>
     <td class="primary" data-label="Nome">${esc(l.name)}</td>
     <td data-label="E-mail">${esc(l.email)}</td>
-    <td data-label="Telefone">${esc(l.phone || '—')}</td>
+    <td data-label="Telefone"><div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap"><span>${esc(l.phone || '—')}</span>${corporateWhatsAppAction(l.phone)}</div></td>
     <td data-label="CPF" class="mono">${esc(l.cpf || '—')}</td>
     <td data-label="Parceiro"><span class="ref-badge">${esc(refLabelById(l.referral_id))}</span></td>
     <td data-label="Licenças solicitadas"><strong>${Number(l.quantidade_licencas) || 0}</strong></td>
