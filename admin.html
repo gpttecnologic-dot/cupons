@@ -1034,15 +1034,16 @@ body{overflow-x:hidden}
        <div class="page-header"><div class="page-header-left"><div class="page-title">Configuração SMTP</div><div class="page-sub">Exclusivo para propostas comerciais desta empresa; cupons e campanhas não são alterados</div></div></div>
        <div class="tbl-wrap" style="padding:1.25rem">
        <label class="form-label">Empresa</label><select class="filter-sel" id="proposalSmtpCompany" onchange="loadCompanyProposalSettings('proposal-smtp')"></select>
-       <label class="form-label" style="margin-top:1rem">Servidor de envio</label><select id="proposalSmtpMode" class="filter-sel" onchange="document.getElementById('proposalSmtpOwn').classList.toggle('hidden',this.value!=='own')"><option value="general">Usar SMTP geral da 12IA</option><option value="own">Usar SMTP próprio da empresa</option></select>
+       <label class="form-label" style="margin-top:1rem">Servidor de envio</label><select id="proposalSmtpMode" class="filter-sel" onchange="handleProposalSmtpModeChange()"><option value="general">Usar SMTP geral da 12IA</option><option value="own">Usar SMTP próprio da empresa</option></select>
+       <div id="proposalSmtpSaveStatus" role="status" style="margin-top:.75rem;padding:.75rem 1rem;border:1px solid #34323f;border-radius:10px;color:#a9a6b8;background:#17171d">Carregando configuração salva...</div>
        <div id="proposalSmtpOwn" class="hidden" style="margin-top:1rem">
-       <label class="form-label">Host</label><input class="swap-modal-input" id="proposalSmtpHost">
-       <label class="form-label">Porta</label><input class="swap-modal-input" type="number" id="proposalSmtpPort" value="587">
-       <label class="form-label">Usuário</label><input class="swap-modal-input" id="proposalSmtpUser">
-       <label class="form-label">Senha (em branco mantém a atual)</label><input class="swap-modal-input" type="password" autocomplete="new-password" id="proposalSmtpPassword">
-       <label class="form-label">Segurança</label><select class="filter-sel" id="proposalSmtpSecure"><option value="starttls">STARTTLS</option><option value="ssl">SSL/TLS</option></select>
-       <label class="form-label">E-mail remetente</label><input class="swap-modal-input" type="email" id="proposalSmtpFrom">
-       <label class="form-label">Nome remetente</label><input class="swap-modal-input" id="proposalSmtpFromName">
+       <label class="form-label">Host</label><input class="swap-modal-input" id="proposalSmtpHost" oninput="markProposalSmtpDirty()">
+       <label class="form-label">Porta</label><input class="swap-modal-input" type="number" id="proposalSmtpPort" value="587" oninput="markProposalSmtpDirty()">
+       <label class="form-label">Usuário</label><input class="swap-modal-input" id="proposalSmtpUser" oninput="markProposalSmtpDirty()">
+       <label class="form-label">Senha (em branco mantém a atual)</label><input class="swap-modal-input" type="password" autocomplete="new-password" id="proposalSmtpPassword" oninput="markProposalSmtpDirty()">
+       <label class="form-label">Segurança</label><select class="filter-sel" id="proposalSmtpSecure" onchange="markProposalSmtpDirty()"><option value="starttls">STARTTLS</option><option value="ssl">SSL/TLS</option></select>
+       <label class="form-label">E-mail remetente</label><input class="swap-modal-input" type="email" id="proposalSmtpFrom" oninput="markProposalSmtpDirty()">
+       <label class="form-label">Nome remetente</label><input class="swap-modal-input" id="proposalSmtpFromName" oninput="markProposalSmtpDirty()">
        </div><button class="btn btn-primary" style="margin-top:1rem" onclick="saveCompanyProposalSmtp()">Salvar configuração SMTP</button>
        </div>
       </div>
@@ -6043,8 +6044,30 @@ async function companyProposalCall(action,company_id,values={}){
  if(error||data?.error)throw Error(data?.error||error?.message||'Erro na configuração');
  return data;
 }
+function renderProposalSmtpStatus(saved,mail={}){
+ const box=document.getElementById('proposalSmtpSaveStatus');if(!box)return;
+ const companySel=document.getElementById('proposalSmtpCompany');
+ const company=companySel?.options[companySel.selectedIndex]?.text||'empresa';
+ if(!saved){box.textContent='Há alterações nesta tela que ainda não foram salvas.';box.style.color='#f4c16e';box.style.borderColor='#715a2e';return;}
+ if((mail.mode||'general')==='own'){
+  const sender=mail.sender_email||document.getElementById('proposalSmtpFrom')?.value||'remetente não informado';
+  const host=mail.host||document.getElementById('proposalSmtpHost')?.value||'host não informado';
+  const port=mail.port||document.getElementById('proposalSmtpPort')?.value||587;
+  box.textContent=`Salvo para ${company}: SMTP próprio — ${host}:${port}, remetente ${sender}. Senha ${mail.has_password?'armazenada (oculta)':'não cadastrada'}.`;
+ }else{
+  box.textContent=`Salvo para ${company}: SMTP geral da 12IA. As propostas usarão a configuração global de envio; as credenciais não são duplicadas nesta tela.`;
+ }
+ box.style.color='#8fe0ae';box.style.borderColor='#285c3d';
+}
+function handleProposalSmtpModeChange(){
+ const mode=document.getElementById('proposalSmtpMode').value;
+ document.getElementById('proposalSmtpOwn').classList.toggle('hidden',mode!=='own');
+ markProposalSmtpDirty();
+}
+function markProposalSmtpDirty(){renderProposalSmtpStatus(false);}
 async function loadCompanyProposalSettings(tab){
  try{
+ if(tab==='proposal-smtp'){const box=document.getElementById('proposalSmtpSaveStatus');if(box)box.textContent='Carregando configuração salva...';}
  const sel=document.getElementById(tab==='proposal-mails'?'proposalMailCompany':'proposalSmtpCompany');
  const company_id=sel.value||await proposalCompanyOptions(tab);
  if(!company_id)return;
@@ -6057,7 +6080,7 @@ async function loadCompanyProposalSettings(tab){
  }else{
   const m=data.mail||{};const v=id=>document.getElementById(id);
   v('proposalSmtpMode').value=m.mode||'general';v('proposalSmtpHost').value=m.host||'';v('proposalSmtpPort').value=m.port||587;v('proposalSmtpUser').value=m.username||'';v('proposalSmtpPassword').value='';v('proposalSmtpSecure').value=m.secure||'starttls';v('proposalSmtpFrom').value=m.sender_email||'';v('proposalSmtpFromName').value=m.sender_name||'';
-  v('proposalSmtpOwn').classList.toggle('hidden',m.mode!=='own');
+  v('proposalSmtpOwn').classList.toggle('hidden',m.mode!=='own');renderProposalSmtpStatus(true,m);
  }
  }catch(e){toast(String(e),'error')}
 }
