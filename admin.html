@@ -2450,7 +2450,7 @@ async function sendCampaignNow() {
         date_to: document.getElementById('campDateTo').value || null,
       };
       const ids = audience.map(u => u.id);
-      const BATCH = 150;
+      const BATCH = 20;
       let totalSent = 0, totalFailed = 0, hadError = false;
       for (let i = 0; i < ids.length; i += BATCH) {
         const chunk = ids.slice(i, i + BATCH);
