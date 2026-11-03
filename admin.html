@@ -3488,16 +3488,27 @@ function renderReleaseQueue() {
   const q = normalizeUserSearch(rawQ);
   const qDigits = normalizeUserDigits(rawQ);
 
-  let requests = allReleaseRequests.filter(r => r.status === 'pending');
-  if(q) requests = requests.filter(r =>
+  const automaticPartnerKeys = new Set(['clubemutua','oabmg','oabma','oabrs','dynamus']);
+  const isAutomaticRelease = r => {
+    const key=String(refLabelById(r.referral_id)||'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+    return automaticPartnerKeys.has(key);
+  };
+  const matchesSearch = r =>
     normalizeUserSearch(r.name).includes(q) ||
     normalizeUserSearch(r.email).includes(q) ||
     normalizeUserSearch(r.phone).includes(q) ||
     normalizeUserSearch(refLabelById(r.referral_id)).includes(q) ||
     (qDigits && normalizeUserDigits(r.phone).includes(qDigits)) ||
-    (qDigits && normalizeUserDigits(r.cpf).includes(qDigits))
-  );
+    (qDigits && normalizeUserDigits(r.cpf).includes(qDigits));
+
+  let automaticRequests = allReleaseRequests.filter(r => r.status === 'pending' && isAutomaticRelease(r));
+  let requests = allReleaseRequests.filter(r => r.status === 'pending' && !isAutomaticRelease(r));
+  if(q) {
+    requests = requests.filter(matchesSearch);
+    automaticRequests = automaticRequests.filter(matchesSearch);
+  }
   requests.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+  automaticRequests.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
 
   let notices=allReleaseNotices.filter(n=>!n.acknowledged_at);
   if(q) notices=notices.filter(n=>[n.request?.name,n.request?.email,n.request?.phone,n.message].some(v=>normalizeUserSearch(v||'').includes(q)));
@@ -3513,8 +3524,20 @@ function renderReleaseQueue() {
       <button class="btn btn-success btn-sm" onclick="ackReleaseNotice('${n.id}')">OK · Ciente</button>
     </div>`).join('')}
   </section>` : '';
+  const automaticHtml=automaticRequests.length ? `<section style="padding:1rem 1.25rem;border-bottom:1px solid var(--border)">
+    <div style="font-weight:700;margin-bottom:.4rem">Falhas na liberação automática (${automaticRequests.length})</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:.75rem">Essas solicitações não precisam de aprovação humana. Tente novamente depois de corrigir o envio automático; o cupom só será marcado como entregue após confirmação do e-mail.</div>
+    ${automaticRequests.map(r=>`<div style="padding:.875rem;margin-bottom:.5rem;border:1px solid var(--border);border-radius:10px;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+      <div style="min-width:230px;flex:1">
+        <span class="badge" style="background:rgba(239,68,68,.12);color:#f87171">Falha automática · sem decisão manual</span>
+        <div style="font-weight:650;margin-top:.5rem">${esc(r.name||'Cadastro')} · ${esc(refLabelById(r.referral_id))}</div>
+        <div style="font-size:12px;color:var(--text3)">${esc(r.email||'')} · ${fmtDate(r.created_at)}</div>
+      </div>
+      <button class="btn btn-success btn-sm" onclick="retryAutomaticRelease('${r.id}')">Tentar liberação automática novamente</button>
+    </div>`).join('')}
+  </section>` : '';
   if(!requests.length){
-    body.innerHTML = noticesHtml + '<div class="empty-state"><div class="empty-icon">🧑‍💼</div><div class="empty-title">Nenhuma solicitação aguardando liberação</div><div class="empty-sub">Nenhum cupom está reservado enquanto a fila está vazia.</div></div>';
+    body.innerHTML = noticesHtml + automaticHtml + '<div class="empty-state"><div class="empty-icon">🧑‍💼</div><div class="empty-title">Nenhuma solicitação aguardando decisão manual</div><div class="empty-sub">Solicitações de parceiros automáticos ficam no bloco de falhas até o envio do cupom ser concluído.</div></div>';
     return;
   }
 
@@ -3548,7 +3571,7 @@ function renderReleaseQueue() {
     </div>
   </div>`:'';
 
-  body.innerHTML=noticesHtml+`<div style="padding:.875rem 1.25rem;background:rgba(124,106,247,.08);border-bottom:1px solid rgba(124,106,247,.15);font-size:13px;color:#a78bfa">
+  body.innerHTML=noticesHtml+automaticHtml+`<div style="padding:.875rem 1.25rem;background:rgba(124,106,247,.08);border-bottom:1px solid rgba(124,106,247,.15);font-size:13px;color:#a78bfa">
     <strong>${total}</strong> solicitação(ões) aguardando sua decisão. O cupom de teste fica reservado por no máximo 24 horas.
   </div>
   <div style="overflow-x:auto"><table class="data-table"><thead><tr>
@@ -3580,6 +3603,19 @@ async function prepararCupomFila(id, trocar=false) {
     toast('Cupom preparado, mas o navegador não permitiu copiar automaticamente.', 'error', 6000);
   }
   await loadReleaseQueue();
+}
+
+async function retryAutomaticRelease(id) {
+  const { data, error } = await db.functions.invoke('coupon-manual-release', {
+    body: { action:'auto_retry', request_id:id }
+  });
+  if (error || data?.error) {
+    toast(data?.error || error?.message || 'Falha na nova tentativa automática.', 'error', 7000);
+    return;
+  }
+  toast('Cupom enviado pela liberação automática.', 'success');
+  await loadReleaseQueue();
+  loadNotifications(false);
 }
 
 async function approveManualRelease(id) {
