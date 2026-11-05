@@ -220,7 +220,7 @@ duas parecerem um par, mesmo vindo de arquivos com formatos diferentes. */
           <button class="btn btn-outline" type="button" onclick="copyDirectCoupon()">Copiar link</button>
         </div>
       </div>
-      <p style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6;margin-top:1rem">O link também foi enviado ao e-mail associado ao cadastro. Caso não encontre a mensagem, verifique as pastas de spam ou lixo eletrônico.</p>
+      <p id="successFootnote" style="font-size:12px;color:var(--text2);text-align:center;line-height:1.6;margin-top:1rem">O link também foi enviado ao e-mail associado ao cadastro. Caso não encontre a mensagem, verifique as pastas de spam ou lixo eletrônico.</p>
     </div>
 
     <!-- JÁ CADASTRADO -->
@@ -616,9 +616,20 @@ if (couponEmailInput) {
   couponEmailInput.addEventListener('blur', updateCouponEmailHint);
 }
 
+function showPendingStockSuccess(message) {
+  currentLink = '';
+  document.getElementById('successTitle').textContent = 'Cadastro na fila de espera';
+  document.getElementById('s-msg').textContent = message ||
+    'Os cupons se esgotaram. Seu cadastro foi incluído na fila de espera. Em breve entraremos em contato com novidades e avisaremos quando houver cupons disponíveis.';
+  document.getElementById('directCouponBox').classList.add('hidden');
+  document.getElementById('successFootnote').classList.add('hidden');
+  showState('stateSuccess');
+}
+
 function showDirectCouponSuccess(data) {
   const link = String(data?.coupon_link || '');
   currentLink = /^https:\/\/[^\s]+$/i.test(link) ? link : '';
+  document.getElementById('successFootnote').classList.remove('hidden');
   document.getElementById('successTitle').textContent = 'Cupom liberado!';
   document.getElementById('s-msg').textContent = currentLink
     ? 'Seu cupom foi enviado ao e-mail do cadastro. Você também pode abrir ou copiar o link abaixo.'
@@ -722,6 +733,10 @@ async function submitForm() {
       showDirectCouponSuccess(verification);
       return;
     }
+    if (verification?.status === 'pending_stock') {
+      showPendingStockSuccess(verification.message);
+      return;
+    }
     if (verification?.status === 'already_submitted') {
       showErr(verification.message || 'Cadastro já enviado. Aguarde o recebimento do e-mail.');
       return;
@@ -785,13 +800,19 @@ async function verifyEmailCode() {
     }
 
     pendingVerificationId = '';
+    if (data?.status === 'pending_stock') {
+      showPendingStockSuccess(data.message);
+      return;
+    }
     document.getElementById('successTitle').textContent = 'Cadastro realizado!';
     document.getElementById('directCouponBox').classList.add('hidden');
     currentLink = '';
     if (data?.status === 'pending_manual_approval') {
+      document.getElementById('successFootnote').classList.add('hidden');
       document.getElementById('s-msg').textContent =
         `E-mail confirmado. Seu pedido foi recebido e está aguardando liberação manual pela equipe. O cupom só será enviado após essa aprovação.`;
     } else {
+      document.getElementById('successFootnote').classList.remove('hidden');
       document.getElementById('s-msg').textContent =
         `E-mail confirmado. Seu link exclusivo foi enviado para ${pendingVerificationEmail}. Aguarde cerca de 1 minuto para recebê-lo.`;
     }
