@@ -520,6 +520,16 @@ function showErr(msg) {
   b.classList.remove('hidden');
 }
 function hideErr() { document.getElementById('alertBox').classList.add('hidden'); }
+async function getFunctionErrorMessage(error) {
+  const response = error?.context;
+  if (response && typeof response.clone === 'function') {
+    try {
+      const body = await response.clone().json();
+      return String(body?.error || body?.message || '');
+    } catch (_) {}
+  }
+  return '';
+}
 
 function getCouponDeviceId() {
   const key = 'coupon_device_id_v1';
@@ -543,6 +553,16 @@ function isValidCpf(v) {
     return d === 10 ? 0 : d;
   };
   return calc(9) === Number(cpf[9]) && calc(10) === Number(cpf[10]);
+}
+function isBrazilianPhoneValid(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) digits = digits.slice(2);
+  if (!/^\d{10,11}$/.test(digits) || /^(\d)\1+$/.test(digits)) return false;
+  const ddd = digits.slice(0, 2);
+  const validDdds = new Set(['11','12','13','14','15','16','17','18','19','21','22','24','27','28','31','32','33','34','35','37','38','41','42','43','44','45','46','47','48','49','51','53','54','55','61','62','63','64','65','66','67','68','69','71','73','74','75','77','79','81','82','83','84','85','86','87','88','89','91','92','93','94','95','96','97','98','99']);
+  if (!validDdds.has(ddd)) return false;
+  const subscriber = digits.slice(2);
+  return /^9\d{8}$/.test(subscriber) || /^[2-5]\d{7}$/.test(subscriber);
 }
 
 const cpfInput = document.getElementById('f-cpf');
@@ -652,19 +672,34 @@ async function submitForm() {
   if (now - lastSubmit < 3000) { showErr('Aguarde alguns segundos.'); return; }
 
   const name     = document.getElementById('f-name').value.trim();
-  const phone    = norm.phone(document.getElementById('f-phone').value);
+  const rawPhone = document.getElementById('f-phone').value.trim();
+  const phone    = norm.phone(rawPhone);
   const email    = norm.email(document.getElementById('f-email').value);
-  const cpf      = normalizeCpf(document.getElementById('f-cpf').value);
+  const rawCpf   = document.getElementById('f-cpf').value.trim();
+  const cpf      = normalizeCpf(rawCpf);
   const referral = document.getElementById('f-referral').value;
   const qtd      = parseInt(document.getElementById('f-qtd').value, 10);
   const terms    = document.getElementById('f-terms').checked;
 
   hideErr();
-  if (!name)             return showErr('Nome é obrigatório.');
-  if (phone.length < 10) return showErr('Telefone/WhatsApp inválido.');
+  if (!name) return showErr('Nome é obrigatório.');
+  if (!/^[+0-9\s().-]+$/.test(rawPhone) || !isBrazilianPhoneValid(phone)) {
+    showErr('Telefone inválido. Confira o número e o DDD digitados.');
+    document.getElementById('f-phone').focus();
+    return;
+  }
   const emailError = couponEmailError(email);
   if (emailError) { updateCouponEmailHint(); showErr(emailError); document.getElementById('f-email').focus(); return; }
-  if (currentReferralProtected && !isValidCpf(cpf)) return showErr('CPF obrigatório e inválido. Informe um CPF válido.');
+  if (currentReferralProtected && !/^[0-9\s.-]+$/.test(rawCpf)) {
+    showErr('CPF inválido. Use apenas números, pontos e hífen.');
+    document.getElementById('f-cpf').focus();
+    return;
+  }
+  if (currentReferralProtected && !isValidCpf(cpf)) {
+    showErr(cpf ? 'CPF inválido. Confira os números digitados.' : 'CPF é obrigatório.');
+    document.getElementById('f-cpf').focus();
+    return;
+  }
   if (!referral)         return showErr('Link inválido. Recarregue a página ou peça um novo link.');
   if (!Number.isInteger(qtd) || qtd < 2) return showErr('Informe a quantidade de licenças (mínimo 2).');
   if (!terms)            return showErr('Aceite os termos para continuar.');
@@ -746,7 +781,8 @@ async function submitForm() {
       return;
     }
     if (verificationErr || !verification?.verification_id) {
-      showErr(verification?.error || 'Não foi possível enviar o código de confirmação. Tente novamente.');
+      const serverMessage = verification?.error || await getFunctionErrorMessage(verificationErr);
+      showErr(serverMessage || 'Não foi possível enviar o código de confirmação. Tente novamente.');
       return;
     }
 
@@ -755,7 +791,7 @@ async function submitForm() {
     document.getElementById('f-code').value = '';
     document.getElementById('verifyAlert').classList.add('hidden');
     document.getElementById('verify-msg').textContent =
-      `Enviamos um código de 6 dígitos para ${email}. Digite-o abaixo para liberar o cupom.`;
+      verification?.status === 'code_already_sent' ? verification.message : `Enviamos um código de 6 dígitos para ${email}. Digite-o abaixo para liberar o cupom.`;
     showState('stateVerify');
     return;
 
