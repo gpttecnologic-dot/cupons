@@ -683,14 +683,14 @@ async function submitForm() {
 
   hideErr();
   if (!name) return showErr('Nome é obrigatório.');
-  if (!/^[+0-9\\s().-]+$/.test(rawPhone) || !isBrazilianPhoneValid(phone)) {
+  if (!/^[+0-9\s().-]+$/.test(rawPhone) || !isBrazilianPhoneValid(phone)) {
     showErr('Telefone inválido. Confira o número e o DDD digitados.');
     document.getElementById('f-phone').focus();
     return;
   }
   const emailError = couponEmailError(email);
   if (emailError) { updateCouponEmailHint(); showErr(emailError); document.getElementById('f-email').focus(); return; }
-  if (currentReferralProtected && !/^[0-9\\s.-]+$/.test(rawCpf)) {
+  if (currentReferralProtected && !/^[0-9\s.-]+$/.test(rawCpf)) {
     showErr('CPF inválido. Use apenas números, pontos e hífen.');
     document.getElementById('f-cpf').focus();
     return;
