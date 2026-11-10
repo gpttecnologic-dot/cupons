@@ -5580,7 +5580,7 @@ async function runImport() {
   const raw = document.getElementById('pasteArea').value.trim();
   if (!raw) { toast('Cole ou carregue os links primeiro.', 'error'); return; }
 
-  const input = raw.split(/\\r?\\n/).map(l => l.trim()).filter(l => l.startsWith('http'));
+  const input = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l.startsWith('http'));
   const unique = [...new Set(input)];
   const internalDups = input.length - unique.length;
 
