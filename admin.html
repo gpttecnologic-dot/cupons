@@ -3609,8 +3609,16 @@ async function retryAutomaticRelease(id) {
   const { data, error } = await db.functions.invoke('coupon-manual-release', {
     body: { action:'auto_retry', request_id:id }
   });
-  if (error || data?.error) {
-    toast(data?.error || error?.message || 'Falha na nova tentativa automática.', 'error', 7000);
+  let failureMessage = data?.error || '';
+  if (error && !failureMessage) {
+    try {
+      const response = error.context?.clone ? error.context.clone() : error.context;
+      const payload = response && typeof response.json === 'function' ? await response.json() : null;
+      failureMessage = payload?.error || payload?.detail || '';
+    } catch (_) {}
+  }
+  if (error || failureMessage) {
+    toast(failureMessage || error?.message || 'Falha na nova tentativa automática.', 'error', 7000);
     return;
   }
   toast('Cupom enviado pela liberação automática.', 'success');
