@@ -3457,7 +3457,7 @@ async function loadReleaseQueue() {
   if(!allRefOpts.length){const{data}=await db.from('referrals').select('id,name');allRefOpts=data||[];}
 
   const { data, error } = await db.from('coupon_release_requests')
-    .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,status,created_at,decided_at,decided_by,user_id,coupon_id')
+    .select('id,name,email,phone,cpf,referral_id,quantidade_licencas,status,created_at,decided_at,decided_by,user_id,coupon_id,manual_review')
     .eq('status','pending')
     .order('created_at',{ascending:true});
   if(error){
@@ -3491,7 +3491,7 @@ function renderReleaseQueue() {
   const automaticPartnerKeys = new Set(['clubemutua','oabmg','oabma','oabrs','dynamus']);
   const isAutomaticRelease = r => {
     const key=String(refLabelById(r.referral_id)||'').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]/g,'');
-    return automaticPartnerKeys.has(key);
+    return !r.manual_review && automaticPartnerKeys.has(key);
   };
   const matchesSearch = r =>
     normalizeUserSearch(r.name).includes(q) ||
@@ -3546,7 +3546,7 @@ function renderReleaseQueue() {
   if(releasePage>=totalPages) releasePage=Math.max(0,totalPages-1);
   const page=requests.slice(releasePage*releasePageSize,(releasePage+1)*releasePageSize);
   const rows=page.map(r=>`<tr style="background:rgba(124,106,247,.05)">
-    <td data-label="Status"><span class="badge" style="background:rgba(124,106,247,.15);color:#a78bfa">🧑‍💼 Aguardando decisão</span></td>
+    <td data-label="Status"><span class="badge" style="background:rgba(124,106,247,.15);color:#a78bfa">${r.manual_review ? '🧑‍💼 Revisão manual solicitada' : '🧑‍💼 Aguardando decisão'}</span></td>
     <td class="primary" data-label="Nome">${esc(r.name)}</td>
     <td data-label="E-mail">${esc(r.email)}</td>
     <td data-label="Telefone">${esc(r.phone)}</td>
